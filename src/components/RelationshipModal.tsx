@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import type { Character, Relationship, RelationshipType } from "#/types";
+import type { Character, Relationship, RelationshipType } from "@/types";
 import { Button } from "./ui/button";
 import {
 	Dialog,

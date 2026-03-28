@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Relationship, RelationshipType } from "@/types";
+import "./styles.css";
 
 function App() {
 	// Zustand Store
@@ -60,7 +61,7 @@ function App() {
 	}, [relationships, selectedId]);
 
 	return (
-		<div className="flex h-screen bg-[@0a0a0a] text-white font-sans overflow-hidden">
+		<div className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
 			{/* Sidebar */}
 			<Sidebar />
 			{/* Main Content */}

@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useState } from "react";
-import type { RelationshipType } from "#/types";
+import type { RelationshipType } from "@/types";
 
 interface TypeModalProps {
 	type: RelationshipType;

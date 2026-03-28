@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import type { Character, Relationship, RelationshipType } from "#/types";
 import { cn } from "@/lib/utils";
+import type { Character, Relationship, RelationshipType } from "@/types";
 import ConfirmModal from "./ConfirmModal";
 import RelationshipModal from "./RelationshipModal";
 import { Button } from "./ui/button";

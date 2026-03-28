@@ -1,7 +1,7 @@
 import { Edit2, FileJson, Plus, Settings, Trash2, Users } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
-import { cn } from "#/lib/utils";
-import { useGraphStore } from "#/store/useGraphStore";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import { useGraphStore } from "@/store/useGraphStore";
 import CharacterModal from "./CharacterModal";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";

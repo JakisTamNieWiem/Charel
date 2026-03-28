@@ -1,9 +1,9 @@
 import { Edit2, Plus } from "lucide-react";
 import { useState } from "react";
-import { Input } from "#/components//ui/input";
-import { Button } from "#/components/ui/button";
-import { Label } from "#/components/ui/label";
-import type { Character } from "#/types";
+import { Input } from "@/components//ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import type { Character } from "@/types";
 import {
 	Dialog,
 	DialogClose,

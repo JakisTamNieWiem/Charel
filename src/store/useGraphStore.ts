@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Character, Relationship, RelationshipType } from "#/types";
 // Import your JSON file to use as the default state!
 import defaultData from "@/data/data.json";
+import type { Character, Relationship, RelationshipType } from "@/types";
 
 interface GraphState {
 	// --- STATE ---
