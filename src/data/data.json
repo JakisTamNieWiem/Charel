@@ -1,0 +1,1340 @@
+{
+  "characters": [
+    {
+      "id": "char-1",
+      "name": "Ibrahim",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/822423933512056873/1486392435880755263/Ibrahim_After_Incident_Content.png?ex=69c55654&is=69c404d4&hm=bf329b97924e6bfebe49cc3878b15c47fc9823d7b564712096d1dc001a58a194&"
+    },
+    {
+      "id": "char-2",
+      "name": "Judasz",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/626074130655084564/1486394882225475714/image.png?ex=69c5589b&is=69c4071b&hm=b08117c606132d59cec2ab5c6f569dd9af14c4465fe47151650f6a9a04c93fcb&"
+    },
+    {
+      "id": "char-3",
+      "name": "Hektor",
+      "description": "Character from the story.",
+      "avatar": "https://i1.sndcdn.com/artworks-U7CWszwcKUV5B2vJ-9aHP8g-t500x500.jpg"
+    },
+    {
+      "id": "char-4",
+      "name": "Hoshi",
+      "description": "Character from the story.",
+      "avatar": "https://picsum.photos/seed/Hoshi/100/100"
+    },
+    {
+      "id": "char-5",
+      "name": "Yami",
+      "description": "Character from the story.",
+      "avatar": "https://picsum.photos/seed/Yami/100/100"
+    },
+    {
+      "id": "char-6",
+      "name": "Ignacy",
+      "description": "Character from the story.",
+      "avatar": "https://picsum.photos/seed/Ignacy/100/100"
+    },
+    {
+      "id": "char-7",
+      "name": "Jakub",
+      "description": "Character from the story.",
+      "avatar": "https://picsum.photos/seed/Jakub/100/100"
+    },
+    {
+      "id": "char-8",
+      "name": "Jędrek",
+      "description": "Character from the story.",
+      "avatar": "https://picsum.photos/seed/Jedrek/100/100"
+    },
+    {
+      "id": "char-9",
+      "name": "Jimmi",
+      "description": "Character from the story.",
+      "avatar": "https://picsum.photos/seed/Jimmi/100/100"
+    },
+    {
+      "id": "char-10",
+      "name": "Maria",
+      "description": "Character from the story.",
+      "avatar": "https://64.media.tumblr.com/98e85bf65fc6388fe4f597b639e01c39/9b53932665cbf598-03/s1280x1920/e01d1084e808ce11ddad7b05ef72e3a25310dbd5.jpg"
+    },
+    {
+      "id": "char-11",
+      "name": "Klaudia",
+      "description": "Character from the story.",
+      "avatar": "https://i.pinimg.com/236x/a6/cf/ae/a6cfaea3223fc5d810c8540f7fa77584.jpg"
+    },
+    {
+      "id": "char-12",
+      "name": "Leon",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486389258720645140/leon_przemiana.png?ex=69c5535f&is=69c401df&hm=c5b933590099c67738efdc91d8a1628c553188f9ba16ccff289ec90df588d501&"
+    },
+    {
+      "id": "char-13",
+      "name": "Bogdan",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486390969443160175/bogdan.jpg?ex=69c554f6&is=69c40376&hm=7ec5d255a642f33b4256ad33eb4dbcc95290da36aa0569c63304114d219c187e&"
+    },
+    {
+      "id": "char-14",
+      "name": "Martyna",
+      "description": "Character from the story.",
+      "avatar": "https://cdna.artstation.com/p/assets/images/images/057/350/834/large/eugene-roienko-asset.jpg?1671380040"
+    },
+    {
+      "id": "char-15",
+      "name": "Paulina",
+      "description": "Character from the story.",
+      "avatar": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTRHAk2vQZ3H5VPckelV7fUye7f_gh0rygvQ&s"
+    },
+    {
+      "id": "char-16",
+      "name": "Erika",
+      "description": "Character from the story.",
+      "avatar": "https://pbs.twimg.com/media/FzkEJvWacAACp5c.jpg"
+    },
+    {
+      "id": "char-17",
+      "name": "Agnieszka",
+      "description": "Character from the story.",
+      "avatar": "https://i.pinimg.com/474x/16/c7/15/16c71526291d882477e8c911b80c1e2a.jpg"
+    },
+    {
+      "id": "char-18",
+      "name": "Joanna",
+      "description": "Character from the story.",
+      "avatar": "https://i.redd.it/6q8frk92dnk91.jpg"
+    },
+    {
+      "id": "char-19",
+      "name": "Akao",
+      "description": "Character from the story.",
+      "avatar": "https://s1.zerochan.net/Akao.Rion.600.4566314.jpg"
+    },
+    {
+      "id": "char-20",
+      "name": "Engine",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486393635279732746/Julian_Engine_Muller.png?ex=69c55772&is=69c405f2&hm=f09ce0eb68ed090feb23a30d2043e3ea2db30159d38c70bf67d48d2392a89923&"
+    },
+    {
+      "id": "char-21",
+      "name": "Rezeda",
+      "description": "Character from the story.",
+      "avatar": "https://preview.redd.it/reze-fanart-illustration-by-v0-c9q1qfjog07a1.jpg?width=640&crop=smart&auto=webp&s=a82d7b451bf33bdc368ac87c6ded7d78069a7a97"
+    },
+    {
+      "id": "char-22",
+      "name": "Li Wei",
+      "description": "Character from the story.",
+      "avatar": "https://64.media.tumblr.com/a5f8379b12b0b4513d0cb58d2799e778/tumblr_pgc88vZOiO1vmy6u1_500.jpg"
+    },
+    {
+      "id": "char-23",
+      "name": "Pies Jędrka",
+      "description": "Character from the story.",
+      "avatar": "https://picsum.photos/seed/PiesJedrka/100/100"
+    },
+    {
+      "id": "char-24",
+      "name": "Takamura",
+      "description": "Character from the story.",
+      "avatar": "https://i.redd.it/sakamoto-vs-takamura-v0-3iy1trueqbge1.jpg?width=715&format=pjpg&auto=webp&s=c72cd0b4b9b52af77c0db08f41137bf2579835a9"
+    },
+    {
+      "id": "char-25",
+      "name": "Ora",
+      "description": "Character from the story.",
+      "avatar": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTi-5rvny5g6Ez5PfprhMzw3ObkcQDSMDBeg&s"
+    },
+    {
+      "id": "char-26",
+      "name": "Karolina",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486404806628212746/image.png?ex=69c561d9&is=69c41059&hm=d9724494cfd39e522c6030ad7dc7eedb64222e929c071a0bb26954922a41e4cc&"
+    },
+    {
+      "id": "char-27",
+      "name": "Lucjan",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486405135197274142/image.png?ex=69c56228&is=69c410a8&hm=10209e338f416be990221c9883fc9349397e30051da09fca4f89b05722b10972&"
+    },
+    {
+      "id": "char-28",
+      "name": "Valerius",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486405420858867904/image.png?ex=69c5626c&is=69c410ec&hm=04a6b59881ea5e07c161d84ceadef297e2c1c5e22f60a68bd52013c617420ad9&"
+    },
+    {
+      "id": "char-29",
+      "name": "Adela",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486397804061655080/image.png?ex=69c55b54&is=69c409d4&hm=a01f73371d6384ecbfc5e6755dfbd90909c7d1d583602c83efd785c63873cd73&"
+    },
+    {
+      "id": "char-30",
+      "name": "Artem",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486405860971515979/image.png?ex=69c562d5&is=69c41155&hm=b1c565890c53f486460e05e01fa4b6a93aa607745f698783238c385f56f43f68&"
+    },
+    {
+      "id": "char-31",
+      "name": "Jan",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486406184222199858/image.png?ex=69c56322&is=69c411a2&hm=1089e3e2bd4dc6b8a6dd97dea68f6387915e5184a2550e50103b7a15a99fb0a7&"
+    },
+    {
+      "id": "char-32",
+      "name": "Marek",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486406584912314418/image.png?ex=69c56381&is=69c41201&hm=2a7d7e03b3f15cf3309e6cfc38a14a644a65fa2e48359d565f9a177c8e254b52&"
+    },
+    {
+      "id": "char-33",
+      "name": "Kamil",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486398272665813243/image.png?ex=69c55bc4&is=69c40a44&hm=1d3d77e17e574f285f64ca6c097dd376ab854b5a422175379ceb094449c9f0d9&"
+    },
+    {
+      "id": "char-34",
+      "name": "Piotr",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486406905067737170/image.png?ex=69c563ce&is=69c4124e&hm=5d64050dc61b89001b31d3c4b5fec71987a7cb76d0c888d53fbe61fc2903a57f&"
+    },
+    {
+      "id": "char-35",
+      "name": "Wiktor",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486407344450572358/image.png?ex=69c56437&is=69c412b7&hm=497ee22fa47f597e47134fd038ca0214bb96209705a6ae8497b1ffeabcd18adf&"
+    },
+    {
+      "id": "char-36",
+      "name": "Elena",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486407552433524946/image.png?ex=69c56468&is=69c412e8&hm=7cbe8286efb01677b9bf809430b15f8fcc1175456dcd7f8d1a5ff965465ea2f9&"
+    },
+    {
+      "id": "char-37",
+      "name": "Szymon",
+      "description": "Character from the story.",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486398694843613234/szymon.png?ex=69c55c28&is=69c40aa8&hm=d852255345170127780cc05bb80828d8454e30caec39c829bdcc0d7a2d9cddcf&"
+    },
+    {
+      "id": "26aac78d-2ffd-4ebc-93c7-963b751fe192",
+      "name": "Maja",
+      "description": "",
+      "avatar": "https://media.discordapp.net/attachments/711157192073674753/1486407994655768626/maja.jpg?ex=69c564d2&is=69c41352&hm=70fd4b1d4cd274b922c75ba409d674925a57f7f04cf41861a687c3634efc8f7e&=&format=webp"
+    },
+    {
+      "id": "959d3f9a-2676-4ece-8fea-3ccbe8ed1ffe",
+      "name": "Bianca",
+      "description": "",
+      "avatar": "https://cdn.discordapp.com/attachments/711157192073674753/1486407994987122799/blanca.png?ex=69c564d2&is=69c41352&hm=f759abe819404844267e00c231107c8f0b5b6968a6e65bd3c0ca875d25dd4a1d&"
+    }
+  ],
+  "relationshipTypes": [
+    {
+      "id": "friend",
+      "label": "Kolega",
+      "color": "#1a9548",
+      "description": ""
+    },
+    {
+      "id": "f7c331f8-2580-4490-ac82-5c392ea65b91",
+      "label": "Nie lubi",
+      "color": "#ff2828",
+      "description": ""
+    },
+    {
+      "id": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "label": "Neutralny",
+      "color": "#808080",
+      "description": ""
+    },
+    {
+      "id": "4f34a12d-0bf2-43e5-92c6-58890bf77261",
+      "label": "Autorytet",
+      "color": "#004080",
+      "description": ""
+    },
+    {
+      "id": "74054232-6a56-4154-a662-cbae04858962",
+      "label": "Znajomy",
+      "color": "#35ff35",
+      "description": ""
+    },
+    {
+      "id": "d1f66dee-c0a6-42ff-9ed5-d213d17d996b",
+      "label": "Śmiertelny wróg",
+      "color": "#6a0000",
+      "description": ""
+    },
+    {
+      "id": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "label": "Pozytywny",
+      "color": "#d9ffb3",
+      "description": ""
+    },
+    {
+      "id": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "label": "Negatywny",
+      "color": "#ffa4a6",
+      "description": ""
+    },
+    {
+      "id": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "label": "Rodzina",
+      "color": "#ffc1ff",
+      "description": ""
+    },
+    {
+      "id": "09702b49-38b1-405b-96ca-051ccae93cab",
+      "label": "Zauroczenie",
+      "color": "#ff00ff",
+      "description": ""
+    },
+    {
+      "id": "df86718f-eabb-48ee-8a8c-11ace469230e",
+      "label": "Rywal",
+      "color": "#ffff00",
+      "description": ""
+    },
+    {
+      "id": "a663cf69-4617-4f03-ab38-28a93a783a34",
+      "label": "Nieufny",
+      "color": "#ff8000",
+      "description": ""
+    },
+    {
+      "id": "1fc6de78-7361-498e-bd98-160cf09dd707",
+      "label": "To skomplikowane",
+      "color": "#80ffff",
+      "description": ""
+    }
+  ],
+  "relationships": [
+    {
+      "fromId": "char-1",
+      "toId": "char-2",
+      "typeId": "friend",
+      "description": "Widzi w nim mentora. Ma doniego nieuzasadnione zaufanie."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-3",
+      "typeId": "f7c331f8-2580-4490-ac82-5c392ea65b91",
+      "description": "Nie szanuje go. Widzi w nim potencjał na dobrego człowieka."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-4",
+      "typeId": "friend",
+      "description": "Uważa ją za osobę mocno empatyczną. Łatwo znajduje z nią wspólny język."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-5",
+      "typeId": "friend",
+      "description": "Widzi w nim duży potencjał."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-6",
+      "typeId": "f7c331f8-2580-4490-ac82-5c392ea65b91",
+      "description": "Mocno go irytuje. Zbyt pełny siebie. Uważa, że często nie wie o czym mówi."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-7",
+      "typeId": "friend",
+      "description": "Bardzo lubi jego postawy moralne. Podoba mu się w nim jego empatia."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-8",
+      "typeId": "friend",
+      "description": "Widzi w nim osobę bardzo odpowiedzialną. Scala drużynę."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-9",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Widzi w nim słabe ogniwo. Nieodpowiedzialny. Koleżeński. Da się z nim gadać."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-10",
+      "typeId": "4f34a12d-0bf2-43e5-92c6-58890bf77261",
+      "description": "Zawdzięcza jej swoje życie. Zdaje się wiedzieć co robi. Ma do niej duży szacunek."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-11",
+      "typeId": "4f34a12d-0bf2-43e5-92c6-58890bf77261",
+      "description": "Podziwia jej talent. Mimo swojej nieśmiałości posiada ogromną wiedzę."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-12",
+      "typeId": "friend",
+      "description": "Ciężko powiedzieć jaki jest limit jego siły. Zaniepokojony jego stanem zdrowotnym."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-13",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Szanuje jego wiedzę i umiejętności. Kwestionuje jego podejście. Czuje że ukrywa zbyt dużo."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-14",
+      "typeId": "d1f66dee-c0a6-42ff-9ed5-d213d17d996b",
+      "description": "Bardzo manipulacyjna. Uważa, że jest wrogiem ludzkości. Próbowała go zabić."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-15",
+      "typeId": "friend",
+      "description": "Mimo swojej głupoty, uważa że jej serce jest w dobrym miejscu. Z dobry mentorem może zostać dobrą osobą."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-16",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Czuje, że w innych okolicznościach mogliby się zaznajomić. Ma duży dystans do siebie, ale zbyt interesowna."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-20",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "W innych okolicznościach mogliby się zakumplować. Zabawny. Szanuje jego odwagę."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-21",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Zabiła go..."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-23",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Fajny pies, pracowity taki"
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-25",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Podziwia jejo talent. Mega zabawno. Che wiedzieć o nion więcej."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-29",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Ma dobry gust w makijażu. Ciekwy charakter. Chce z nią dręczyć Yamiego."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-33",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Lubi jego technike. Szanuje go za pomoc w turnieju. Dobre poczucie humoru."
+    },
+    {
+      "fromId": "char-1",
+      "toId": "char-37",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Rozumie jego relacje z \"krawatami\". Wydaje się stompać twardo po ziemi."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-1",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Wkurwia go. Dziwi się, że podejmuje tak głupie decyzje. Marnuje swój potencjał."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-2",
+      "typeId": "f7c331f8-2580-4490-ac82-5c392ea65b91",
+      "description": "Dwa razy został przez niego zdradzony. Brak zaufania."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-4",
+      "typeId": "friend",
+      "description": "Szanuje jej siłe. Atrakcyjna kobieta."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-5",
+      "typeId": "friend",
+      "description": "Widzi w nim potencjał na równego sobie."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-6",
+      "typeId": "friend",
+      "description": "Ma dobrego cela. Fajnie wkurwia ludzi."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-7",
+      "typeId": "friend",
+      "description": "Lubi za jego troske w zględem innych."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-8",
+      "typeId": "friend",
+      "description": "Lubi go za to, że inni go lubią. Robi smaczne oscypki."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-9",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Rodziny się nie wybiera."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-12",
+      "typeId": "4f34a12d-0bf2-43e5-92c6-58890bf77261",
+      "description": "Chce być tak silny jak on."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-13",
+      "typeId": "4f34a12d-0bf2-43e5-92c6-58890bf77261",
+      "description": "Nauczyciel. Jako pierwszy sprowadził Hektora na ziemie."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-14",
+      "typeId": "09702b49-38b1-405b-96ca-051ccae93cab",
+      "description": "Wydaje mu się, że w pełni go rozumie."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-15",
+      "typeId": "friend",
+      "description": "Lubi. Lekko wkurwiająca, głupia ale atrakcyjna kobieta."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-10",
+      "typeId": "friend",
+      "description": "Szanuje. Jest pod wielkim wrażeniem, że kobieta jest tak silna. Atrakcyjna kobieta."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-11",
+      "typeId": "friend",
+      "description": "Szanuje. Jest pod wielkim wrażeniem, że kobieta jest tak silna. Atrakcyjna kobieta."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-16",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Bardzo wkurwiająca."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-17",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Widział. Nic o niej nie wie."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-18",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Atrakcyjna kobieta."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-19",
+      "typeId": "friend",
+      "description": "Niepotrzebnie tyle pali. Ciekawe poczucie humoru. Atrakcyjna kobieta."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-20",
+      "typeId": "df86718f-eabb-48ee-8a8c-11ace469230e",
+      "description": "Lubi się z nim pojedynkować. Póki co, 2 do 2."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-21",
+      "typeId": "09702b49-38b1-405b-96ca-051ccae93cab",
+      "description": "Bardzo atrakcyjna kobieta. Dziwi się, że należy do złej organizacji."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-22",
+      "typeId": "f7c331f8-2580-4490-ac82-5c392ea65b91",
+      "description": "Sztywniak. Nerd."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-23",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Fajny psiór."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-24",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Stary ale silny dziad."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-25",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Ma mieszane uczucia do niej/niego(?)."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-26",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Atrakcyjna kobieta. Yami zdaje sie ją lubić."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-27",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Dziwnie działa jego technika, ale potrafi ją dobrze wykorzystać."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-28",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Bardzo cichy. Zajebista maska."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-29",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Bardzo atrakcyjna kobieta. Pod wrażeniem siły."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-30",
+      "typeId": "df86718f-eabb-48ee-8a8c-11ace469230e",
+      "description": "Pamięta jak silne były jego ciosy. Chce się zmierzyć znim większą ilość razy."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-31",
+      "typeId": "friend",
+      "description": "Rozmawia tym samym językiem co Hektor (Pięśćmi). Jest pod wrażeniem jego techniki walki wręcz."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-32",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Zbyt pewny siebie. Słabiak."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-33",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Podoba mu się działanie jego techniki."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-34",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Pod wrażeniem siły fizycznej. Chęć zmierzenia się."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-35",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Zna z widoku."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-36",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Atrakcyjna kobieta. Nie ma pojęcia co robi jej technika ale go to ciekawi."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "char-37",
+      "typeId": "friend",
+      "description": "Silny chłop. Z chęcią by się z nim zmierzył. W ciekawy sposób myśli."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "26aac78d-2ffd-4ebc-93c7-963b751fe192",
+      "typeId": "friend",
+      "description": "Jest miła dla wszystkich. Dziwi się, że też dla niego."
+    },
+    {
+      "fromId": "char-3",
+      "toId": "959d3f9a-2676-4ece-8fea-3ccbe8ed1ffe",
+      "typeId": "friend",
+      "description": "Dziwi się, że mają tyle wspólnego. Atrakcyjna kobieta. Lubi ją wkurwiać."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-1",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Przydatny."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-3",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Silny. Nieprzewidywalny. Niebezpieczny."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-4",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Silna. Przydatna."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-5",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Przydatna technika."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-6",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Głupi."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-7",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Wszechstronna technika."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-8",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Technika może być bardzo przydatna."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-9",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Śmieszny."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-10",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Bardzo silna."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-11",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Silna."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-12",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Bardzo silny."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-13",
+      "typeId": "a663cf69-4617-4f03-ab38-28a93a783a34",
+      "description": "Za dużo ma tajemnic."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-14",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Straszna."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-15",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Śmieszna. Głupia."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-16",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Zabawna."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-18",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Pierdolnięta."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-19",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Dobry partner w misjach."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-20",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Dobrze się z nim walczy."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-21",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Koleżanka Eriki."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-22",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Nudny."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-24",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Straszny."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-25",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Interesujący."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-26",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Yami zdaje się ją lubić."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-29",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Śmieszna."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-30",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Silna technika."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-33",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Dobry wybór."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-36",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Można coś z niej wyciągnąć."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "char-37",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Irytujący."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "26aac78d-2ffd-4ebc-93c7-963b751fe192",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Jest miła."
+    },
+    {
+      "fromId": "char-2",
+      "toId": "959d3f9a-2676-4ece-8fea-3ccbe8ed1ffe",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Dostał rykoszetem."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-1",
+      "typeId": "friend",
+      "description": "Uwczesny podopieczny. Zdaje się mieć głowę na karku. Nie poddaje się mimo błędów i porażek."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-2",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Zdaje się darzyć ją dużym szacunkiem. Nie jestem pewna jego intencji."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-3",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Trochę szalony ale przewidywalny w dobrym tego słowa znaczeniu. Zdaje się, że chce każdemu pomóc na swój sposób. "
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-4",
+      "typeId": "friend",
+      "description": "Jedyna przyjaciółka jaką zna. Ma swoje dziwactwa ale uważa je za wyjątkowe."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-5",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "W większości zna go przez bycie bratem Hoshi. Chętna udzielenia mu rad, ale ciężko jest jej wejść z nim w interakcje przez jego przypadłość."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-6",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Zdaje się być bardzo ograniczony. Ciężko stwierdzić czy to przez jego przeszłość. Ma w zwyczaju dogryzać."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-7",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Nie wie o nim wiele, ale zdawał się być lojalny wobec Martyny i dba w pierwszej mierze o swoją rodzinę."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-8",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Miły mężczyzna. Odpowiedzialny. Dużo mu bunkier zasługuje."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-9",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Jego nawyki bywają specyficzne, co jest zabawne, ale niebezpieczne na dłuższą metę."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-11",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Najmłodsza siostra. Oddała by za nią życie i poszła na koniec świata."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-12",
+      "typeId": "1fc6de78-7361-498e-bd98-160cf09dd707",
+      "description": "Stworzony jako panic button na nią i siostry. Zdaje się być jej przyrodnim bratem, jednak mimo wszystko sama nie wie co o nim myśleć, czy kochać czy się bać. Stara się o tym nie myśleć."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-13",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Przyszywany ojciec. Brakowało go jej. Mimo, że popełnił wiele błędów, czieszy się, że jest spowrotem z nim."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-14",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Wie, że zboczyła w złą ścieżkę w życiu, ale wie, że nie może z tym dużo zrobić. Dalej kocha ją jak siostrę."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-15",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Zdecydowanie istnieje oraz jest głośna. Zastanawia się, czy mogłaby się z nią zakolegować."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-16",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Członek Outer Heaven, który wyciągnął więcej niż powinien."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-17",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Siostra Jakuba. Aktualne naczynie Joanny."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-18",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Jej siostra. Zdaje się, że jej temperament się zaostrzył po przebudzeniu. Jest niebezpieczna i nieprzewidywalna, ale dalej jest jej rodziną."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-19",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Mija się z nią na korytarzu i zdarza im się pić kawę rano. Ta często oferuje jej papierosy, ale nieskutecznie."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-23",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Bardzo go lubi. Bawi się z nim i uczy go sztuczek jak nikt nie patrzy."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-25",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Specyficzna, kryptyczna oraz utalentowana osoba."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-26",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Szkoda jej było po walce z Yamim."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-27",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Technika o wysokim potencjale. Jego spokój jest odświeżający."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-28",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Nie wiele da się z niego wyczytać. Trochę straszny. Chyba przesadziła podczas walki."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-29",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Zdaje się dogadywać z jej siostrą, ma nadzieje, że dołączy do grona przyjaciółek."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-30",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Wysoki potencjał ale zdaje się nie być zbyt sympatyczny."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-31",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Zdaje się być poukładany, ale z doświadczenia raczej przez to, że jego praca tego wymagała."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-32",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Pewny siebie. Całkiem szybko odpadł."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-33",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Zdaje się być skory do pomocy. Miło z jego strony."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-34",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Miły facet. Ma swoje ideologie i zasady oraz wspiera innych."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-36",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Zdaje się być fałszywa. Ma ją na oku."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "char-35",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Trochę narwany. Ciężko powiedzieć."
+    },
+    {
+      "fromId": "char-10",
+      "toId": "26aac78d-2ffd-4ebc-93c7-963b751fe192",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Lubi z nią przebywać. Jest miła i poukładana, ale też wrażliwa. Widzi w niej Klaudie."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-1",
+      "typeId": "friend",
+      "description": "Mądry. Popełnia wiele błędów, ale się nie poddaje i wstaje spowrotem.."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-2",
+      "typeId": "friend",
+      "description": "Rozumie jego uczucia względem niej i reszty dzieci bogdana. Stara się, żeby czuł się z tym komfortowo."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-3",
+      "typeId": "friend",
+      "description": "Zdarza się być nadgorliwy, ale wierzy, że to co robi jest z dobrych intencji."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-4",
+      "typeId": "friend",
+      "description": "Jedyna, oraz najdroższa przyjaciółka."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-5",
+      "typeId": "friend",
+      "description": "Bardzo niezręczny i zamknięty w sobie, nawet nie licząc jego przypadłości. Zdaje się mieć wiele do przekazania, ale jakby nie potrafił tego dobrze opisać. Szkoda jej go, ale cieszy się, że ma sposób na komunikacje z nim w komfortowy dla niego sposób."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-6",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Szkoda jej jego dziadka. Wierzy, że mimo wszystko mu na nim zależało, ale nie miała jeszcze zbyt wiele interakcji z nim."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-8",
+      "typeId": "friend",
+      "description": "Można na nim polegać. Cieszy się, że jest z nimi w bunkrze, oraz chciałaby go odciążyć od jego obowiązków na ile to możliwe."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-9",
+      "typeId": "friend",
+      "description": "Też lubi grać na instrumentach, nawet jego technika na tym polega. Nie popiera jego nawyku bo boi się, że może mu to kiedyś zaszkodzić."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-10",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Jej najstarsza siostra. Daży ją szacunkiem, podziwem oraz ogromną wdzięcznością. Bez niej mogłaby tego wszystkiego nie wytrzymać."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-12",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Jest dla niej jak brat. Sympatyczny, czasem trochę zbyt głupkowaty, ale w dobrej mierze. Zdaje się, że ostatnio zmienia się też jego charakter. Szuka sposobu, żeby mu pomóc."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-13",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Jej ojciec, który ją wychował. Cieszy się, że znów może z nim przebywać, po tak długiej rozłące."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-14",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Jej siostra. Nie popiera jej zachowań. Uważa, że po odejściu Bogdana oraz Leona, ta się diametralnie zmieniła, niestety na gorsze. Po tym incydencie nie były tak blisko jak kiedyś."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-19",
+      "typeId": "friend",
+      "description": "Często jej przypomina, że palenie jest niezdrowe. Ta jednak nie słucha rad, ale jest porządną osobą."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-15",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Nieprzewidywalna i zdziczała, ale ma swój urok. Próbuje ją podejść żeby się zakolegować, ale żadko jej to wychodzi."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-16",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Wydaje się być miłą Osobą po drugiej stronie konfliktu."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-17",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Siostra Jakuba. Szkoda jej tego, że ta musiała skończyć tak a nie inaczej."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-7",
+      "typeId": "friend",
+      "description": "Można na nim polegać. Świetny kompan i miła osoba."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-18",
+      "typeId": "1fc6de78-7361-498e-bd98-160cf09dd707",
+      "description": "Za dzieciaka bardzo dużo jej dokuczała. Zdaje się, że trochę już z tego wyrosła ale dalej ma odruchy gdy ta robi jakieś nagłe ruchy. Kocha ją, ale nie czuje się przy niej bezpiecznie."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-23",
+      "typeId": "friend",
+      "description": "Uwielbia sięz nim bawić. W wolnym czasie go wyprowadza."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-25",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Specyficzna osoba. Nie potrafi jejo rozgryść, ale robi co w jej mocy."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-26",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Było jej smutno w jaki sposób zakończył się jej pojedynek z Yamim. Wierzy, że się pogodzą."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-28",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Troche straszny."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "char-29",
+      "typeId": "friend",
+      "description": "Ta zdaje się być jej bardzo blisko. Wybuchowa. Ma specyficzne pomysły, ale zdaje się dobrze bawić koniec końców."
+    },
+    {
+      "fromId": "char-11",
+      "toId": "26aac78d-2ffd-4ebc-93c7-963b751fe192",
+      "typeId": "friend",
+      "description": "Widzi w niej podobieństwo do samej siebie. Zdaje się jakby mogła jej czytać w myślach. Dużo z nią rozmawia i chciałaby, żeby częściej się z nią, jej siostrą oraz Hoshi zadawała."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-1",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Prawie kolega. Za krótko się znają."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-2",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Zdaje się wkurwiać innych. Dla niego jest miły."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-3",
+      "typeId": "f7c331f8-2580-4490-ac82-5c392ea65b91",
+      "description": "Praktycznie rywal. Często go obraża. Chciałby pokazać mu gdzie jego miejsce."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-4",
+      "typeId": "874944b8-e52d-48d6-b61f-e6579b2bb6c4",
+      "description": "Dalej czuje ból w kroczu. Mimo to wydaje się pomocna ale nieogarnięta."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-5",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Spoko gość. Ma silną technikę. Można na nim polegać."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-6",
+      "typeId": "f7c331f8-2580-4490-ac82-5c392ea65b91",
+      "description": "Często gada bezsensu. Zdarza się, że ma ochote mu przywalić w twarz. Mimo to woli być po jego stronie."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-8",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Nietypowa technika. Ciekaw jest genezy jego techniki."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-9",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Zdaje się być jedyną osobą palącą oprócz niego. Myśli, że w przyszłości mogą być kolegami."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-10",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Czuje do niej wrogość z powodu relacji z martyną. Mimo to wydaje sie mieć dobre intencje oraz być silna."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-11",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Czuje do niej wrogość z powodu relacji z martyną. Mimo to wydaje sie mieć dobre intencje oraz być silna."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-12",
+      "typeId": "74054232-6a56-4154-a662-cbae04858962",
+      "description": "Czasami go przeraża. Mimo to wygląda na spoko gościa. Ma wrażenie, że coś ukrywa."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-13",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Zdaje się mieć możliwość pomóc przywrócić jego siostrę spowrotem. Wydaje się bardziej zorganizowany niż Leon. Ma duży wpływ w bunkrze. Często nieobecny."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-14",
+      "typeId": "a663cf69-4617-4f03-ab38-28a93a783a34",
+      "description": "Uważa, że to przez nią jego siostra straciła kontrolę. Chciałby od niej wyjaśnień."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-15",
+      "typeId": "friend",
+      "description": "Zachowuje się dziwnie ale to właśnie w niej lubi. Póki się słucha, to można na niej polegać (łatwo ją przekupić)."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-16",
+      "typeId": "a663cf69-4617-4f03-ab38-28a93a783a34",
+      "description": "Jest z OH. Krótko się znają. Jest bardzo nadwrażliwa. Wolałby uniknąć z nią walki."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-17",
+      "typeId": "e4f40b5c-4d1f-4c7e-bb37-e332166d844a",
+      "description": "Słodka. Sympatyczna. Kochana. Oddałby dla niej wszystko. Chciałby wrócić do czasów gdy była sobą."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-18",
+      "typeId": "d1f66dee-c0a6-42ff-9ed5-d213d17d996b",
+      "description": "Zrobi wszystko, żeby oddała jego siostrę."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-23",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Dobry zwierzak."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-25",
+      "typeId": "df86718f-eabb-48ee-8a8c-11ace469230e",
+      "description": "Czuje, że ma z nią szanse w pojedynku. Widzi ją w dobrym świetle."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-27",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Lubi się z nim pojedynkować. Szkoda, że nie pali."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-31",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Wydaje się być porządny i mógłby się z nim dogadać."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-33",
+      "typeId": "ba786146-19ae-4617-b2bd-87f2dea69b80",
+      "description": "Ma ciekawą technikę. Dobrze jest go mieć w drużynie."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "char-37",
+      "typeId": "friend",
+      "description": "Czuje, że może na nim polegać. Lubi z nim zapalić."
+    },
+    {
+      "fromId": "char-7",
+      "toId": "26aac78d-2ffd-4ebc-93c7-963b751fe192",
+      "typeId": "6c9f04eb-e037-4656-ba35-36bd51ff28b7",
+      "description": "Czasami współczuje jej za Pauline. Można się z nią dogadać. "
+    }
+  ]
+}
