@@ -7,7 +7,7 @@ import {
 	readTextFile,
 	writeTextFile,
 } from "@tauri-apps/plugin-fs";
-import type { Character, Relationship, RelationshipType } from "@/types";
+import type { Character, Group, Relationship, RelationshipType } from "@/types";
 
 const FILE_NAME = "graph-data.json";
 
@@ -16,6 +16,7 @@ export interface JsonData {
 	characters: Character[];
 	relationshipTypes: RelationshipType[];
 	relationships: Relationship[];
+	groups: Group[];
 }
 
 export async function saveToDisk(data: JsonData) {

@@ -3,6 +3,7 @@ import { useGraphStore } from "@/store/useGraphStore";
 import type { RelationshipType } from "@/types";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Slider } from "./ui/slider";
 
 interface TypeModalProps {
 	type: RelationshipType;
@@ -16,15 +17,22 @@ export default function TypeModal({
 	onOpenChange,
 }: TypeModalProps) {
 	const addType = useGraphStore((state) => state.addType);
+	const updateType = useGraphStore((state) => state.updateType);
 	const [formData, setFormData] = useState(type);
 
 	useEffect(() => {
 		setFormData(type);
 	}, [type]);
 
+	const isEditing = !!type.id;
+
 	const handleSave = () => {
-		addType(formData);
-		onOpenChange(false); // FIX 2: Close the modal after saving!
+		if (isEditing) {
+			updateType(formData);
+		} else {
+			addType(formData);
+		}
+		onOpenChange(false);
 	};
 
 	return (
@@ -81,6 +89,41 @@ export default function TypeModal({
 							}
 							className="w-full bg-white/5 border border-white/10 p-3 rounded-lg h-24 focus:outline-none focus:border-white/30"
 						/>
+					</div>
+					<div className="space-y-3">
+						<div className="flex items-center justify-between">
+							<label className="text-[10px] uppercase font-mono tracking-widest opacity-50">
+								Relationship Strength
+							</label>
+							<span
+								className="text-xs font-mono tabular-nums"
+								style={{
+									color:
+										(formData.value ?? 0) > 0
+											? "#4ade80"
+											: (formData.value ?? 0) < 0
+												? "#f87171"
+												: "#808080",
+								}}
+							>
+								{(formData.value ?? 0) > 0 ? "+" : ""}
+								{(formData.value ?? 0).toFixed(2)}
+							</span>
+						</div>
+						<Slider
+							min={-100}
+							max={100}
+							step={1}
+							value={[Math.round((formData.value ?? 0) * 100)]}
+							onValueChange={([v]) =>
+								setFormData({ ...formData, value: v / 100 })
+							}
+						/>
+						<div className="flex justify-between text-[9px] opacity-30 font-mono">
+							<span>-1 Hostile</span>
+							<span>0 Neutral</span>
+							<span>+1 Close</span>
+						</div>
 					</div>
 				</div>
 				<div className="flex gap-3 pt-4">
