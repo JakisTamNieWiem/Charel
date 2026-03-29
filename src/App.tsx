@@ -1,6 +1,7 @@
 import { AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
+import NetworkGraph from "@/components/NetworkGraph";
 import RelationshipModal from "@/components/RelationshipModal";
 import Sidebar from "@/components/Sidebar";
 import TypeModal from "@/components/TypeModal";
@@ -16,6 +17,7 @@ function App() {
 	const [isLoaded, setIsLoaded] = useState(false);
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const allChars = useGraphStore((state) => state.characters);
+	const viewMode = useGraphStore((state) => state.viewMode);
 
 	const types = useGraphStore((state) => state.relationshipTypes);
 
@@ -62,6 +64,7 @@ function App() {
 					characters: initialState.characters,
 					relationships: initialState.relationships,
 					relationshipTypes: initialState.relationshipTypes,
+					groups: initialState.groups,
 				});
 			}
 			setIsLoaded(true);
@@ -79,13 +82,15 @@ function App() {
 			if (
 				state.characters !== prevState.characters ||
 				state.relationships !== prevState.relationships ||
-				state.relationshipTypes !== prevState.relationshipTypes
+				state.relationshipTypes !== prevState.relationshipTypes ||
+				state.groups !== prevState.groups
 			) {
 				saveToDisk({
 					version: "1.0.0",
 					characters: state.characters,
 					relationships: state.relationships,
 					relationshipTypes: state.relationshipTypes,
+					groups: state.groups,
 				});
 			}
 		});
@@ -107,66 +112,72 @@ function App() {
 			<Sidebar />
 			{/* Main Content */}
 			<main className="flex-1 relative overflow-hidden flex flex-col">
-				{/* Header */}
-				<header className="p-6 flex items-center justify-between z-10">
-					<div>
-						<h2 className="text-4xl font-bold tracking-tighter uppercase italic serif">
-							{selectedCharacter?.name || "Select a character"}
-						</h2>
-						<p className="text-sm opacity-50 max-w-md">
-							{selectedCharacter?.description}
-						</p>
-					</div>
-					<Button
-						onClick={(e) => {
-							e.preventDefault();
-							setOpenRelModal(true);
-						}}
-						className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
-					>
-						<Plus className="w-4 h-4" /> New Relation
-					</Button>
-					{selectedId && (
-						<RelationshipModal
-							fromId={selectedId}
-							characters={allChars}
-							types={types}
-							onSave={addRelationship}
-							open={openRelModal}
-							onOpenChange={setOpenRelModal}
-						/>
-					)}
-				</header>
-
-				{/* Graph Area */}
-				<div className="flex-1 relative overflow-hidden">
-					{selectedCharacter ? (
-						<CharacterGraph />
-					) : (
-						<h1>Character not found</h1>
-					)}
-				</div>
-
-				{/* Legend */}
-				<div className="p-6 flex gap-6 z-10 overflow-x-auto no-scrollbar">
-					{types.map((type) => (
-						<div
-							key={type.id}
-							className="flex items-center gap-2 whitespace-nowrap group relative"
-						>
-							<div
-								className="w-2 h-2 rounded-full"
-								style={{ backgroundColor: type.color }}
-							/>
-							<span className="text-[10px] uppercase font-bold tracking-widest opacity-70">
-								{type.label}
-							</span>
-							<div className="absolute bottom-full left-0 mb-2 p-2 bg-white text-black rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 z-50">
-								{type.description}
+				{viewMode === "network" ? (
+					<NetworkGraph />
+				) : (
+					<>
+						{/* Header */}
+						<header className="p-6 flex items-center justify-between z-10">
+							<div>
+								<h2 className="text-4xl font-bold tracking-tighter uppercase italic serif">
+									{selectedCharacter?.name || "Select a character"}
+								</h2>
+								<p className="text-sm opacity-50 max-w-md">
+									{selectedCharacter?.description}
+								</p>
 							</div>
+							<Button
+								onClick={(e) => {
+									e.preventDefault();
+									setOpenRelModal(true);
+								}}
+								className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
+							>
+								<Plus className="w-4 h-4" /> New Relation
+							</Button>
+							{selectedId && (
+								<RelationshipModal
+									fromId={selectedId}
+									characters={allChars}
+									types={types}
+									onSave={addRelationship}
+									open={openRelModal}
+									onOpenChange={setOpenRelModal}
+								/>
+							)}
+						</header>
+
+						{/* Graph Area */}
+						<div className="flex-1 relative overflow-hidden">
+							{selectedCharacter ? (
+								<CharacterGraph />
+							) : (
+								<h1>Character not found</h1>
+							)}
 						</div>
-					))}
-				</div>
+
+						{/* Legend */}
+						<div className="p-6 flex gap-6 z-10 overflow-x-auto no-scrollbar">
+							{types.map((type) => (
+								<div
+									key={type.id}
+									className="flex items-center gap-2 whitespace-nowrap group relative"
+								>
+									<div
+										className="w-2 h-2 rounded-full"
+										style={{ backgroundColor: type.color }}
+									/>
+									<span className="text-[10px] uppercase font-bold tracking-widest opacity-70">
+										{type.label}
+									</span>
+									<div className="absolute bottom-full left-0 mb-2 p-2 bg-white text-black rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 z-50">
+										{type.description}
+									</div>
+								</div>
+							))}
+						</div>
+					</>
+				)}
 			</main>
 
 			{/* Modals */}

@@ -3,32 +3,39 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { JsonData } from "@/lib/storage";
 // Import your JSON file to use as the default state!
-import type { Character, Relationship, RelationshipType } from "@/types";
+import type { Character, Group, Relationship, RelationshipType } from "@/types";
 
 const defaultData = {
-	characters: [] as Character[], // You can put your 37 characters here if you want them built-in!
+	characters: [] as Character[],
 	relationships: [] as Relationship[],
+	groups: [] as Group[],
 	relationshipTypes: [
-		{ id: "friend", label: "Positive", color: "#1a9548", description: "" },
+		{ id: "friend", label: "Positive", color: "#1a9548", description: "", value: 0.7 },
 		{
 			id: "negative",
 			label: "Negative",
 			color: "#6a0000",
 			description: "",
+			value: -0.7,
 		},
-		{ id: "neutral", label: "Neutral", color: "#808080", description: "" },
+		{ id: "neutral", label: "Neutral", color: "#808080", description: "", value: 0 },
 		// ... add your other default Polish relationship types here
 	] as RelationshipType[],
 };
+type ViewMode = "character" | "network";
+
 interface GraphState {
 	// --- STATE ---
 	characters: Character[];
 	relationshipTypes: RelationshipType[];
 	relationships: Relationship[];
+	groups: Group[];
 	selectedCharId: string | null;
+	viewMode: ViewMode;
 
 	// --- ACTIONS: UI ---
 	setSelectedCharId: (id: string | null) => void;
+	setViewMode: (mode: ViewMode) => void;
 
 	// --- ACTIONS: CHARACTERS ---
 	addCharacter: (char: Omit<Character, "id">) => void;
@@ -45,6 +52,12 @@ interface GraphState {
 	updateRelationship: (oldRel: Relationship, newRel: Relationship) => void;
 	deleteRelationship: (fromId: string, toId: string, typeId: string) => void;
 
+	// --- ACTIONS: GROUPS ---
+	addGroup: (group: Omit<Group, "id">) => void;
+	updateGroup: (group: Partial<Group>) => void;
+	deleteGroup: (id: string) => void;
+	assignCharacterToGroup: (charId: string, groupId: string | undefined) => void;
+
 	// --- UTILITIES ---
 	importData: (importedJson: JsonData) => void;
 	resetToDefault: () => void;
@@ -56,9 +69,11 @@ export const useGraphStore = create<GraphState>()(
 			// Initialize with your JSON data
 			...defaultData,
 			selectedCharId: null,
+			viewMode: "character" as ViewMode,
 
 			// --- UI ---
 			setSelectedCharId: (id) => set({ selectedCharId: id }),
+			setViewMode: (mode) => set({ viewMode: mode }),
 
 			// --- CHARACTERS ---
 			addCharacter: (char) =>
@@ -135,21 +150,54 @@ export const useGraphStore = create<GraphState>()(
 					),
 				})),
 
+			// --- GROUPS ---
+			addGroup: (group) =>
+				set((state) => ({
+					groups: [
+						...state.groups,
+						{ ...group, id: crypto.randomUUID() },
+					],
+				})),
+
+			updateGroup: (group) =>
+				set((state) => ({
+					groups: state.groups.map((g) =>
+						g.id === group.id ? { ...g, ...group } : g,
+					),
+				})),
+
+			deleteGroup: (id) =>
+				set((state) => ({
+					groups: state.groups.filter((g) => g.id !== id),
+					// Unassign characters from deleted group
+					characters: state.characters.map((c) =>
+						c.groupId === id ? { ...c, groupId: undefined } : c,
+					),
+				})),
+
+			assignCharacterToGroup: (charId, groupId) =>
+				set((state) => ({
+					characters: state.characters.map((c) =>
+						c.id === charId ? { ...c, groupId } : c,
+					),
+				})),
+
 			// --- UTILITIES ---
 			resetToDefault: () =>
 				set({
 					characters: defaultData.characters,
 					relationshipTypes: defaultData.relationshipTypes,
 					relationships: defaultData.relationships,
+					groups: defaultData.groups,
 					selectedCharId: null,
 				}),
 			importData: (importedJson) =>
 				set(() => ({
 					characters: importedJson.characters || [],
-					// Support both "relationshipTypes" (from raw json) or "types" (if exported from store)
 					relationshipTypes: importedJson.relationshipTypes || [],
 					relationships: importedJson.relationships || [],
-					selectedCharId: null, // Reset selection so we don't look for an ID that no longer exists
+					groups: importedJson.groups || [],
+					selectedCharId: null,
 				})),
 		})),
 		{

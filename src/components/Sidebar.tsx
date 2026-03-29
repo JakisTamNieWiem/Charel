@@ -1,4 +1,15 @@
-import { Edit2, FileJson, Plus, Settings, Trash2, Users } from "lucide-react";
+import {
+	Download,
+	Edit2,
+	FileJson,
+	Layers,
+	Network,
+	Plus,
+	Settings,
+	Trash2,
+	Users,
+	X,
+} from "lucide-react";
 import { useState } from "react";
 import CharacterModal from "@/components/CharacterModal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,6 +19,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { RelationshipType } from "@/types";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "./ui/select";
 import TypeModal from "./TypeModal";
 
 export default function Sidebar() {
@@ -15,6 +34,13 @@ export default function Sidebar() {
 	const allChars = useGraphStore((state) => state.characters);
 	const types = useGraphStore((state) => state.relationshipTypes);
 	const relationships = useGraphStore((state) => state.relationships);
+	const groups = useGraphStore((state) => state.groups);
+	const addGroup = useGraphStore((state) => state.addGroup);
+	const updateGroup = useGraphStore((state) => state.updateGroup);
+	const deleteGroup = useGraphStore((state) => state.deleteGroup);
+	const assignCharacterToGroup = useGraphStore(
+		(state) => state.assignCharacterToGroup,
+	);
 
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 
@@ -23,6 +49,8 @@ export default function Sidebar() {
 	const deleteCharacter = useGraphStore((state) => state.deleteCharacter);
 
 	const deleteType = useGraphStore((state) => state.deleteType);
+
+	const setViewMode = useGraphStore((state) => state.setViewMode);
 
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
 
@@ -40,13 +68,19 @@ export default function Sidebar() {
 								Charel
 							</h1>
 							<TabsList className="shrink-0">
-								<TabsTrigger value="characters">
+								<TabsTrigger value="characters" onClick={() => setViewMode("character")}>
 									<Users className="w-4 h-4" />
 								</TabsTrigger>
-								<TabsTrigger value="types">
+								<TabsTrigger value="network" onClick={() => setViewMode("network")}>
+									<Network className="w-4 h-4" />
+								</TabsTrigger>
+								<TabsTrigger value="groups" onClick={() => setViewMode("network")}>
+									<Layers className="w-4 h-4" />
+								</TabsTrigger>
+								<TabsTrigger value="types" onClick={() => setViewMode("character")}>
 									<Settings className="w-4 h-4" />
 								</TabsTrigger>
-								<TabsTrigger value="json">
+								<TabsTrigger value="json" onClick={() => setViewMode("character")}>
 									<FileJson className="w-4 h-4" />
 								</TabsTrigger>
 							</TabsList>
@@ -116,6 +150,204 @@ export default function Sidebar() {
 						</TabsContent>
 						<TabsContent
 							className="flex-1 flex flex-col m-0 overflow-hidden"
+							value="network"
+						>
+							<div className="h-full py-4 px-4">
+								<h2 className="text-xs font-mono uppercase tracking-widest opacity-50 mb-4">
+									Network View
+								</h2>
+								<p className="text-xs opacity-40 leading-relaxed">
+									Viewing the full relationship network. All characters and their
+									connections are displayed as an interactive graph.
+								</p>
+								<div className="mt-4 space-y-2 text-[10px] opacity-30">
+									<p>Drag nodes to reposition</p>
+									<p>Double-click a node to select that character</p>
+									<p>Scroll to zoom</p>
+									<p>Drag background to pan</p>
+								</div>
+								<div className="mt-6 space-y-2">
+									<h3 className="text-[10px] font-mono uppercase tracking-widest opacity-40">
+										Legend
+									</h3>
+									{types.map((type) => (
+										<div
+											key={type.id}
+											className="flex items-center gap-2"
+										>
+											<div
+												className="w-2 h-2 rounded-full"
+												style={{ backgroundColor: type.color }}
+											/>
+											<span className="text-[10px] opacity-50">
+												{type.label}
+											</span>
+										</div>
+									))}
+								</div>
+							</div>
+						</TabsContent>
+						<TabsContent
+							className="flex-1 flex flex-col m-0 overflow-hidden"
+							value="groups"
+						>
+							<div className="h-full py-4">
+								<div className="px-4 flex items-center justify-between">
+									<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
+										Groups
+									</h2>
+									<button
+										onClick={() =>
+											addGroup({
+												name: `Group ${groups.length + 1}`,
+												color: `hsl(${Math.round(Math.random() * 360)}, 70%, 50%)`,
+											})
+										}
+										className="p-1 hover:bg-white/10 rounded"
+									>
+										<Plus className="w-4 h-4" />
+									</button>
+								</div>
+								<ScrollArea className="flex-1 px-4 h-full">
+									<div className="space-y-4 py-4">
+										{groups.map((group) => {
+											const members = allChars.filter(
+												(c) => c.groupId === group.id,
+											);
+											const unassigned = allChars
+												.filter((c) => !c.groupId || c.groupId === group.id)
+												.sort((a, b) => a.name.localeCompare(b.name));
+											return (
+												<div
+													key={group.id}
+													className="rounded-lg border border-white/10 overflow-hidden"
+												>
+													{/* Group header */}
+													<div className="p-3 bg-white/5 flex items-center gap-2">
+														<input
+															type="color"
+															value={group.color}
+															onChange={(e) =>
+																updateGroup({
+																	id: group.id,
+																	color: e.target.value,
+																})
+															}
+															className="w-4 h-4 bg-transparent border-none cursor-pointer shrink-0"
+														/>
+														<input
+															value={group.name}
+															onChange={(e) =>
+																updateGroup({
+																	id: group.id,
+																	name: e.target.value,
+																})
+															}
+															className="flex-1 bg-transparent text-sm font-medium focus:outline-none"
+														/>
+														<button
+															onClick={() => deleteGroup(group.id)}
+															className="p-1 opacity-0 hover:opacity-100 hover:text-red-400 group-hover:opacity-50"
+														>
+															<Trash2 className="w-3 h-3" />
+														</button>
+													</div>
+
+													{/* Members */}
+													<div className="p-2 space-y-1">
+														{members.map((char) => (
+															<div
+																key={char.id}
+																className="flex items-center gap-2 p-1.5 rounded hover:bg-white/5"
+															>
+																<Avatar className="size-6">
+																	<AvatarImage src={char.avatar} />
+																	<AvatarFallback className="text-[8px]">
+																		{char.name.slice(0, 2)}
+																	</AvatarFallback>
+																</Avatar>
+																<span className="text-xs flex-1 truncate">
+																	{char.name}
+																</span>
+																<button
+																	onClick={() =>
+																		assignCharacterToGroup(
+																			char.id,
+																			undefined,
+																		)
+																	}
+																	className="p-0.5 opacity-30 hover:opacity-100 hover:text-red-400"
+																>
+																	<X className="w-3 h-3" />
+																</button>
+															</div>
+														))}
+
+														{/* Add character dropdown */}
+														<Select
+															value=""
+															onValueChange={(val) => {
+																if (val) {
+																	assignCharacterToGroup(val, group.id);
+																}
+															}}
+														>
+															<SelectTrigger className="w-full mt-1 p-1.5 rounded bg-white/5 border border-dashed border-white/10 text-[10px] opacity-50 hover:opacity-80 h-auto min-h-0">
+																<SelectValue placeholder="+ Add character..." />
+															</SelectTrigger>
+															<SelectContent>
+																<SelectGroup>
+																	{unassigned
+																		.filter((c) => c.groupId !== group.id)
+																		.map((c) => (
+																			<SelectItem key={c.id} value={c.id}>
+																				{c.name}
+																			</SelectItem>
+																		))}
+																</SelectGroup>
+															</SelectContent>
+														</Select>
+													</div>
+												</div>
+											);
+										})}
+
+										{/* Ungrouped characters */}
+										{allChars.filter((c) => !c.groupId).length > 0 && (
+											<div className="rounded-lg border border-white/10 border-dashed overflow-hidden">
+												<div className="p-3 bg-white/5">
+													<span className="text-[10px] font-mono uppercase tracking-widest opacity-30">
+														Ungrouped ({allChars.filter((c) => !c.groupId).length})
+													</span>
+												</div>
+												<div className="p-2 space-y-1">
+													{allChars
+														.filter((c) => !c.groupId)
+														.map((char) => (
+															<div
+																key={char.id}
+																className="flex items-center gap-2 p-1.5 rounded hover:bg-white/5"
+															>
+																<Avatar className="size-6">
+																	<AvatarImage src={char.avatar} />
+																	<AvatarFallback className="text-[8px]">
+																		{char.name.slice(0, 2)}
+																	</AvatarFallback>
+																</Avatar>
+																<span className="text-xs flex-1 truncate opacity-40">
+																	{char.name}
+																</span>
+															</div>
+														))}
+												</div>
+											</div>
+										)}
+									</div>
+								</ScrollArea>
+							</div>
+						</TabsContent>
+						<TabsContent
+							className="flex-1 flex flex-col m-0 overflow-hidden"
 							value="types"
 						>
 							<div className="h-full space-y-4">
@@ -130,6 +362,7 @@ export default function Sidebar() {
 												label: "",
 												color: "",
 												description: "",
+												value: 0,
 											})
 										}
 										className="p-1 hover:bg-white/10 rounded"
@@ -213,7 +446,33 @@ export default function Sidebar() {
 											}}
 											className="p-1 hover:bg-white/10 rounded text-[10px] uppercase font-bold flex items-center gap-1"
 										>
-											<Plus className="w-3 h-3" /> Import File
+											<Plus className="w-3 h-3" /> Import
+										</button>
+										<button
+											onClick={() => {
+												const data = {
+													version: "1.0.0",
+													characters: allChars,
+													relationshipTypes: types,
+													relationships: relationships,
+													groups: groups,
+												};
+												const blob = new Blob(
+													[JSON.stringify(data, null, 2)],
+													{ type: "application/json" },
+												);
+												const url = URL.createObjectURL(blob);
+												const a = document.createElement("a");
+												a.href = url;
+												a.download = `charel-export-${new Date().toISOString().split("T")[0]}.json`;
+												document.body.appendChild(a);
+												a.click();
+												document.body.removeChild(a);
+												URL.revokeObjectURL(url);
+											}}
+											className="p-1 hover:bg-white/10 rounded text-[10px] uppercase font-bold flex items-center gap-1"
+										>
+											<Download className="w-3 h-3" /> Export
 										</button>
 									</div>
 								</div>
@@ -225,6 +484,7 @@ export default function Sidebar() {
 												characters: allChars,
 												relationshipTypes: types,
 												relationships: relationships,
+												groups: groups,
 											},
 											null,
 											2,
