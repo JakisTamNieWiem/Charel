@@ -87,33 +87,32 @@ export default function CharacterGraph() {
 					(r.fromId === selectedId && r.toId === char.id) ||
 					(r.fromId === char.id && r.toId === selectedId),
 			);
-
 			return rels.map((rel, idx: number) => {
 				const isFromCenter = rel.fromId === selectedId;
 				const type = types.find((t) => t.id === rel.typeId);
-				const offset = (idx - (rels.length - 1) / 2) * 30;
 
-				// THE FIX: Define arrow length purely on the X-axis
-				// Start at the edge of the center circle
-				const startX = centerRadius + 2;
-				// End at the edge of the related character circle
-				const endX = radius - relatedRadius - 2;
+				// 1. GAP CALCULATION
+				// This dictates how many pixels apart the parallel lines will be.
+				// 16px is usually perfect for 2px stroke lines.
+				const gap = 12;
+				const offset = (idx - (rels.length - 1) / 2) * gap;
 
-				// If arrow is going OUTWARDS, we draw it from left to right
-				// If arrow is going INWARDS, we draw it from right to left
+				// 2. DEFINE X COORDINATES
+				const padding = 4;
+				const startX = centerRadius + padding;
+				const endX = radius - relatedRadius - padding;
+
+				// Determine direction (Left->Right or Right->Left)
 				const actualStartX = isFromCenter ? startX : endX;
 				const actualEndX = isFromCenter ? endX : startX;
 
-				const midX = (actualStartX + actualEndX) / 2;
-				const cpX = midX;
-				const cpY = offset; // This creates the curve
+				// 3. THE FIX: Draw perfectly straight parallel lines
+				// We shift the entire line UP or DOWN on the Y-axis by the offset.
+				const path = `M ${actualStartX} ${offset} L ${actualEndX} ${offset}`;
 
-				// Calculate the path (strictly on the X-axis!)
-				const path = `M ${actualStartX} 0 Q ${cpX} ${cpY} ${actualEndX} 0`;
-
-				// Calculate center of curve for tooltip anchor
-				const curveMidX = midX;
-				const curveMidY = offset / 2;
+				// 4. Center point for the tooltip anchor
+				const curveMidX = (actualStartX + actualEndX) / 2;
+				const curveMidY = offset;
 
 				return { rel, type, path, angleDeg, curveMidX, curveMidY };
 			});
@@ -340,7 +339,7 @@ export default function CharacterGraph() {
 	return (
 		<div
 			className={cn(
-				"w-full h-full overflow-hidden touch-none",
+				"w-full h-full overflow-hidden touch-none select-none",
 				isDragging ? "cursor-grabbing" : "cursor-grab",
 			)}
 			onWheel={handleWheel}
@@ -376,13 +375,13 @@ export default function CharacterGraph() {
 						<marker
 							key={t.id}
 							id={`arrowhead-${t.id}`}
-							markerWidth="10"
-							markerHeight="7"
-							refX="10"
-							refY="3.5"
+							markerWidth="7"
+							markerHeight="5"
+							refX="7"
+							refY="2.5"
 							orient="auto"
 						>
-							<polygon points="0 0, 10 3.5, 0 7" fill={t.color} />
+							<polygon points="0 0, 7 2.5, 0 5" fill={t.color} />
 						</marker>
 					))}
 				</defs>
