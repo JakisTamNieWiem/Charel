@@ -90,6 +90,10 @@ export default function CharacterGraph() {
 			return rels.map((rel, idx: number) => {
 				const isFromCenter = rel.fromId === selectedId;
 				const type = types.find((t) => t.id === rel.typeId);
+				const typeValue = rel.value ?? type?.value ?? 0;
+				const absValue = Math.abs(typeValue);
+				const strokeW = 1 + absValue * 3;
+				const edgeOpacity = 0.3 + absValue * 0.7;
 
 				// 1. GAP CALCULATION
 				// This dictates how many pixels apart the parallel lines will be.
@@ -114,7 +118,16 @@ export default function CharacterGraph() {
 				const curveMidX = (actualStartX + actualEndX) / 2;
 				const curveMidY = offset;
 
-				return { rel, type, path, angleDeg, curveMidX, curveMidY };
+				return {
+					rel,
+					type,
+					path,
+					angleDeg,
+					curveMidX,
+					curveMidY,
+					strokeW,
+					edgeOpacity,
+				};
 			});
 		});
 	}, [selectedId, relatedCharacters, relationships, types, radius]);
@@ -130,7 +143,16 @@ export default function CharacterGraph() {
 		return (
 			<g ref={gRef} transform="translate(0, 0) scale(1)">
 				{relationshipData.map(
-					({ rel, type, path, angleDeg, curveMidX, curveMidY }) => {
+					({
+						rel,
+						type,
+						path,
+						angleDeg,
+						curveMidX,
+						curveMidY,
+						strokeW,
+						edgeOpacity,
+					}) => {
 						const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}`;
 						const isActive =
 							hoveredRel &&
@@ -220,16 +242,16 @@ export default function CharacterGraph() {
 									stroke-linecap="round"
 									stroke-linejoin="round"
 									stroke={type?.color || "#fff"}
-									strokeWidth="2"
+									strokeWidth={strokeW}
 									markerEnd={`url(#arrowhead-${rel.typeId})`}
-									className={cn(
-										"transition-opacity pointer-events-none",
+									opacity={
 										hoveredRel &&
-											`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}` ===
-												relId
-											? "opacity-100"
-											: "opacity-60",
-									)}
+										`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}` ===
+											relId
+											? 1
+											: edgeOpacity
+									}
+									className="pointer-events-none"
 								/>
 							</g>
 						);
