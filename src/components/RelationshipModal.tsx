@@ -1,14 +1,13 @@
-import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { Character, Relationship, RelationshipType } from "@/types";
 import { Button } from "./ui/button";
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "./ui/dialog";
 import { Field, FieldGroup } from "./ui/field";
 import { Label } from "./ui/label";
@@ -23,38 +22,25 @@ import {
 } from "./ui/select";
 import { Textarea } from "./ui/textarea";
 
-interface BaseRelationshipModalProps {
+interface RelationshipModalProps {
 	fromId: string;
 	characters: Character[];
+	initialData?: Relationship;
 	types: RelationshipType[];
 	onSave: (formData: Relationship) => void;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }
-
-// 2. Define Create mode (explicitly marking optional properties as undefined)
-interface CreateRelationshipModalProps extends BaseRelationshipModalProps {
-	initialData?: undefined;
-	children?: undefined;
-}
-
-// 3. Define Edit mode (making both required)
-interface EditRelationshipModalProps extends BaseRelationshipModalProps {
-	initialData: Relationship;
-	children: React.ReactNode;
-}
-
-type RelationshipModalProps =
-	| CreateRelationshipModalProps
-	| EditRelationshipModalProps;
 
 export default function RelationshipModal({
-	children,
 	fromId,
 	initialData,
 	characters,
 	types,
 	onSave,
+	open,
+	onOpenChange,
 }: RelationshipModalProps) {
-	const [open, setOpen] = useState(false);
 	const [formData, setFormData] = useState(
 		initialData || {
 			fromId,
@@ -65,19 +51,10 @@ export default function RelationshipModal({
 	);
 
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>
-				{initialData ? (
-					children
-				) : (
-					<Button className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2">
-						<Plus className="w-4 h-4" /> New Relation
-					</Button>
-				)}
-			</DialogTrigger>
+		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>
+					<DialogTitle className="underline underline-offset-8">
 						{initialData ? "Edit Relation" : "New Relation"}
 					</DialogTitle>
 				</DialogHeader>
@@ -100,7 +77,7 @@ export default function RelationshipModal({
 								<SelectGroup>
 									<SelectLabel>Relationships</SelectLabel>
 
-									{characters
+									{[...characters]
 										.sort((a, b) => a.name.localeCompare(b.name))
 										.map((c) => (
 											<SelectItem
@@ -132,7 +109,7 @@ export default function RelationshipModal({
 								<SelectGroup>
 									<SelectLabel>Relationships</SelectLabel>
 
-									{types
+									{[...types]
 										.sort((a, b) => a.label.localeCompare(b.label))
 										.map((t) => (
 											<SelectItem
@@ -162,18 +139,19 @@ export default function RelationshipModal({
 					</Field>
 				</FieldGroup>
 				<DialogFooter className="flex gap-3 pt-4">
-					<Button
-						variant={"secondary"}
-						onClick={() => setOpen(false)}
-						className="flex-1 p-3 border transition-colors uppercase text-xs font-bold tracking-widest"
-					>
-						Cancel
-					</Button>
+					<DialogClose asChild>
+						<Button
+							variant={"secondary"}
+							className="flex-1 p-3 border uppercase text-xs font-bold tracking-widest"
+						>
+							Cancel
+						</Button>
+					</DialogClose>
 					<Button
 						variant={"default"}
 						onClick={() => {
 							onSave(formData);
-							setOpen(false);
+							onOpenChange(false);
 						}}
 						className="flex-1 p-3 uppercase text-xs font-bold tracking-widest"
 					>

@@ -1,40 +1,45 @@
 import { Edit2, FileJson, Plus, Settings, Trash2, Users } from "lucide-react";
+import { useState } from "react";
+import CharacterModal from "@/components/CharacterModal";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
-import CharacterModal from "./CharacterModal";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Button } from "./ui/button";
+import type { RelationshipType } from "@/types";
+import TypeModal from "./TypeModal";
 
 export default function Sidebar() {
 	const importData = useGraphStore((state) => state.importData);
 	const allChars = useGraphStore((state) => state.characters);
-	const types = useGraphStore((state) => state.types);
+	const types = useGraphStore((state) => state.relationshipTypes);
 	const relationships = useGraphStore((state) => state.relationships);
 
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 
-	const addCharacter = useGraphStore((state) => state.addCharacter);
-
-	const updateCharacter = useGraphStore((state) => state.updateCharacter);
-
 	const deleteCharacter = useGraphStore((state) => state.deleteCharacter);
 
 	const deleteType = useGraphStore((state) => state.deleteType);
 
+	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
+
 	return (
 		<>
-			<div className="bg-[#141414] border-r border-white/10 relative flex flex-col overflow-hidden">
-				<div className="w-80 h-full flex items-center justify-between border-bottom border-white/10">
-					<Tabs defaultValue="characters" className="size-full flex gap-1">
-						<div className="p-4 flex justify-between">
-							<h1 className="text-xl font-bold tracking-tighter flex items-center gap-2 italic serif">
+			<div className="w-80 *:bg-[#141414] border-r border-white/10 relative flex flex-col">
+				<div className="h-full flex items-center justify-between border-bottom border-white/10">
+					<Tabs
+						defaultValue="characters"
+						className="flex flex-col h-full w-full "
+					>
+						<div className="p-4 flex w-full justify-between">
+							<h1 className="text-xl font-bold tracking-tighter flex items-center gap-2  serif">
 								<Users className="w-5 h-5" />
-								SEK REL MGR
+								Charel
 							</h1>
-							<TabsList>
+							<TabsList className="shrink-0">
 								<TabsTrigger value="characters">
 									<Users className="w-4 h-4" />
 								</TabsTrigger>
@@ -47,11 +52,11 @@ export default function Sidebar() {
 							</TabsList>
 						</div>
 						<TabsContent
-							className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+							className="flex-1 flex flex-col m-0 overflow-hidden"
 							value="characters"
 						>
-							<div className="space-y-4">
-								<div className="flex items-center justify-between">
+							<div className="h-full py-4">
+								<div className="px-4 flex items-center justify-between">
 									<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 										Characters
 									</h2>
@@ -62,115 +67,111 @@ export default function Sidebar() {
 											description: "",
 											avatar: "",
 										}}
-										onSave={addCharacter}
 									/>
 								</div>
-								<div className="space-y-2">
-									{allChars.map((char) => (
-										<div
-											key={char.id}
-											onClick={() => setSelectedCharId(char.id)}
-											className={cn(
-												"group px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3",
-												selectedId === char.id
-													? "bg-white/10 border-white/20"
-													: "bg-transparent border-transparent hover:bg-white/5",
-											)}
-										>
-											<Avatar size="lg">
-												<AvatarImage src={char.avatar} />
-												<AvatarFallback>{char.name}</AvatarFallback>
-											</Avatar>
 
-											<div className="flex-1 min-w-0">
-												<h3 className="font-medium truncate">{char.name}</h3>
-												<p className="text-xs opacity-50 truncate">
-													{char.description}
-												</p>
+								<ScrollArea className="flex-1 px-4 h-full">
+									<div className="space-y-2 py-4">
+										{allChars.map((char) => (
+											<div
+												key={char.id}
+												onClick={() => setSelectedCharId(char.id)}
+												className={cn(
+													"group px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3",
+													selectedId === char.id
+														? "bg-white/10 border-white/20"
+														: "bg-transparent border-transparent hover:bg-white/5",
+												)}
+											>
+												<Avatar className="size-14">
+													<AvatarImage src={char.avatar} />
+													<AvatarFallback>{char.name}</AvatarFallback>
+												</Avatar>
+
+												<div className="flex-1 min-w-0">
+													<h3 className="font-medium truncate">{char.name}</h3>
+													<p className="text-xs opacity-50 truncate">
+														{char.description}
+													</p>
+												</div>
+												<div className="opacity-0 group-hover:opacity-100 flex flex-col">
+													<CharacterModal char={char} />
+													<Button
+														size="icon-sm"
+														variant="ghost"
+														onClick={(e) => {
+															e.stopPropagation();
+															deleteCharacter(char.id);
+														}}
+														className="p-1 hover:text-red-400 hover:bg-transparent!"
+													>
+														<Trash2 className="w-3 h-3" />
+													</Button>
+												</div>
 											</div>
-											<div className="opacity-0 group-hover:opacity-100 flex flex-col">
-												<CharacterModal
-													char={{
-														id: "1",
-														name: "",
-														description: "",
-														avatar: "",
-													}}
-													onSave={updateCharacter}
-												></CharacterModal>
-												<Button
-													size="icon-sm"
-													variant="ghost"
-													onClick={(e) => {
-														e.stopPropagation();
-														deleteCharacter(char.id);
-													}}
-													className="p-1 hover:text-red-400 hover:bg-transparent!"
-												>
-													<Trash2 className="w-3 h-3" />
-												</Button>
-											</div>
-										</div>
-									))}
-								</div>
+										))}
+									</div>
+								</ScrollArea>
 							</div>
 						</TabsContent>
 						<TabsContent
-							className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+							className="flex-1 flex flex-col m-0 overflow-hidden"
 							value="types"
 						>
-							<div className="space-y-4">
-								<div className="flex items-center justify-between">
+							<div className="h-full space-y-4">
+								<div className="px-4 flex items-center justify-between">
 									<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 										Link Types
 									</h2>
 									<button
-										// onClick={() =>
-										// 	setEditingType({
-										// 		id: "",
-										// 		label: "",
-										// 		color: "#ffffff",
-										// 		description: "",
-										// 	})
-										// }
+										onClick={() =>
+											setEditingType({
+												id: "",
+												label: "",
+												color: "",
+												description: "",
+											})
+										}
 										className="p-1 hover:bg-white/10 rounded"
 									>
 										<Plus className="w-4 h-4" />
 									</button>
 								</div>
-								<div className="space-y-2">
-									{types.map((type) => (
-										<div
-											key={type.id}
-											className="group p-3 rounded-lg bg-white/5 border border-white/10 flex items-center gap-3"
-										>
+								<ScrollArea className="flex-1 px-4 h-full">
+									<div className="space-y-2">
+										{types.map((type) => (
 											<div
-												className="w-3 h-3 rounded-full"
-												style={{ backgroundColor: type.color }}
-											/>
-											<div className="flex-1">
-												<h3 className="text-sm font-medium">{type.label}</h3>
-												<p className="text-[10px] opacity-50">
-													{type.description}
-												</p>
+												key={type.id}
+												className="group p-3 rounded-lg bg-white/5 border border-white/10 flex items-center gap-3"
+											>
+												<div
+													className="w-3 h-3 rounded-full"
+													style={{ backgroundColor: type.color }}
+												/>
+												<div className="flex-1">
+													<h3 className="text-sm font-medium">{type.label}</h3>
+													<p className="text-[10px] opacity-50">
+														{type.description}
+													</p>
+												</div>
+												<div className="opacity-0 group-hover:opacity-100 flex gap-1">
+													<button
+														onClick={() => setEditingType(type)}
+														className="p-1 hover:text-blue-400"
+													>
+														<Edit2 className="w-3 h-3" />
+													</button>
+													<button
+														onClick={() => deleteType(type.id)}
+														className="p-1 hover:text-red-400"
+													>
+														<Trash2 className="w-3 h-3" />
+													</button>
+												</div>
 											</div>
-											<div className="opacity-0 group-hover:opacity-100 flex gap-1">
-												<button
-													// onClick={() => setEditingType(type)}
-													className="p-1 hover:text-blue-400"
-												>
-													<Edit2 className="w-3 h-3" />
-												</button>
-												<button
-													onClick={() => deleteType(type.id)}
-													className="p-1 hover:text-red-400"
-												>
-													<Trash2 className="w-3 h-3" />
-												</button>
-											</div>
-										</div>
-									))}
-								</div>
+										))}
+									</div>
+								</ScrollArea>
 							</div>
 						</TabsContent>
 						<TabsContent
@@ -219,7 +220,12 @@ export default function Sidebar() {
 								<div className="h-9/12 relative group">
 									<textarea
 										value={JSON.stringify(
-											{ allChars, types, relationships },
+											{
+												version: "1.0.0",
+												characters: allChars,
+												relationshipTypes: types,
+												relationships: relationships,
+											},
 											null,
 											2,
 										)}
@@ -280,7 +286,15 @@ export default function Sidebar() {
 					</Tabs>
 				</div>
 			</div>
-
+			{editingType && (
+				<TypeModal
+					type={editingType}
+					open={!!editingType}
+					onOpenChange={(open) => {
+						if (!open) setEditingType(null);
+					}}
+				/>
+			)}
 			{/* Toggle Sidebar Button */}
 			{/* <button
 				onClick={() => setSidebarOpen(!sidebarOpen)}

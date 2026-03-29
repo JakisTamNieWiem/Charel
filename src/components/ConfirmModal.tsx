@@ -32,7 +32,9 @@ export default function ConfirmModal({
 			</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>{title}</DialogTitle>
+					<DialogTitle className="underline underline-offset-8">
+						{title}
+					</DialogTitle>
 				</DialogHeader>
 
 				<p className="text-sm opacity-70">{message}</p>

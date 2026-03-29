@@ -1,65 +1,106 @@
 import { AnimatePresence } from "motion/react";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import RelationshipModal from "@/components/RelationshipModal";
 import Sidebar from "@/components/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Relationship, RelationshipType } from "@/types";
+import type { RelationshipType } from "@/types";
 import "./styles.css";
+import { Plus } from "lucide-react";
+import { Button } from "./components/ui/button";
+import { loadFromDisk, saveToDisk } from "./lib/storage";
 
 function App() {
 	// Zustand Store
-
+	const [isLoaded, setIsLoaded] = useState(false);
 	const selectedId = useGraphStore((state) => state.selectedCharId);
-	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 	const allChars = useGraphStore((state) => state.characters);
-	const relationships = useGraphStore((state) => state.relationships);
-	const types = useGraphStore((state) => state.types);
+
+	const types = useGraphStore((state) => state.relationshipTypes);
 
 	// Handlers
 
-	const addType = useGraphStore((state) => state.addType);
-
-	const updateType = useGraphStore((state) => state.updateType);
-
 	const addRelationship = useGraphStore((state) => state.addRelationship);
 
-	const deleteRelationship = useGraphStore((state) => state.deleteRelationship);
-
-	const updateRelationship = useGraphStore((state) => state.updateRelationship);
-
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
-	const [showRelModal, setShowRelModal] = useState(false);
-	const [editingRel, setEditingRel] = useState<Relationship | null>(null);
-	const [deletingRel, setDeletingRel] = useState<{
-		fromId: string;
-		toId: string;
-		typeId: string;
-	} | null>(null);
+	const [openRelModal, setOpenRelModal] = useState(false);
 
 	// Derived state
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
 	);
 
-	const relatedCharacters = useMemo(() => {
-		if (!selectedId) return [];
-		const rels = relationships.filter(
-			(r) => r.fromId === selectedId || r.toId === selectedId,
-		);
-		const ids = new Set(rels.flatMap((r) => [r.fromId, r.toId]));
-		ids.delete(selectedId);
-		return allChars.filter((c) => ids.has(c.id));
-	}, [allChars, relationships, selectedId]);
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.ctrlKey && e.key === "z") {
+				useGraphStore.temporal.getState().undo();
+			}
+			if (e.ctrlKey && e.shiftKey && e.key === "z") {
+				useGraphStore.temporal.getState().redo();
+			}
+		};
 
-	const activeRelationships = useMemo(() => {
-		if (!selectedId) return [];
-		return relationships.filter(
-			(r) => r.fromId === selectedId || r.toId === selectedId,
-		);
-	}, [relationships, selectedId]);
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, []);
+	useEffect(() => {
+		// 1. Load data on startup
+		const initStorage = async () => {
+			const savedData = await loadFromDisk();
+			if (savedData) {
+				// Assuming your store has an importData action
+				// that sets { characters, relationships, types }
+				useGraphStore.getState().importData(savedData);
+			} else {
+				// FIRST LAUNCH: No save file exists.
+				// The store is already using `defaultData`.
+				// Let's instantly save this default state to disk so the file is created.
+				const initialState = useGraphStore.getState();
+				await saveToDisk({
+					version: "1.0.0",
+					characters: initialState.characters,
+					relationships: initialState.relationships,
+					relationshipTypes: initialState.relationshipTypes,
+				});
+			}
+			setIsLoaded(true);
+		};
 
+		initStorage();
+
+		// 2. Subscribe to Zustand changes to Auto-Save
+		// This runs every time ANY state in useGraphStore changes
+		const unsubscribe = useGraphStore.subscribe((state, prevState) => {
+			// Don't save if we haven't finished the initial load yet
+			if (!isLoaded) return;
+
+			// Optional: Only save if the actual graph data changed (ignore UI state like selectedCharId)
+			if (
+				state.characters !== prevState.characters ||
+				state.relationships !== prevState.relationships ||
+				state.relationshipTypes !== prevState.relationshipTypes
+			) {
+				saveToDisk({
+					version: "1.0.0",
+					characters: state.characters,
+					relationships: state.relationships,
+					relationshipTypes: state.relationshipTypes,
+				});
+			}
+		});
+
+		return () => unsubscribe();
+	}, [isLoaded]);
+
+	// Prevent rendering the app until data is loaded from disk to prevent flashing
+	if (!isLoaded) {
+		return (
+			<div className="w-screen h-screen bg-[#141414] flex items-center justify-center text-white/50 tracking-widest uppercase text-xs">
+				Initializing Secure Storage...
+			</div>
+		);
+	}
 	return (
 		<div className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
 			{/* Sidebar */}
@@ -76,12 +117,23 @@ function App() {
 							{selectedCharacter?.description}
 						</p>
 					</div>
+					<Button
+						onClick={(e) => {
+							e.preventDefault();
+							setOpenRelModal(true);
+						}}
+						className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
+					>
+						<Plus className="w-4 h-4" /> New Relation
+					</Button>
 					{selectedId && (
 						<RelationshipModal
 							fromId={selectedId}
 							characters={allChars}
 							types={types}
 							onSave={addRelationship}
+							open={openRelModal}
+							onOpenChange={setOpenRelModal}
 						/>
 					)}
 				</header>
@@ -89,16 +141,7 @@ function App() {
 				{/* Graph Area */}
 				<div className="flex-1 relative overflow-hidden">
 					{selectedCharacter ? (
-						<CharacterGraph
-							centerChar={selectedCharacter}
-							relatedChars={relatedCharacters}
-							allChars={allChars}
-							relationships={activeRelationships}
-							types={types}
-							onSelect={setSelectedCharId}
-							onDeleteRel={deleteRelationship}
-							onEditRel={updateRelationship}
-						/>
+						<CharacterGraph />
 					) : (
 						<h1>Character not found</h1>
 					)}
@@ -131,10 +174,10 @@ function App() {
 				{editingType && (
 					<TypeModal
 						type={editingType}
-						onClose={() => setEditingType(null)}
-						onSave={(t: RelationshipType) =>
-							editingType.id ? updateType(t) : addType(t)
-						}
+						open={!!editingType}
+						onOpenChange={(open) => {
+							if (!open) setEditingType(null);
+						}}
 					/>
 				)}
 			</AnimatePresence>

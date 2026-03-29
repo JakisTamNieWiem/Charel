@@ -7,7 +7,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
 		<ThemeProvider>
-			<TooltipProvider>
+			<TooltipProvider delayDuration={0} skipDelayDuration={0}>
 				<App />
 			</TooltipProvider>
 		</ThemeProvider>

@@ -1,13 +1,29 @@
+import { temporal } from "zundo";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { JsonData } from "@/lib/storage";
 // Import your JSON file to use as the default state!
-import defaultData from "@/data/data.json";
 import type { Character, Relationship, RelationshipType } from "@/types";
 
+const defaultData = {
+	characters: [] as Character[], // You can put your 37 characters here if you want them built-in!
+	relationships: [] as Relationship[],
+	relationshipTypes: [
+		{ id: "friend", label: "Positive", color: "#1a9548", description: "" },
+		{
+			id: "negative",
+			label: "Negative",
+			color: "#6a0000",
+			description: "",
+		},
+		{ id: "neutral", label: "Neutral", color: "#808080", description: "" },
+		// ... add your other default Polish relationship types here
+	] as RelationshipType[],
+};
 interface GraphState {
 	// --- STATE ---
 	characters: Character[];
-	types: RelationshipType[];
+	relationshipTypes: RelationshipType[];
 	relationships: Relationship[];
 	selectedCharId: string | null;
 
@@ -30,17 +46,15 @@ interface GraphState {
 	deleteRelationship: (fromId: string, toId: string, typeId: string) => void;
 
 	// --- UTILITIES ---
-	importData: (importedJson: any) => void;
+	importData: (importedJson: JsonData) => void;
 	resetToDefault: () => void;
 }
 
 export const useGraphStore = create<GraphState>()(
 	persist(
-		(set) => ({
+		temporal((set) => ({
 			// Initialize with your JSON data
-			characters: defaultData.characters,
-			types: defaultData.relationshipTypes,
-			relationships: defaultData.relationships,
+			...defaultData,
 			selectedCharId: null,
 
 			// --- UI ---
@@ -76,19 +90,22 @@ export const useGraphStore = create<GraphState>()(
 			// --- RELATIONSHIP TYPES ---
 			addType: (type) =>
 				set((state) => ({
-					types: [...state.types, { ...type, id: crypto.randomUUID() }],
+					relationshipTypes: [
+						...state.relationshipTypes,
+						{ ...type, id: crypto.randomUUID() },
+					],
 				})),
 
 			updateType: (type) =>
 				set((state) => ({
-					types: state.types.map((t) =>
+					relationshipTypes: state.relationshipTypes.map((t) =>
 						t.id === type.id ? { ...t, ...type } : t,
 					),
 				})),
 
 			deleteType: (id) =>
 				set((state) => ({
-					types: state.types.filter((t) => t.id !== id),
+					relationshipTypes: state.relationshipTypes.filter((t) => t.id !== id),
 					// CASCADING DELETE: Remove any relationships that used this deleted type
 					relationships: state.relationships.filter((r) => r.typeId !== id),
 				})),
@@ -122,7 +139,7 @@ export const useGraphStore = create<GraphState>()(
 			resetToDefault: () =>
 				set({
 					characters: defaultData.characters,
-					types: defaultData.relationshipTypes,
+					relationshipTypes: defaultData.relationshipTypes,
 					relationships: defaultData.relationships,
 					selectedCharId: null,
 				}),
@@ -130,11 +147,11 @@ export const useGraphStore = create<GraphState>()(
 				set(() => ({
 					characters: importedJson.characters || [],
 					// Support both "relationshipTypes" (from raw json) or "types" (if exported from store)
-					types: importedJson.relationshipTypes || importedJson.types || [],
+					relationshipTypes: importedJson.relationshipTypes || [],
 					relationships: importedJson.relationships || [],
 					selectedCharId: null, // Reset selection so we don't look for an ID that no longer exists
 				})),
-		}),
+		})),
 		{
 			name: "npc-relationship-storage", // Key used in localStorage
 		},
