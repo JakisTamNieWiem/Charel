@@ -20,22 +20,46 @@ export default function NetworkGraph() {
 	const groups = useGraphStore((s) => s.groups);
 	const setSelectedCharId = useGraphStore((s) => s.setSelectedCharId);
 
+	// --- FORCE INITIAL RENDER STATE ---
+	const [isReady, setIsReady] = useState(false);
+
+	// --- REFS FOR DIRECT DOM MANIPULATION ---
 	const containerRef = useRef<HTMLDivElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
 	const gRef = useRef<SVGGElement>(null);
+
+	const nodeRefs = useRef<Map<string, SVGGElement>>(new Map());
+	const edgeRefs = useRef<Map<string, SVGLineElement>>(new Map());
+	const groupRefs = useRef<Map<string, SVGCircleElement>>(new Map());
+	const groupTextRefs = useRef<Map<string, SVGTextElement>>(new Map());
+
+	// --- PAN & DRAG STATE ---
 	const panRef = useRef({ x: 0, y: 0 });
 	const scaleRef = useRef(1);
+	const dragStartRef = useRef({ x: 0, y: 0 });
+	const rafRef = useRef<number | null>(null);
+
 	const isDraggingRef = useRef(false);
 	const [isDragging, setIsDragging] = useState(false);
 	const dragNodeRef = useRef<string | null>(null);
 	const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
-	// Force simulation
+	// --- PHYSICS ENGINE STATE ---
 	const nodesRef = useRef<Node[]>([]);
 	const animFrameRef = useRef<number>(0);
-	const [tick, setTick] = useState(0);
+	const clustersRef = useRef<Map<string, number>>(new Map());
+	const nodeRadius = 24;
 
-	// Initialize nodes with positions
+	const getMousePositionInSVG = (e: React.PointerEvent) => {
+		if (!svgRef.current) return { x: 0, y: 0 };
+		const svg = svgRef.current;
+		const pt = svg.createSVGPoint();
+		pt.x = e.clientX;
+		pt.y = e.clientY;
+		return pt.matrixTransform(svg.getScreenCTM()!.inverse());
+	};
+
+	// 1. Initialize nodes & trigger first render!
 	useEffect(() => {
 		const existing = new Map(nodesRef.current.map((n) => [n.id, n]));
 		const angle = (2 * Math.PI) / Math.max(allChars.length, 1);
@@ -43,7 +67,12 @@ export default function NetworkGraph() {
 
 		nodesRef.current = allChars.map((c, i) => {
 			const prev = existing.get(c.id);
-			if (prev) return { ...prev, name: c.name, avatar: c.avatar };
+			if (prev) {
+				// Keep existing physics velocity/position but update text/image
+				prev.name = c.name;
+				prev.avatar = c.avatar;
+				return prev;
+			}
 			return {
 				id: c.id,
 				x: initRadius * Math.cos(i * angle),
@@ -54,23 +83,21 @@ export default function NetworkGraph() {
 				avatar: c.avatar,
 			};
 		});
+
+		// THE FIX: Tell React the nodes are ready so it draws them into the DOM!
+		setIsReady(true);
 	}, [allChars]);
 
-	// Clustering: use user-defined groups, fall back to label propagation for ungrouped
-	const clustersRef = useRef<Map<string, number>>(new Map());
-
+	// 2. Clustering logic
 	useEffect(() => {
 		const clusterMap = new Map<string, number>();
 		const hasGroups = groups.length > 0;
 
 		if (hasGroups) {
-			// Use user-defined groups
 			const groupIdToIdx = new Map<string, number>();
 			let idx = 0;
-			for (const g of groups) {
-				groupIdToIdx.set(g.id, idx++);
-			}
-			const ungroupedIdx = idx; // ungrouped characters get their own cluster
+			for (const g of groups) groupIdToIdx.set(g.id, idx++);
+			const ungroupedIdx = idx;
 
 			for (const c of allChars) {
 				if (c.groupId && groupIdToIdx.has(c.groupId)) {
@@ -80,7 +107,6 @@ export default function NetworkGraph() {
 				}
 			}
 		} else {
-			// Label propagation fallback
 			const adj = new Map<string, Map<string, number>>();
 			for (const c of allChars) adj.set(c.id, new Map());
 			for (const r of relationships) {
@@ -90,9 +116,7 @@ export default function NetworkGraph() {
 			}
 
 			const labels = new Map<string, number>();
-			for (let i = 0; i < allChars.length; i++) {
-				labels.set(allChars[i].id, i);
-			}
+			for (let i = 0; i < allChars.length; i++) labels.set(allChars[i].id, i);
 
 			for (let pass = 0; pass < 20; pass++) {
 				let changed = false;
@@ -133,15 +157,13 @@ export default function NetworkGraph() {
 				clusterMap.set(c.id, labelToIdx.get(label) ?? 0);
 			}
 		}
-
 		clustersRef.current = clusterMap;
 	}, [allChars, relationships, groups]);
 
-	// Force simulation loop — restarts when relationships or groups change
+	// 3. Force simulation loop
 	useEffect(() => {
-		// groups is read indirectly via clustersRef, but we need this effect
-		// to restart when groups change so cluster anchors are recomputed
-		void groups;
+		if (!isReady) return; // Wait until DOM nodes are mounted!
+
 		let running = true;
 		let coolingFactor = 1;
 		const DAMPING = 0.85;
@@ -151,11 +173,9 @@ export default function NetworkGraph() {
 		const MIN_DIST = 90;
 		const HARD_MIN = 70;
 
-		// Compute cluster centers for island gravity
 		const clusterMap = clustersRef.current;
 		const numClusters = new Set(clusterMap.values()).size;
 
-		// Place cluster anchors in a circle
 		const clusterAnchors = new Map<number, { x: number; y: number }>();
 		const clusterRadius = Math.max(700, numClusters * 300);
 		for (let i = 0; i < numClusters; i++) {
@@ -174,13 +194,11 @@ export default function NetworkGraph() {
 				return;
 			}
 
-			// Reset forces
 			for (const n of nodes) {
 				n.vx = 0;
 				n.vy = 0;
 			}
 
-			// Repulsion between all pairs
 			for (let i = 0; i < nodes.length; i++) {
 				for (let j = i + 1; j < nodes.length; j++) {
 					const a = nodes[i];
@@ -193,9 +211,7 @@ export default function NetworkGraph() {
 						dy = (Math.random() - 0.5) * 2;
 						dist = 1;
 					}
-					// Stronger repulsion between nodes in different clusters
-					const sameCluster =
-						clusterMap.get(a.id) === clusterMap.get(b.id);
+					const sameCluster = clusterMap.get(a.id) === clusterMap.get(b.id);
 					const rep = sameCluster ? REPULSION : REPULSION * 8;
 					const force = rep / (dist * dist);
 					const fx = (dx / dist) * force;
@@ -207,7 +223,6 @@ export default function NetworkGraph() {
 				}
 			}
 
-			// Hard separation
 			for (let i = 0; i < nodes.length; i++) {
 				for (let j = i + 1; j < nodes.length; j++) {
 					const a = nodes[i];
@@ -225,7 +240,6 @@ export default function NetworkGraph() {
 				}
 			}
 
-			// Attraction along edges (pulls connected nodes together)
 			const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 			for (const rel of relationships) {
 				const a = nodeMap.get(rel.fromId);
@@ -244,35 +258,79 @@ export default function NetworkGraph() {
 				b.vy -= fy;
 			}
 
-			// Cluster gravity: pull each node toward its cluster anchor
 			const CLUSTER_GRAVITY = 0.035;
 			for (const n of nodes) {
 				const ci = clusterMap.get(n.id);
-				const anchor =
-					ci !== undefined ? clusterAnchors.get(ci) : undefined;
+				const anchor = ci !== undefined ? clusterAnchors.get(ci) : undefined;
 				if (anchor) {
 					n.vx += (anchor.x - n.x) * CLUSTER_GRAVITY;
 					n.vy += (anchor.y - n.y) * CLUSTER_GRAVITY;
 				}
 			}
 
-			// Light global center gravity (keeps everything on screen)
 			for (const n of nodes) {
 				n.vx -= n.x * CENTER_GRAVITY;
 				n.vy -= n.y * CENTER_GRAVITY;
 			}
 
-			// Apply velocities with damping and cooling
 			for (const n of nodes) {
-				if (dragNodeRef.current === n.id) continue;
-				n.vx *= DAMPING * coolingFactor;
-				n.vy *= DAMPING * coolingFactor;
-				n.x += n.vx;
-				n.y += n.vy;
+				if (dragNodeRef.current !== n.id) {
+					n.vx *= DAMPING * coolingFactor;
+					n.vy *= DAMPING * coolingFactor;
+					n.x += n.vx;
+					n.y += n.vy;
+				}
+
+				const nodeEl = nodeRefs.current.get(n.id);
+				if (nodeEl)
+					nodeEl.setAttribute("transform", `translate(${n.x}, ${n.y})`);
+			}
+
+			for (const rel of relationships) {
+				const from = nodeMap.get(rel.fromId);
+				const to = nodeMap.get(rel.toId);
+				const el = edgeRefs.current.get(
+					`${rel.fromId}-${rel.toId}-${rel.typeId}`,
+				);
+				if (from && to && el) {
+					el.setAttribute("x1", from.x.toString());
+					el.setAttribute("y1", from.y.toString());
+					el.setAttribute("x2", to.x.toString());
+					el.setAttribute("y2", to.y.toString());
+				}
+			}
+
+			for (const g of groups) {
+				const memberNodes = nodes.filter(
+					(n) => allChars.find((c) => c.id === n.id)?.groupId === g.id,
+				);
+				if (memberNodes.length === 0) continue;
+
+				const cx =
+					memberNodes.reduce((s, n) => s + n.x, 0) / memberNodes.length;
+				const cy =
+					memberNodes.reduce((s, n) => s + n.y, 0) / memberNodes.length;
+				const maxDist = Math.max(
+					...memberNodes.map((n) =>
+						Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2),
+					),
+				);
+				const r = maxDist + nodeRadius + 30;
+
+				const circleEl = groupRefs.current.get(g.id);
+				if (circleEl) {
+					circleEl.setAttribute("cx", cx.toString());
+					circleEl.setAttribute("cy", cy.toString());
+					circleEl.setAttribute("r", r.toString());
+				}
+				const textEl = groupTextRefs.current.get(g.id);
+				if (textEl) {
+					textEl.setAttribute("x", cx.toString());
+					textEl.setAttribute("y", (cy - r - 8).toString());
+				}
 			}
 
 			coolingFactor = Math.max(0.01, coolingFactor * 0.998);
-			setTick((t) => t + 1);
 			animFrameRef.current = requestAnimationFrame(simulate);
 		};
 
@@ -281,7 +339,7 @@ export default function NetworkGraph() {
 			running = false;
 			cancelAnimationFrame(animFrameRef.current);
 		};
-	}, [relationships, groups]);
+	}, [relationships, groups, allChars, isReady]);
 
 	const applyTransform = useCallback(() => {
 		if (gRef.current) {
@@ -304,46 +362,27 @@ export default function NetworkGraph() {
 		[applyTransform],
 	);
 
-	// tick in deps forces re-read of nodesRef on each simulation frame
-	void tick;
+	if (!isReady) {
+		return (
+			<div className="flex-1 h-full flex items-center justify-center bg-[#0a0a0a]">
+				Loading Graph...
+			</div>
+		);
+	}
+
 	const nodes = nodesRef.current;
 	const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-	const nodeRadius = 24;
-
-	// Build group visual data: bounding circle per group
 	const groupBubbles = groups
 		.map((g) => {
-			const memberNodes = nodes.filter((n) => {
-				const char = allChars.find((c) => c.id === n.id);
-				return char?.groupId === g.id;
-			});
-			if (memberNodes.length === 0) return null;
-
-			// Compute centroid
-			const cx =
-				memberNodes.reduce((s, n) => s + n.x, 0) / memberNodes.length;
-			const cy =
-				memberNodes.reduce((s, n) => s + n.y, 0) / memberNodes.length;
-
-			// Radius = distance to farthest member + padding
-			const maxDist = Math.max(
-				...memberNodes.map((n) =>
-					Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2),
-				),
+			const memberNodes = nodes.filter(
+				(n) => allChars.find((c) => c.id === n.id)?.groupId === g.id,
 			);
-			const r = maxDist + nodeRadius + 30;
-
-			return { id: g.id, name: g.name, color: g.color, cx, cy, r };
+			return memberNodes.length > 0
+				? { id: g.id, name: g.name, color: g.color }
+				: null;
 		})
-		.filter(Boolean) as {
-		id: string;
-		name: string;
-		color: string;
-		cx: number;
-		cy: number;
-		r: number;
-	}[];
+		.filter(Boolean) as { id: string; name: string; color: string }[];
 
 	return (
 		<div className="flex h-full">
@@ -355,24 +394,44 @@ export default function NetworkGraph() {
 				)}
 				onWheel={handleWheel}
 				onPointerDown={(e) => {
-					setIsDragging(true);
-					isDraggingRef.current = true;
 					e.currentTarget.setPointerCapture(e.pointerId);
+					const svgPt = getMousePositionInSVG(e);
+
+					if (!dragNodeRef.current) {
+						setIsDragging(true);
+						isDraggingRef.current = true;
+						dragStartRef.current = {
+							x: svgPt.x - panRef.current.x,
+							y: svgPt.y - panRef.current.y,
+						};
+					}
 				}}
 				onPointerMove={(e) => {
+					const svgPt = getMousePositionInSVG(e);
+
 					if (dragNodeRef.current) {
-						// Dragging a node
+						const nodeX = (svgPt.x - panRef.current.x) / scaleRef.current;
+						const nodeY = (svgPt.y - panRef.current.y) / scaleRef.current;
+
 						const node = nodesRef.current.find(
 							(n) => n.id === dragNodeRef.current,
 						);
 						if (node) {
-							node.x += e.movementX / scaleRef.current;
-							node.y += e.movementY / scaleRef.current;
+							node.x = nodeX;
+							node.y = nodeY;
+							node.vx = 0;
+							node.vy = 0;
 						}
 					} else if (isDraggingRef.current) {
-						panRef.current.x += e.movementX;
-						panRef.current.y += e.movementY;
-						applyTransform();
+						panRef.current.x = svgPt.x - dragStartRef.current.x;
+						panRef.current.y = svgPt.y - dragStartRef.current.y;
+
+						if (!rafRef.current) {
+							rafRef.current = requestAnimationFrame(() => {
+								applyTransform();
+								rafRef.current = null;
+							});
+						}
 					}
 				}}
 				onPointerUp={() => {
@@ -395,9 +454,9 @@ export default function NetworkGraph() {
 						{groupBubbles.map((gb) => (
 							<g key={`group-${gb.id}`}>
 								<circle
-									cx={gb.cx}
-									cy={gb.cy}
-									r={gb.r}
+									ref={(el) => {
+										if (el) groupRefs.current.set(gb.id, el);
+									}}
 									fill={gb.color}
 									opacity={0.06}
 									stroke={gb.color}
@@ -406,8 +465,9 @@ export default function NetworkGraph() {
 									strokeDasharray="6 4"
 								/>
 								<text
-									x={gb.cx}
-									y={gb.cy - gb.r - 8}
+									ref={(el) => {
+										if (el) groupTextRefs.current.set(gb.id, el);
+									}}
 									textAnchor="middle"
 									fill={gb.color}
 									opacity={0.5}
@@ -426,38 +486,40 @@ export default function NetworkGraph() {
 							const type = types.find((t) => t.id === rel.typeId);
 							const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}`;
 
-							// Calculate opacity based on relationship value (override or type default)
 							const typeValue = rel.value ?? type?.value ?? 0;
 							const absVal = Math.abs(typeValue);
-							const opacity = 0.15 + absVal * 0.65;
-
-							// Calculate stroke width based on value magnitude
 							const strokeWidth = 1 + absVal * 2;
 
 							return (
 								<line
 									key={relId}
+									ref={(el) => {
+										if (el) edgeRefs.current.set(relId, el);
+									}}
 									x1={from.x}
 									y1={from.y}
 									x2={to.x}
 									y2={to.y}
 									stroke={type?.color || "#555"}
 									strokeWidth={strokeWidth}
-									opacity={opacity}
+									opacity={0.15 + absVal * 0.65}
 									strokeLinecap="round"
 								/>
 							);
 						})}
 
-						{/* Nodes */}
+						{/* Nodes (REWRITTEN TO PURE SVG) */}
 						{nodes.map((node) => {
 							const isHovered = hoveredNode === node.id;
 							return (
 								<g
 									key={node.id}
-									className="cursor-pointer"
-									onPointerDown={(e) => {
-										e.stopPropagation();
+									ref={(el) => {
+										if (el) nodeRefs.current.set(node.id, el);
+									}}
+									transform={`translate(${node.x}, ${node.y})`}
+									className="cursor-pointer transition-all"
+									onPointerDown={() => {
 										dragNodeRef.current = node.id;
 									}}
 									onDoubleClick={(e) => {
@@ -467,46 +529,55 @@ export default function NetworkGraph() {
 									onMouseEnter={() => setHoveredNode(node.id)}
 									onMouseLeave={() => setHoveredNode(null)}
 								>
+									{/* The Circular Background & Border */}
 									<circle
-										cx={node.x}
-										cy={node.y}
-										r={nodeRadius + 2}
-										fill="#0a0a0a"
-										stroke="white"
-										strokeWidth={isHovered ? 2 : 1}
-										className={cn(
-											"transition-opacity",
-											isHovered ? "opacity-60" : "opacity-20",
-										)}
+										cx={0}
+										cy={0}
+										r={nodeRadius}
+										fill="#141414"
+										stroke={isHovered ? "white" : "rgba(255,255,255,0.3)"}
+										strokeWidth={isHovered ? 3 : 2}
 									/>
-									<clipPath id={`nclip-${node.id}`}>
-										<circle cx={node.x} cy={node.y} r={nodeRadius} />
-									</clipPath>
+
+									{/* Pure SVG Image handling (Incredibly Fast) */}
 									{node.avatar ? (
-										<image
-											href={node.avatar}
-											x={node.x - nodeRadius}
-											y={node.y - nodeRadius}
-											width={nodeRadius * 2}
-											height={nodeRadius * 2}
-											clipPath={`url(#nclip-${node.id})`}
-											// @ts-expect-error: referrerPolicy valid on SVGImageElement
-											referrerPolicy="no-referrer"
-										/>
+										<>
+											<clipPath id={`clip-${node.id}`}>
+												<circle cx={0} cy={0} r={nodeRadius - 1} />
+											</clipPath>
+											<image
+												href={node.avatar}
+												x={-nodeRadius}
+												y={-nodeRadius}
+												width={nodeRadius * 2}
+												height={nodeRadius * 2}
+												clipPath={`url(#clip-${node.id})`}
+												// @ts-expect-error: standard in modern SVG but missing from React types
+												referrerPolicy="no-referrer"
+												preserveAspectRatio="xMidYMid slice"
+											/>
+										</>
 									) : (
-										<circle
-											cx={node.x}
-											cy={node.y}
-											r={nodeRadius}
-											fill="#1a1a1a"
-										/>
+										// High performance Fallback Initials
+										<text
+											x={0}
+											y={0}
+											textAnchor="middle"
+											dominantBaseline="central"
+											className="fill-white font-bold pointer-events-none select-none"
+											style={{ fontSize: `${nodeRadius * 0.75}px` }}
+										>
+											{node.name.substring(0, 2).toUpperCase()}
+										</text>
 									)}
+
+									{/* Hover Name Badge */}
 									{isHovered && (
 										<text
-											x={node.x}
-											y={node.y - nodeRadius - 10}
+											x={0}
+											y={-nodeRadius - 10}
 											textAnchor="middle"
-											className="fill-white text-[10px] font-bold uppercase tracking-widest pointer-events-none"
+											className="fill-white text-[10px] font-bold uppercase tracking-widest pointer-events-none drop-shadow-lg"
 										>
 											{node.name}
 										</text>
@@ -517,8 +588,6 @@ export default function NetworkGraph() {
 					</g>
 				</svg>
 			</div>
-
-			{/* Analytics Side Panel */}
 			<AnalyticsPanel />
 		</div>
 	);

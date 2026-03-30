@@ -37,6 +37,9 @@ export default function CharacterGraph() {
 	const scaleRef = useRef(1);
 	const [isDragging, setIsDragging] = useState(false);
 	const isDraggingRef = useRef(false); // Sync ref for the event listener
+	const svgRef = useRef<SVGSVGElement>(null); // We need a reference to the SVG element
+	const dragStartRef = useRef({ x: 0, y: 0 }); // Tracks exact absolute mouse start
+	const rafRef = useRef<number | null>(null); // Tracks animation frames for 60fps
 
 	// --- TOOLTIP HOVER STATE ---
 	const hoverTimeout = useRef<number>(null);
@@ -47,7 +50,15 @@ export default function CharacterGraph() {
 			if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
 		};
 	}, []);
-
+	const getMousePositionInSVG = (e: React.PointerEvent) => {
+		if (!svgRef.current) return { x: 0, y: 0 };
+		const svg = svgRef.current;
+		const pt = svg.createSVGPoint();
+		pt.x = e.clientX;
+		pt.y = e.clientY;
+		// The magic line: Converts raw screen pixels to exact SVG viewBox coordinates
+		return pt.matrixTransform(svg.getScreenCTM()!.inverse());
+	};
 	const handleMouseEnterLine = useCallback((rel: Relationship) => {
 		if (isDraggingRef.current) return; // Don't show tooltips while dragging
 		if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
@@ -371,23 +382,40 @@ export default function CharacterGraph() {
 				isDraggingRef.current = true;
 				setHoveredRel(null);
 				e.currentTarget.setPointerCapture(e.pointerId);
+				const svgPt = getMousePositionInSVG(e);
+				dragStartRef.current = {
+					x: svgPt.x - panRef.current.x,
+					y: svgPt.y - panRef.current.y,
+				};
 			}}
 			onPointerMove={(e) => {
-				if (isDraggingRef.current) {
-					panRef.current.x += e.movementX;
-					panRef.current.y += e.movementY;
-					applyTransform(); // Apply directly to DOM!
+				if (!isDraggingRef.current) return;
+				// 2. Calculate the exact new position
+				const svgPt = getMousePositionInSVG(e);
+				panRef.current.x = svgPt.x - dragStartRef.current.x;
+				panRef.current.y = svgPt.y - dragStartRef.current.y;
+
+				// 3. 60 FPS Optimization (Debounce DOM updates to screen refresh rate)
+				if (!rafRef.current) {
+					rafRef.current = requestAnimationFrame(() => {
+						applyTransform();
+						rafRef.current = null;
+					});
 				}
 			}}
 			onPointerUp={() => {
 				setIsDragging(false);
 				isDraggingRef.current = false;
+				if (rafRef.current) cancelAnimationFrame(rafRef.current);
+				rafRef.current = null;
 			}}
 			onPointerCancel={() => {
+				setIsDragging(false);
 				isDraggingRef.current = false;
 			}}
 		>
 			<svg
+				ref={svgRef}
 				className="w-full h-full overflow-visible"
 				// By setting viewBox to start at -half, 0,0 is exactly in the center!
 				viewBox={`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`}
