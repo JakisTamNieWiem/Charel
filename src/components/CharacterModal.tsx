@@ -3,7 +3,6 @@ import { Input } from "@/components//ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { processAvatarImage } from "@/lib/utils";
-import { useGraphStore } from "@/store/useGraphStore";
 import type { Character } from "@/types";
 import {
 	Dialog,
@@ -18,18 +17,19 @@ import { Textarea } from "./ui/textarea";
 
 interface CharacterModalProps {
 	char: Character;
+	onSave: (char: Character) => void;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }
 
 export default function CharacterModal({
 	char,
+	onSave,
 	open,
 	onOpenChange,
 }: CharacterModalProps) {
 	const [formData, setFormData] = useState(char);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const updateCharacter = useGraphStore((state) => state.updateCharacter);
 
 	const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -149,7 +149,7 @@ export default function CharacterModal({
 						<DialogClose asChild>
 							<Button
 								onClick={() => {
-									updateCharacter(formData);
+									onSave(formData);
 								}}
 								className="flex-1 p-3rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
 							>
