@@ -17,7 +17,6 @@ function App() {
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
 	const selectedId = useGraphStore((state) => state.selectedCharId);
-	const allChars = useGraphStore((state) => state.characters);
 	const types = useGraphStore((state) => state.relationshipTypes);
 	const viewMode = useGraphStore((state) => state.viewMode);
 

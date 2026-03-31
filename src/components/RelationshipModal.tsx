@@ -26,9 +26,7 @@ import { Textarea } from "./ui/textarea";
 
 interface RelationshipModalProps {
 	fromId: string;
-
 	initialData?: Relationship;
-
 	onSave: (formData: Relationship) => void;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -37,7 +35,6 @@ interface RelationshipModalProps {
 export default function RelationshipModal({
 	fromId,
 	initialData,
-
 	onSave,
 	open,
 	onOpenChange,
@@ -93,7 +90,8 @@ export default function RelationshipModal({
 								<SelectGroup>
 									<SelectLabel>Relationships</SelectLabel>
 
-									{[...characters]
+									{characters
+										.filter((c) => c.id !== fromId)
 										.sort((a, b) => a.name.localeCompare(b.name))
 										.map((c) => (
 											<SelectItem
