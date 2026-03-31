@@ -12,6 +12,7 @@
     "fs:allow-appdata-read",
     "fs:allow-appdata-write",
     "fs:allow-appdata-write-recursive",
-    "dialog:default"
+    "dialog:default",
+    "process:default"
   ]
 }

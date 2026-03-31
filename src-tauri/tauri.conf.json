@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "charel",
+        "title": "Charel",
         "width": 800,
         "height": 600
       }
@@ -35,7 +35,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENDRTBCRjMyRjU4QjgzQTgKUldTb2c0djFNci9nekFQR2g5elhDWmF0c2phWGowcm0wTDlmU2luUmhLWDVCTmFnN1ptR3FCSkwK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJGQjlEMDBBNUY2MUU1QkIKUldTNzVXRmZDdEM1THp0Q3FOR2tjL2pYL0EvYTVOSGdrS0lCNUcxM1dRM2QreTRURVFYZEExaU4K",
       "endpoints": [
         "https://github.com/JakisTamNieWiem/Charel/releases/latest/download/latest.json"
       ]
