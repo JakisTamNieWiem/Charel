@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import AnalyticsPanel from "./AnalyticsPanel";
@@ -56,7 +57,7 @@ export default function NetworkGraph() {
 		const pt = svg.createSVGPoint();
 		pt.x = e.clientX;
 		pt.y = e.clientY;
-		return pt.matrixTransform(svg.getScreenCTM()!.inverse());
+		return pt.matrixTransform(svg.getScreenCTM()?.inverse());
 	};
 
 	// 1. Initialize nodes & trigger first render!

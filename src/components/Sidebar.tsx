@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { RelationshipType } from "@/types";
+import type { Character, RelationshipType } from "@/types";
 import TypeModal from "./TypeModal";
 import {
 	Select,
@@ -31,6 +31,40 @@ import {
 	SelectValue,
 } from "./ui/select";
 
+function lerp(start: number, end: number, amt: number) {
+	return (1 - amt) * start + amt * end;
+}
+function sentimentColor(value: number) {
+	// 1. Clamp value to range [-1, 1] to prevent color overflow
+	const clamped = Math.max(-1, Math.min(1, value));
+
+	// 2. Define our anchor points (RGB values)
+	const red = { r: 248, g: 113, b: 113 }; // #f87171
+	const grey = { r: 128, g: 128, b: 128 }; // #808080
+	const green = { r: 74, g: 222, b: 128 }; // #4ade80
+
+	let start: typeof red;
+	let end: typeof red;
+	let t: number;
+
+	if (clamped < 0) {
+		// Moving from Red to Grey (clamped is -1 to 0)
+		start = red;
+		end = grey;
+		t = 1 + clamped; // Inverts -1..0 to 0..1
+	} else {
+		// Moving from Grey to Green (clamped is 0 to 1)
+		start = grey;
+		end = green;
+		t = clamped; // 0..1
+	}
+
+	const r = Math.round(lerp(start.r, end.r, t));
+	const g = Math.round(lerp(start.g, end.g, t));
+	const b = Math.round(lerp(start.b, end.b, t));
+
+	return `rgb(${r}, ${g}, ${b})`;
+}
 export default function Sidebar() {
 	const importData = useGraphStore((state) => state.importData);
 	const allChars = useGraphStore((state) => state.characters);
@@ -45,15 +79,14 @@ export default function Sidebar() {
 	);
 
 	const selectedId = useGraphStore((state) => state.selectedCharId);
-
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
-
 	const deleteCharacter = useGraphStore((state) => state.deleteCharacter);
-
 	const deleteType = useGraphStore((state) => state.deleteType);
-
 	const setViewMode = useGraphStore((state) => state.setViewMode);
 
+	const [editingCharacter, setEditingCharacter] = useState<
+		Character | "new" | null
+	>(null);
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
 
 	return (
@@ -106,19 +139,18 @@ export default function Sidebar() {
 							className="flex-1 flex flex-col m-0 overflow-hidden"
 							value="characters"
 						>
-							<div className="h-full py-4">
+							<div className="h-full">
 								<div className="px-4 flex items-center justify-between">
 									<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 										Characters
 									</h2>
-									<CharacterModal
-										char={{
-											id: "",
-											name: "",
-											description: "",
-											avatar: "",
-										}}
-									/>
+									<Button
+										onClick={() => setEditingCharacter("new")}
+										variant="ghost"
+										className=""
+									>
+										<Plus className="w-4 h-4" />
+									</Button>
 								</div>
 
 								<ScrollArea className="flex-1 px-4 h-full">
@@ -145,8 +177,19 @@ export default function Sidebar() {
 														{char.description}
 													</p>
 												</div>
+
 												<div className="opacity-0 group-hover:opacity-100 flex flex-col">
-													<CharacterModal char={char} />
+													<Button
+														size="icon-sm"
+														variant="ghost"
+														className="p-1 hover:text-blue-400 hover:bg-transparent!"
+														onClick={(e) => {
+															e.stopPropagation();
+															setEditingCharacter(char);
+														}}
+													>
+														<Edit2 size="16px" />
+													</Button>
 													<Button
 														size="icon-sm"
 														variant="ghost"
@@ -169,7 +212,7 @@ export default function Sidebar() {
 							className="flex-1 flex flex-col m-0 overflow-hidden"
 							value="network"
 						>
-							<div className="h-full py-4 px-4">
+							<div className="h-full px-4">
 								<h2 className="text-xs font-mono uppercase tracking-widest opacity-50 mb-4">
 									Network View
 								</h2>
@@ -205,7 +248,7 @@ export default function Sidebar() {
 							className="flex-1 flex flex-col m-0 overflow-hidden"
 							value="groups"
 						>
-							<div className="h-full py-4">
+							<div className="h-full">
 								<div className="px-4 flex items-center justify-between">
 									<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 										Groups
@@ -362,7 +405,7 @@ export default function Sidebar() {
 							className="flex-1 flex flex-col m-0 overflow-hidden"
 							value="types"
 						>
-							<div className="h-full space-y-4">
+							<div className="h-full">
 								<div className="px-4 flex items-center justify-between">
 									<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 										Link Types
@@ -383,14 +426,17 @@ export default function Sidebar() {
 									</button>
 								</div>
 								<ScrollArea className="flex-1 px-4 h-full">
-									<div className="space-y-2">
+									<div className="space-y-2 py-4 pb-8">
 										{types.map((type) => (
 											<div
 												key={type.id}
-												className="group p-3 rounded-lg bg-white/5 border border-white/10 flex items-center gap-3"
+												style={
+													{ "--hover-color": type.color } as React.CSSProperties
+												}
+												className="group px-3 py-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-3 transition-colors duration-200 hover:border-(--hover-color) hover:bg-(--hover-color)/10"
 											>
 												<div
-													className="w-3 h-3 rounded-full"
+													className="size-5 rounded-full"
 													style={{ backgroundColor: type.color }}
 												/>
 												<div className="flex-1">
@@ -399,7 +445,18 @@ export default function Sidebar() {
 														{type.description}
 													</p>
 												</div>
-												<div className="opacity-0 group-hover:opacity-100 flex gap-1">
+												<div className="justify-end">
+													<p
+														style={{
+															color: sentimentColor(type.value),
+														}}
+														className="text-xs text-left "
+													>
+														{type.value >= 0 ? "+" : ""}
+														{type.value?.toFixed(2)}
+													</p>
+												</div>
+												<div className="flex flex-col gap-1">
 													<button
 														onClick={() => setEditingType(type)}
 														className="p-1 hover:text-blue-400"
@@ -420,7 +477,7 @@ export default function Sidebar() {
 							</div>
 						</TabsContent>
 						<TabsContent
-							className="h-full flex-1 overflow-y-auto p-4 custom-scrollbar"
+							className="h-full flex-1 overflow-y-auto px-4 custom-scrollbar"
 							value="json"
 						>
 							<div className="h-full space-y-4">
@@ -580,18 +637,19 @@ export default function Sidebar() {
 					}}
 				/>
 			)}
-			{/* Toggle Sidebar Button */}
-			{/* <button
-				onClick={() => setSidebarOpen(!sidebarOpen)}
-				className="absolute left-80 top-1/2 -translate-y-1/2 z-50 p-1 bg-[#141414] border border-white/10 rounded-r-lg hover:bg-white/5 transition-all"
-				style={{ left: sidebarOpen ? 320 : 0 }}
-			>
-				{sidebarOpen ? (
-					<ChevronLeft className="w-4 h-4" />
-				) : (
-					<ChevronRight className="w-4 h-4" />
-				)}
-			</button> */}
+			{editingCharacter && (
+				<CharacterModal
+					char={
+						editingCharacter === "new"
+							? { id: "", name: "", description: "", avatar: "" }
+							: editingCharacter
+					}
+					open={!!editingCharacter}
+					onOpenChange={(open) => {
+						if (!open) setEditingCharacter(null);
+					}}
+				/>
+			)}
 		</>
 	);
 }
