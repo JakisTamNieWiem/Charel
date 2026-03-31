@@ -192,6 +192,16 @@ export default function CharacterGraph() {
 											className="pointer-events-none!"
 										>
 											<div className="h-full max-h-75 w-45 flex flex-col items-center justify-center pointer-events-none!">
+												<b>
+													{types.find((t) => t.id === hoveredRel.typeId)?.label}{" "}
+													{hoveredRel.value && hoveredRel?.value > 0
+														? `+${hoveredRel.value.toFixed(2)}`
+														: (hoveredRel.value?.toFixed(2) ??
+															types
+																.find((t) => t.id === hoveredRel.typeId)
+																?.value.toFixed(2) ??
+															"+0.--")}
+												</b>
 												<span className="leading-tight pointer-events-none!">
 													{hoveredRel.description}
 												</span>
@@ -369,6 +379,7 @@ export default function CharacterGraph() {
 		deleteRelationship,
 		setSelectedCharId,
 		tooltipSide,
+		types.find,
 	]);
 	return (
 		<div
