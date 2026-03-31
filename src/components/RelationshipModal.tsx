@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Character, Relationship, RelationshipType } from "@/types";
+import { useGraphStore } from "@/store/useGraphStore";
+import type { Relationship } from "@/types";
 import { Button } from "./ui/button";
 import {
 	Dialog,
@@ -25,9 +26,7 @@ import { Textarea } from "./ui/textarea";
 
 interface RelationshipModalProps {
 	fromId: string;
-	characters: Character[];
 	initialData?: Relationship;
-	types: RelationshipType[];
 	onSave: (formData: Relationship) => void;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -36,12 +35,12 @@ interface RelationshipModalProps {
 export default function RelationshipModal({
 	fromId,
 	initialData,
-	characters,
-	types,
 	onSave,
 	open,
 	onOpenChange,
 }: RelationshipModalProps) {
+	const characters = useGraphStore((state) => state.characters);
+	const types = useGraphStore((state) => state.relationshipTypes);
 	const [formData, setFormData] = useState(
 		initialData || {
 			fromId,
@@ -91,7 +90,8 @@ export default function RelationshipModal({
 								<SelectGroup>
 									<SelectLabel>Relationships</SelectLabel>
 
-									{[...characters]
+									{characters
+										.filter((c) => c.id !== fromId)
 										.sort((a, b) => a.name.localeCompare(b.name))
 										.map((c) => (
 											<SelectItem

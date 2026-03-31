@@ -42,7 +42,7 @@ export default function CharacterGraph() {
 	const rafRef = useRef<number | null>(null); // Tracks animation frames for 60fps
 
 	// --- TOOLTIP HOVER STATE ---
-	const hoverTimeout = useRef<number>(null);
+	const hoverTimeout = useRef<NodeJS.Timeout>(null);
 	const [tooltipSide, setTooltipSide] = useState<"top" | "bottom">("top");
 
 	useEffect(() => {
@@ -442,8 +442,6 @@ export default function CharacterGraph() {
 				<RelationshipModal
 					fromId={editingRel.fromId}
 					initialData={editingRel ?? undefined}
-					characters={allChars}
-					types={types}
 					onSave={(newRel) => updateRelationship(editingRel, newRel)}
 					open={openRelModal}
 					onOpenChange={(open) => {

@@ -68,6 +68,9 @@ function sentimentColor(value: number) {
 export default function Sidebar() {
 	const importData = useGraphStore((state) => state.importData);
 	const allChars = useGraphStore((state) => state.characters);
+	const addCharacter = useGraphStore((state) => state.addCharacter);
+	const updateCharacter = useGraphStore((state) => state.updateCharacter);
+	const deleteCharacter = useGraphStore((state) => state.deleteCharacter);
 	const types = useGraphStore((state) => state.relationshipTypes);
 	const relationships = useGraphStore((state) => state.relationships);
 	const groups = useGraphStore((state) => state.groups);
@@ -80,7 +83,6 @@ export default function Sidebar() {
 
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
-	const deleteCharacter = useGraphStore((state) => state.deleteCharacter);
 	const deleteType = useGraphStore((state) => state.deleteType);
 	const setViewMode = useGraphStore((state) => state.setViewMode);
 
@@ -644,6 +646,7 @@ export default function Sidebar() {
 							? { id: "", name: "", description: "", avatar: "" }
 							: editingCharacter
 					}
+					onSave={editingCharacter === "new" ? addCharacter : updateCharacter}
 					open={!!editingCharacter}
 					onOpenChange={(open) => {
 						if (!open) setEditingCharacter(null);

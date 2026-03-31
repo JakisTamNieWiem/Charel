@@ -17,10 +17,8 @@ function App() {
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
 	const selectedId = useGraphStore((state) => state.selectedCharId);
-	const allChars = useGraphStore((state) => state.characters);
-	const viewMode = useGraphStore((state) => state.viewMode);
-
 	const types = useGraphStore((state) => state.relationshipTypes);
+	const viewMode = useGraphStore((state) => state.viewMode);
 
 	// Handlers
 
@@ -143,8 +141,6 @@ function App() {
 							{selectedId && (
 								<RelationshipModal
 									fromId={selectedId}
-									characters={allChars}
-									types={types}
 									onSave={addRelationship}
 									open={openRelModal}
 									onOpenChange={setOpenRelModal}
@@ -157,7 +153,7 @@ function App() {
 							{selectedCharacter ? (
 								<CharacterGraph />
 							) : (
-								<h1>Character not found</h1>
+								<h1 className="p-4">Character not found</h1>
 							)}
 						</div>
 
