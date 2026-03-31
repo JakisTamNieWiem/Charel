@@ -1,3 +1,5 @@
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Download } from "lucide-react";
 import { useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -217,7 +219,7 @@ export default function AnalyticsPanel() {
 		};
 	}, [characters, relationships, types, groups]);
 
-	const exportStats = () => {
+	const exportStats = async () => {
 		const data = {
 			overview: {
 				totalCharacters: stats.totalCharacters,
@@ -260,17 +262,28 @@ export default function AnalyticsPanel() {
 				negativeLinks: c.totalNegative,
 			})),
 		};
-		const blob = new Blob([JSON.stringify(data, null, 2)], {
-			type: "application/json",
-		});
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = `charel-analytics-${new Date().toISOString().split("T")[0]}.json`;
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
-		URL.revokeObjectURL(url);
+		try {
+			// 1. Open the native "Save As" OS dialog
+			const filePath = await save({
+				filters: [
+					{
+						name: "JSON Data",
+						extensions: ["json"],
+					},
+				],
+				defaultPath: `charel-analytics-${new Date().toISOString().split("T")[0]}.json`,
+			});
+
+			// 2. If the user didn't click "Cancel"
+			if (filePath) {
+				// 3. Write the file directly to that exact path
+				await writeTextFile(filePath, JSON.stringify(data, null, 2));
+				alert("Data exported successfully!"); // Optional: replace with a nice Toast notification
+			}
+		} catch (error) {
+			console.error("Export failed:", error);
+			alert("Failed to export data.");
+		}
 	};
 
 	return (
