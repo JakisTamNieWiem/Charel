@@ -224,6 +224,7 @@ export default function CharacterGraph() {
 										handleMouseLeaveLine();
 									}}
 									onPointerDown={(e) => {
+										if (e.pointerType === "mouse" && e.button === 2) return;
 										e.preventDefault();
 										e.stopPropagation();
 										setEditingRel(rel);
