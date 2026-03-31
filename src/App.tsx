@@ -9,8 +9,9 @@ import { useGraphStore } from "@/store/useGraphStore";
 import type { RelationshipType } from "@/types";
 import "./styles.css";
 import { Plus } from "lucide-react";
-import { Button } from "./components/ui/button";
-import { loadFromDisk, saveToDisk } from "./lib/storage";
+import { Button } from "@/components/ui/button";
+import { loadFromDisk, saveToDisk } from "@/lib/storage";
+import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
 
 function App() {
 	// Zustand Store
@@ -32,6 +33,9 @@ function App() {
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
 	);
+	useEffect(() => {
+		checkForUpdates();
+	}, []);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,6 +50,7 @@ function App() {
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, []);
+
 	useEffect(() => {
 		// 1. Load data on startup
 		const initStorage = async () => {

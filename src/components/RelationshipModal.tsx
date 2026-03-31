@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Character, Relationship, RelationshipType } from "@/types";
 import { Button } from "./ui/button";
 import {
@@ -50,6 +50,19 @@ export default function RelationshipModal({
 			description: "",
 		},
 	);
+	useEffect(() => {
+		if (open) {
+			setFormData(
+				initialData || {
+					fromId,
+					toId: characters.find((c) => c.id !== fromId)?.id || "",
+					typeId: types[0]?.id || "",
+					description: "",
+					// value: undefined // (Optional) Resets your value slider
+				},
+			);
+		}
+	}, [open, fromId, initialData, characters, types]);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -146,22 +159,18 @@ export default function RelationshipModal({
 							{formData.value != null ? (
 								<button
 									type="button"
-									onClick={() =>
-										setFormData({ ...formData, value: undefined })
-									}
+									onClick={() => setFormData({ ...formData, value: undefined })}
 									className="text-[9px] font-mono opacity-40 hover:opacity-80 underline"
 								>
 									Reset to type default
 								</button>
 							) : (
 								<span className="text-[9px] font-mono opacity-30">
-									Using type default (
-									{(() => {
+									Using type default ({(() => {
 										const t = types.find((t) => t.id === formData.typeId);
 										const v = t?.value ?? 0;
 										return (v > 0 ? "+" : "") + v.toFixed(2);
-									})()}
-									)
+									})()})
 								</span>
 							)}
 						</div>

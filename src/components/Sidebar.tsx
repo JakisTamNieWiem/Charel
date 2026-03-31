@@ -1,3 +1,5 @@
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import {
 	Download,
 	Edit2,
@@ -19,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { RelationshipType } from "@/types";
+import TypeModal from "./TypeModal";
 import {
 	Select,
 	SelectContent,
@@ -27,7 +30,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
-import TypeModal from "./TypeModal";
 
 export default function Sidebar() {
 	const importData = useGraphStore((state) => state.importData);
@@ -68,19 +70,34 @@ export default function Sidebar() {
 								Charel
 							</h1>
 							<TabsList className="shrink-0">
-								<TabsTrigger value="characters" onClick={() => setViewMode("character")}>
+								<TabsTrigger
+									value="characters"
+									onClick={() => setViewMode("character")}
+								>
 									<Users className="w-4 h-4" />
 								</TabsTrigger>
-								<TabsTrigger value="network" onClick={() => setViewMode("network")}>
+								<TabsTrigger
+									value="network"
+									onClick={() => setViewMode("network")}
+								>
 									<Network className="w-4 h-4" />
 								</TabsTrigger>
-								<TabsTrigger value="groups" onClick={() => setViewMode("network")}>
+								<TabsTrigger
+									value="groups"
+									onClick={() => setViewMode("network")}
+								>
 									<Layers className="w-4 h-4" />
 								</TabsTrigger>
-								<TabsTrigger value="types" onClick={() => setViewMode("character")}>
+								<TabsTrigger
+									value="types"
+									onClick={() => setViewMode("character")}
+								>
 									<Settings className="w-4 h-4" />
 								</TabsTrigger>
-								<TabsTrigger value="json" onClick={() => setViewMode("character")}>
+								<TabsTrigger
+									value="json"
+									onClick={() => setViewMode("character")}
+								>
 									<FileJson className="w-4 h-4" />
 								</TabsTrigger>
 							</TabsList>
@@ -157,8 +174,8 @@ export default function Sidebar() {
 									Network View
 								</h2>
 								<p className="text-xs opacity-40 leading-relaxed">
-									Viewing the full relationship network. All characters and their
-									connections are displayed as an interactive graph.
+									Viewing the full relationship network. All characters and
+									their connections are displayed as an interactive graph.
 								</p>
 								<div className="mt-4 space-y-2 text-[10px] opacity-30">
 									<p>Drag nodes to reposition</p>
@@ -171,10 +188,7 @@ export default function Sidebar() {
 										Legend
 									</h3>
 									{types.map((type) => (
-										<div
-											key={type.id}
-											className="flex items-center gap-2"
-										>
+										<div key={type.id} className="flex items-center gap-2">
 											<div
 												className="w-2 h-2 rounded-full"
 												style={{ backgroundColor: type.color }}
@@ -271,10 +285,7 @@ export default function Sidebar() {
 																</span>
 																<button
 																	onClick={() =>
-																		assignCharacterToGroup(
-																			char.id,
-																			undefined,
-																		)
+																		assignCharacterToGroup(char.id, undefined)
 																	}
 																	className="p-0.5 opacity-30 hover:opacity-100 hover:text-red-400"
 																>
@@ -317,7 +328,8 @@ export default function Sidebar() {
 											<div className="rounded-lg border border-white/10 border-dashed overflow-hidden">
 												<div className="p-3 bg-white/5">
 													<span className="text-[10px] font-mono uppercase tracking-widest opacity-30">
-														Ungrouped ({allChars.filter((c) => !c.groupId).length})
+														Ungrouped (
+														{allChars.filter((c) => !c.groupId).length})
 													</span>
 												</div>
 												<div className="p-2 space-y-1">
@@ -449,7 +461,7 @@ export default function Sidebar() {
 											<Plus className="w-3 h-3" /> Import
 										</button>
 										<button
-											onClick={() => {
+											onClick={async () => {
 												const data = {
 													version: "1.0.0",
 													characters: allChars,
@@ -457,18 +469,31 @@ export default function Sidebar() {
 													relationships: relationships,
 													groups: groups,
 												};
-												const blob = new Blob(
-													[JSON.stringify(data, null, 2)],
-													{ type: "application/json" },
-												);
-												const url = URL.createObjectURL(blob);
-												const a = document.createElement("a");
-												a.href = url;
-												a.download = `charel-export-${new Date().toISOString().split("T")[0]}.json`;
-												document.body.appendChild(a);
-												a.click();
-												document.body.removeChild(a);
-												URL.revokeObjectURL(url);
+												try {
+													// 1. Open the native "Save As" OS dialog
+													const filePath = await save({
+														filters: [
+															{
+																name: "JSON Data",
+																extensions: ["json"],
+															},
+														],
+														defaultPath: `charel-export-${new Date().toISOString().split("T")[0]}.json`,
+													});
+
+													// 2. If the user didn't click "Cancel"
+													if (filePath) {
+														// 3. Write the file directly to that exact path
+														await writeTextFile(
+															filePath,
+															JSON.stringify(data, null, 2),
+														);
+														alert("Data exported successfully!"); // Optional: replace with a nice Toast notification
+													}
+												} catch (error) {
+													console.error("Export failed:", error);
+													alert("Failed to export data.");
+												}
 											}}
 											className="p-1 hover:bg-white/10 rounded text-[10px] uppercase font-bold flex items-center gap-1"
 										>

@@ -1,7 +1,7 @@
-import { useMemo } from "react";
 import { Download } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGraphStore } from "@/store/useGraphStore";
 
 interface CharStat {
@@ -116,8 +116,7 @@ export default function AnalyticsPanel() {
 				? 0
 				: sorted.length % 2 === 1
 					? sorted[Math.floor(sorted.length / 2)]
-					: (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) /
-						2;
+					: (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
 
 		// Variance & Std Dev
 		const variance =
@@ -129,15 +128,11 @@ export default function AnalyticsPanel() {
 
 		// Network density: actual edges / max possible edges
 		const maxEdges =
-			totalCharacters > 1
-				? (totalCharacters * (totalCharacters - 1)) / 2
-				: 0;
+			totalCharacters > 1 ? (totalCharacters * (totalCharacters - 1)) / 2 : 0;
 		const density = maxEdges > 0 ? pairAvgs.size / maxEdges : 0;
 
 		// Reciprocity: fraction of relationships that have a reverse
-		const edgeKeys = new Set(
-			relationships.map((r) => `${r.fromId}|${r.toId}`),
-		);
+		const edgeKeys = new Set(relationships.map((r) => `${r.fromId}|${r.toId}`));
 		const reciprocalCount = relationships.filter((r) =>
 			edgeKeys.has(`${r.toId}|${r.fromId}`),
 		).length;
@@ -239,19 +234,22 @@ export default function AnalyticsPanel() {
 			},
 			sentimentDistribution: stats.histogram.map((count, i) => ({
 				rangeFrom: +(-1 + (i * 2) / stats.histogram.length).toFixed(2),
-				rangeTo: +(
-					-1 +
-					((i + 1) * 2) / stats.histogram.length
-				).toFixed(2),
+				rangeTo: +(-1 + ((i + 1) * 2) / stats.histogram.length).toFixed(2),
 				count,
 			})),
 			bestRelation: stats.bestRel,
 			worstRelation: stats.worstRel,
 			mostLikeable: stats.mostLikeable
-				? { name: stats.mostLikeable.name, avgValue: +stats.mostLikeable.avgValue.toFixed(4) }
+				? {
+						name: stats.mostLikeable.name,
+						avgValue: +stats.mostLikeable.avgValue.toFixed(4),
+					}
 				: null,
 			mostDisliked: stats.mostDisliked
-				? { name: stats.mostDisliked.name, avgValue: +stats.mostDisliked.avgValue.toFixed(4) }
+				? {
+						name: stats.mostDisliked.name,
+						avgValue: +stats.mostDisliked.avgValue.toFixed(4),
+					}
 				: null,
 			groups: stats.groupStats,
 			characters: stats.charStats.map((c) => ({
@@ -311,9 +309,7 @@ export default function AnalyticsPanel() {
 						/>
 						<StatCard
 							label="Median"
-							value={
-								(stats.median > 0 ? "+" : "") + stats.median.toFixed(2)
-							}
+							value={(stats.median > 0 ? "+" : "") + stats.median.toFixed(2)}
 							color={sentimentColor(stats.median)}
 						/>
 						<StatCard
@@ -353,9 +349,8 @@ export default function AnalyticsPanel() {
 							</h3>
 							<Histogram
 								bins={stats.histogram}
-								labels={stats.histogram.map(
-									(_, i) =>
-										(-1 + (i * 2) / stats.histogram.length).toFixed(1),
+								labels={stats.histogram.map((_, i) =>
+									(-1 + (i * 2) / stats.histogram.length).toFixed(1),
 								)}
 							/>
 							<div className="flex justify-between text-[9px] opacity-30 font-mono">
@@ -617,7 +612,11 @@ function Histogram({
 	bins,
 	labels: _labels,
 	color,
-}: { bins: number[]; labels: string[]; color?: string }) {
+}: {
+	bins: number[];
+	labels: string[];
+	color?: string;
+}) {
 	const max = Math.max(1, ...bins);
 	const w = 100 / bins.length;
 	const topPad = 8;
@@ -666,7 +665,12 @@ function StatCard({
 	value,
 	color,
 	sub,
-}: { label: string; value: string; color?: string; sub?: string }) {
+}: {
+	label: string;
+	value: string;
+	color?: string;
+	sub?: string;
+}) {
 	return (
 		<div className="p-3 rounded-lg bg-white/5 border border-white/10">
 			<p className="text-[9px] font-mono uppercase tracking-widest opacity-40">
