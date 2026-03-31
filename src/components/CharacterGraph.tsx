@@ -42,7 +42,7 @@ export default function CharacterGraph() {
 	const rafRef = useRef<number | null>(null); // Tracks animation frames for 60fps
 
 	// --- TOOLTIP HOVER STATE ---
-	const hoverTimeout = useRef<NodeJS.Timeout>(null);
+	const hoverTimeout = useRef<number>(null);
 	const [tooltipSide, setTooltipSide] = useState<"top" | "bottom">("top");
 
 	useEffect(() => {
@@ -66,7 +66,7 @@ export default function CharacterGraph() {
 	}, []);
 
 	const handleMouseLeaveLine = useCallback(() => {
-		hoverTimeout.current = setTimeout(() => {
+		hoverTimeout.current = window.setTimeout(() => {
 			setHoveredRel(null);
 		}, 100);
 	}, []);
