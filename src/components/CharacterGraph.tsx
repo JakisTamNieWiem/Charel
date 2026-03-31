@@ -57,7 +57,7 @@ export default function CharacterGraph() {
 		pt.x = e.clientX;
 		pt.y = e.clientY;
 		// The magic line: Converts raw screen pixels to exact SVG viewBox coordinates
-		return pt.matrixTransform(svg.getScreenCTM()!.inverse());
+		return pt.matrixTransform(svg.getScreenCTM()?.inverse());
 	};
 	const handleMouseEnterLine = useCallback((rel: Relationship) => {
 		if (isDraggingRef.current) return; // Don't show tooltips while dragging
