@@ -27,6 +27,7 @@ export default function TypeModal({
 	const isEditing = !!type.id;
 
 	const handleSave = () => {
+		if (!formData.value) formData.value = 0;
 		if (isEditing) {
 			updateType(formData);
 		} else {
@@ -113,6 +114,7 @@ export default function TypeModal({
 						<Slider
 							min={-100}
 							max={100}
+							defaultValue={[0]}
 							step={1}
 							value={[Math.round((formData.value ?? 0) * 100)]}
 							onValueChange={([v]) =>

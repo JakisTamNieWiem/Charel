@@ -1,4 +1,3 @@
-import { Edit2, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import { Input } from "@/components//ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,17 +12,21 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "./ui/dialog";
 import { Field } from "./ui/field";
 import { Textarea } from "./ui/textarea";
 
 interface CharacterModalProps {
 	char: Character;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }
 
-export default function CharacterModal({ char }: CharacterModalProps) {
-	const [open, setOpen] = useState(false);
+export default function CharacterModal({
+	char,
+	open,
+	onOpenChange,
+}: CharacterModalProps) {
 	const [formData, setFormData] = useState(char);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const updateCharacter = useGraphStore((state) => state.updateCharacter);
@@ -44,25 +47,7 @@ export default function CharacterModal({ char }: CharacterModalProps) {
 		}
 	};
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
-			{char.id ? (
-				<DialogTrigger asChild>
-					<Button
-						size="icon-sm"
-						variant="ghost"
-						className="p-1 hover:text-blue-400 hover:bg-transparent!"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<Edit2 size="16px" />
-					</Button>
-				</DialogTrigger>
-			) : (
-				<DialogTrigger asChild>
-					<Button variant="ghost" className="">
-						<Plus className="w-4 h-4" />
-					</Button>
-				</DialogTrigger>
-			)}
+		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle className="underline underline-offset-8">
