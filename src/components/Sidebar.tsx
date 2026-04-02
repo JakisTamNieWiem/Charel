@@ -110,7 +110,10 @@ export default function Sidebar() {
 				<div className="w-full p-4 self-start flex items-center justify-between">
 					<h1 className="text-2xl font-bold tracking-tighter flex items-center gap-2 serif">
 						<Users className="w-8 h-8" />
-						Charel
+						{session?.user.email?.split("@")
+							? session.user.email?.split("@")[0][0].toUpperCase() +
+								session.user.email?.split("@")[0].slice(1)
+							: "Charel"}
 					</h1>
 					{session ? (
 						<div className="flex items-center justify-between">
@@ -675,7 +678,13 @@ export default function Sidebar() {
 				<CharacterModal
 					char={
 						editingCharacter === "new"
-							? { id: "", name: "", description: "", avatar: "", groupId: "" }
+							? {
+									id: "",
+									name: "",
+									description: "",
+									avatar: null,
+									groupId: null,
+								}
 							: editingCharacter
 					}
 					onSave={editingCharacter === "new" ? addCharacter : updateCharacter}
