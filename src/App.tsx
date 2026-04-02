@@ -6,7 +6,7 @@ import RelationshipModal from "@/components/RelationshipModal";
 import Sidebar from "@/components/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { RelationshipType } from "@/types";
+import type { Character, Relationship, RelationshipType } from "@/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Plus } from "lucide-react";
@@ -105,10 +105,34 @@ function App() {
 				.on(
 					"postgres_changes",
 					{ event: "*", schema: "public", table: "Characters" },
-					async () => {
-						const { data } = await supabase.from("Characters").select("*");
-						if (data) {
-							useGraphStore.getState().importData({ characters: data });
+					(payload) => {
+						const state = useGraphStore.getState();
+
+						if (payload.eventType === "INSERT") {
+							// 1. Check if we already have this character (from our own Optimistic UI)
+							const exists = state.characters.some(
+								(c) => c.id === payload.new.id,
+							);
+							if (!exists) {
+								// 2. Update local state DIRECTLY using setState (DO NOT call addCharacter!)
+								useGraphStore.setState({
+									characters: [...state.characters, payload.new as Character],
+								});
+							}
+						}
+						if (payload.eventType === "UPDATE") {
+							useGraphStore.setState({
+								characters: state.characters.map((c) =>
+									c.id === payload.new.id ? (payload.new as Character) : c,
+								),
+							});
+						}
+						if (payload.eventType === "DELETE") {
+							useGraphStore.setState({
+								characters: state.characters.filter(
+									(c) => c.id !== payload.old.id,
+								),
+							});
 						}
 					},
 				)
@@ -127,10 +151,43 @@ function App() {
 				.on(
 					"postgres_changes",
 					{ event: "*", schema: "public", table: "Relationships" },
-					async () => {
-						const { data } = await supabase.from("Relationships").select("*");
-						if (data) {
-							useGraphStore.getState().importData({ relationships: data });
+					(payload) => {
+						const state = useGraphStore.getState();
+
+						if (payload.eventType === "INSERT") {
+							// 1. Check if we already have this character (from our own Optimistic UI)
+							const exists = state.relationships.some(
+								(r) =>
+									r.fromId === payload.new.fromId &&
+									r.toId === payload.new.toId,
+							);
+							if (!exists) {
+								// 2. Update local state DIRECTLY using setState (DO NOT call addCharacter!)
+								useGraphStore.setState({
+									relationships: [
+										...state.relationships,
+										payload.new as Relationship,
+									],
+								});
+							}
+						}
+						if (payload.eventType === "UPDATE") {
+							useGraphStore.setState({
+								relationships: state.relationships.map((r) =>
+									r.fromId === payload.new.fromId && r.toId === payload.new.toId
+										? (payload.new as Relationship)
+										: r,
+								),
+							});
+						}
+						if (payload.eventType === "DELETE") {
+							useGraphStore.setState({
+								relationships: state.relationships.filter(
+									(r) =>
+										r.fromId === payload.old.fromId &&
+										r.toId === payload.old.toId,
+								),
+							});
 						}
 					},
 				)
