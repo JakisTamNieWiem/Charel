@@ -159,7 +159,8 @@ function App() {
 							const exists = state.relationships.some(
 								(r) =>
 									r.fromId === payload.new.fromId &&
-									r.toId === payload.new.toId,
+									r.toId === payload.new.toId &&
+									r.typeId === payload.new.typeId,
 							);
 							if (!exists) {
 								// 2. Update local state DIRECTLY using setState (DO NOT call addCharacter!)
@@ -174,7 +175,9 @@ function App() {
 						if (payload.eventType === "UPDATE") {
 							useGraphStore.setState({
 								relationships: state.relationships.map((r) =>
-									r.fromId === payload.new.fromId && r.toId === payload.new.toId
+									r.fromId === payload.new.fromId &&
+									r.toId === payload.new.toId &&
+									r.typeId === payload.new.typeId
 										? (payload.new as Relationship)
 										: r,
 								),
@@ -185,7 +188,8 @@ function App() {
 								relationships: state.relationships.filter(
 									(r) =>
 										r.fromId === payload.old.fromId &&
-										r.toId === payload.old.toId,
+										r.toId === payload.old.toId &&
+										r.typeId === payload.old.typeId,
 								),
 							});
 						}
