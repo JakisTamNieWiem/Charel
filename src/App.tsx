@@ -6,7 +6,7 @@ import RelationshipModal from "@/components/RelationshipModal";
 import Sidebar from "@/components/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Character, Group, RelationshipType } from "@/types";
+import type { RelationshipType } from "@/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Plus } from "lucide-react";
@@ -20,8 +20,8 @@ function App() {
 	const [session, setSession] = useState<Session | null>(null);
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
-	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const types = useGraphStore((state) => state.relationshipTypes);
+	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const viewMode = useGraphStore((state) => state.viewMode);
 
 	// Handlers
@@ -105,28 +105,22 @@ function App() {
 				.on(
 					"postgres_changes",
 					{ event: "*", schema: "public", table: "Characters" },
-					(payload) => {
-						const store = useGraphStore.getState();
-						if (payload.eventType === "INSERT")
-							store.addCharacter(payload.new as Character);
-						if (payload.eventType === "UPDATE")
-							store.updateCharacter(payload.new as Character);
-						if (payload.eventType === "DELETE")
-							store.deleteCharacter(payload.old.id);
+					async () => {
+						const { data } = await supabase.from("Characters").select("*");
+						if (data) {
+							useGraphStore.getState().importData({ characters: data });
+						}
 					},
 				)
 				// Listen for Group changes
 				.on(
 					"postgres_changes",
 					{ event: "*", schema: "public", table: "Groups" },
-					(payload) => {
-						const store = useGraphStore.getState();
-						if (payload.eventType === "INSERT")
-							store.addGroup(payload.new as Group);
-						if (payload.eventType === "UPDATE")
-							store.updateGroup(payload.new as Group);
-						if (payload.eventType === "DELETE")
-							store.deleteGroup(payload.old.id);
+					async () => {
+						const { data } = await supabase.from("Groups").select("*");
+						if (data) {
+							useGraphStore.getState().importData({ groups: data });
+						}
 					},
 				)
 				// Listen for Relationship changes (Composite Keys are tricky, so we just reload relationships on change)
@@ -148,9 +142,9 @@ function App() {
 						const { data } = await supabase
 							.from("RelationshipTypes")
 							.select("*");
-						useGraphStore
-							.getState()
-							.importData({ relationshipTypes: data as RelationshipType[] });
+						if (data) {
+							useGraphStore.getState().importData({ relationshipTypes: data });
+						}
 					},
 				)
 				.subscribe();

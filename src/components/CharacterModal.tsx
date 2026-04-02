@@ -97,7 +97,7 @@ export default function CharacterModal({
 							</Label>
 							<Input
 								id="avatar-url"
-								value={formData.avatar}
+								value={formData.avatar ?? ""}
 								onChange={(e) =>
 									setFormData({ ...formData, avatar: e.target.value })
 								}
