@@ -82,15 +82,15 @@ export default function CharacterGraph() {
 	};
 
 	// --- LAYOUT MATH ---
-	const minRadiusForNoTouch = (relatedCharacters.length * 85) / (2 * Math.PI);
+	const centerRadius = 80;
+	const relatedRadius = 40;
+	const minRadiusForNoTouch =
+		(relatedCharacters.length * (relatedRadius * 2 + 7)) / (2 * Math.PI);
 	const radius = Math.max(220, Math.ceil(minRadiusForNoTouch));
 	const margin = 150;
 	const svgSize = (radius + margin) * 2;
-	const centerRadius = 60;
-	const relatedRadius = 40;
 	const relationshipData = useMemo(() => {
 		return relatedCharacters.flatMap((char, i: number) => {
-			// Calculate the angle for the group rotation later
 			const angleDeg = (i / relatedCharacters.length) * 360;
 
 			const rels = relationships.filter(
@@ -101,31 +101,55 @@ export default function CharacterGraph() {
 			return rels.map((rel, idx: number) => {
 				const isFromCenter = rel.fromId === selectedId;
 				const type = types.find((t) => t.id === rel.typeId);
+
 				const typeValue = rel.value ?? type?.value ?? 0;
 				const absValue = Math.abs(typeValue);
-				const strokeW = 1 + absValue * 3;
+
+				// Arrow dimensions based on strength
+				const strokeW = 1 + absValue * 2.5;
+				const headW = strokeW * 3 + 4; // Width of arrowhead base
+				const headL = strokeW * 3.5 + 5; // Length of arrowhead
 				const edgeOpacity = 0.3 + absValue * 0.7;
 
-				// 1. GAP CALCULATION
-				// This dictates how many pixels apart the parallel lines will be.
-				// 16px is usually perfect for 2px stroke lines.
-				const gap = 12;
+				// Gap between parallel lines
+				const gap = strokeW + 8;
 				const offset = (idx - (rels.length - 1) / 2) * gap;
 
-				// 2. DEFINE X COORDINATES
-				const padding = 4;
-				const startX = centerRadius + padding;
-				const endX = radius - relatedRadius - padding;
+				// 1. THE OPTICAL ILLUSION FIX: Exact Circle Intersections
+				const R1 = centerRadius + 3;
+				const R2 = relatedRadius + 4;
 
-				// Determine direction (Left->Right or Right->Left)
-				const actualStartX = isFromCenter ? startX : endX;
-				const actualEndX = isFromCenter ? endX : startX;
+				// Prevent NaN if offset is somehow larger than the circle (edge case)
+				const safeOffset1 = Math.min(Math.abs(offset), R1 - 0.1);
+				const safeOffset2 = Math.min(Math.abs(offset), R2 - 0.1);
 
-				// 3. THE FIX: Draw perfectly straight parallel lines
-				// We shift the entire line UP or DOWN on the Y-axis by the offset.
-				const path = `M ${actualStartX} ${offset} L ${actualEndX} ${offset}`;
+				// Pythagoras: x = sqrt(r^2 - y^2)
+				const cxEdge = Math.sqrt(R1 * R1 - safeOffset1 * safeOffset1);
+				const oxEdge = radius - Math.sqrt(R2 * R2 - safeOffset2 * safeOffset2);
 
-				// 4. Center point for the tooltip anchor
+				const actualStartX = isFromCenter ? cxEdge : oxEdge;
+				const actualEndX = isFromCenter ? oxEdge : cxEdge;
+				const sign = isFromCenter ? 1 : -1;
+
+				// 2. POLYGON ARROW MATH
+				const shaftTop = offset - strokeW / 2;
+				const shaftBot = offset + strokeW / 2;
+				const headTop = offset - headW / 2;
+				const headBot = offset + headW / 2;
+				const headBaseX = actualEndX - sign * headL;
+
+				// Draw the 7 points of the solid arrow shape
+				const path = `M ${actualStartX},${shaftTop} 
+				              L ${headBaseX},${shaftTop} 
+				              L ${headBaseX},${headTop} 
+				              L ${actualEndX},${offset} 
+				              L ${headBaseX},${headBot} 
+				              L ${headBaseX},${shaftBot} 
+				              L ${actualStartX},${shaftBot} Z`;
+
+				// We create a simple straight line just for the invisible hover hitbox
+				const hitboxPath = `M ${actualStartX} ${offset} L ${actualEndX} ${offset}`;
+
 				const curveMidX = (actualStartX + actualEndX) / 2;
 				const curveMidY = offset;
 
@@ -133,10 +157,10 @@ export default function CharacterGraph() {
 					rel,
 					type,
 					path,
+					hitboxPath,
 					angleDeg,
 					curveMidX,
 					curveMidY,
-					strokeW,
 					edgeOpacity,
 				};
 			});
@@ -146,7 +170,7 @@ export default function CharacterGraph() {
 		const zoomSensitivity = 0.002;
 		scaleRef.current = Math.max(
 			0.2,
-			Math.min(scaleRef.current - e.deltaY * zoomSensitivity, 3),
+			Math.min(scaleRef.current - e.deltaY * zoomSensitivity, 4),
 		);
 		applyTransform();
 	};
@@ -158,10 +182,10 @@ export default function CharacterGraph() {
 						rel,
 						type,
 						path,
+						hitboxPath,
 						angleDeg,
 						curveMidX,
 						curveMidY,
-						strokeW,
 						edgeOpacity,
 					}) => {
 						const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}`;
@@ -192,6 +216,16 @@ export default function CharacterGraph() {
 											className="pointer-events-none!"
 										>
 											<div className="h-full max-h-75 w-45 flex flex-col items-center justify-center pointer-events-none!">
+												<b>
+													{types.find((t) => t.id === hoveredRel.typeId)?.label}{" "}
+													{hoveredRel.value && hoveredRel?.value > 0
+														? `+${hoveredRel.value.toFixed(2)}`
+														: (hoveredRel.value?.toFixed(2) ??
+															types
+																.find((t) => t.id === hoveredRel.typeId)
+																?.value.toFixed(2) ??
+															"+0.--")}
+												</b>
 												<span className="leading-tight pointer-events-none!">
 													{hoveredRel.description}
 												</span>
@@ -205,7 +239,7 @@ export default function CharacterGraph() {
 								)}
 								{/* Invisible trigger path */}
 								<path
-									d={path}
+									d={hitboxPath}
 									fill="none"
 									stroke="transparent"
 									strokeWidth="16"
@@ -250,20 +284,9 @@ export default function CharacterGraph() {
 								{/* Visible path */}
 								<path
 									d={path}
-									fill="none"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke={type?.color || "#fff"}
-									strokeWidth={strokeW}
-									markerEnd={`url(#arrowhead-${rel.typeId})`}
-									opacity={
-										hoveredRel &&
-										`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}` ===
-											relId
-											? 1
-											: edgeOpacity
-									}
-									className="pointer-events-none"
+									fill={type?.color || "#fff"}
+									opacity={isActive ? 1 : edgeOpacity}
+									className="pointer-events-none transition-opacity"
 								/>
 							</g>
 						);
@@ -272,13 +295,19 @@ export default function CharacterGraph() {
 
 				{relatedCharacters.map((char, i: number) => {
 					const angle = (i / relatedCharacters.length) * 2 * Math.PI;
-					const x = radius * Math.cos(angle);
-					const y = radius * Math.sin(angle);
+					const cos = Math.cos(angle);
+					const sin = Math.sin(angle);
+					const x = radius * cos;
+					const y = radius * sin;
 
 					// Position name radially outside the circle
-					const textRadius = radius + 70;
-					const textX = textRadius * Math.cos(angle);
-					const textY = textRadius * Math.sin(angle);
+					const textRadius = radius + relatedRadius + 16;
+					const textX = textRadius * cos;
+					const textY = textRadius * sin;
+					const textAnchor =
+						cos > 0.1 ? "start" : cos < -0.1 ? "end" : "middle";
+					const dominantBaseline =
+						sin > 0.8 ? "hanging" : sin < -0.8 ? "auto" : "middle";
 
 					return (
 						<g
@@ -292,21 +321,21 @@ export default function CharacterGraph() {
 							<circle
 								cx={x}
 								cy={y}
-								r="42"
+								r={relatedRadius + 2}
 								fill="#0a0a0a"
 								stroke="white"
 								strokeWidth="1"
 								className="opacity-20 group-hover:opacity-40 transition-opacity"
 							/>
 							<clipPath id={`clip-${char.id}`}>
-								<circle cx={x} cy={y} r="40" />
+								<circle cx={x} cy={y} r={relatedRadius} />
 							</clipPath>
 							<image
 								href={
 									char.avatar || `https://picsum.photos/seed/${char.id}/80/80`
 								}
-								x={x - 40}
-								y={y - 40}
+								x={x - relatedRadius}
+								y={y - relatedRadius}
 								width={relatedRadius * 2}
 								height={relatedRadius * 2}
 								clipPath={`url(#clip-${char.id})`}
@@ -317,8 +346,8 @@ export default function CharacterGraph() {
 							<text
 								x={textX}
 								y={textY}
-								textAnchor="middle"
-								dominantBaseline="middle"
+								textAnchor={textAnchor}
+								dominantBaseline={dominantBaseline}
 								className="fill-white text-[10px] font-bold uppercase tracking-widest opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none"
 							>
 								{char.name}
@@ -331,21 +360,21 @@ export default function CharacterGraph() {
 					<circle
 						cx={0}
 						cy={0}
-						r="62"
+						r={centerRadius + 2}
 						fill="#0a0a0a"
 						stroke="white"
 						strokeWidth="2"
 					/>
 					<clipPath id="clip-center">
-						<circle cx={0} cy={0} r="60" />
+						<circle cx={0} cy={0} r={centerRadius} />
 					</clipPath>
 					<image
 						href={
 							selectedCharacter?.avatar ||
 							`https://picsum.photos/seed/${selectedCharacter?.id}/120/120`
 						}
-						x={-60}
-						y={-60}
+						x={-centerRadius}
+						y={-centerRadius}
 						width={centerRadius * 2}
 						height={centerRadius * 2}
 						clipPath="url(#clip-center)"
@@ -369,6 +398,7 @@ export default function CharacterGraph() {
 		deleteRelationship,
 		setSelectedCharId,
 		tooltipSide,
+		types.find,
 	]);
 	return (
 		<div
@@ -421,21 +451,6 @@ export default function CharacterGraph() {
 				// By setting viewBox to start at -half, 0,0 is exactly in the center!
 				viewBox={`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`}
 			>
-				<defs>
-					{types.map((t) => (
-						<marker
-							key={t.id}
-							id={`arrowhead-${t.id}`}
-							markerWidth="7"
-							markerHeight="5"
-							refX="7"
-							refY="2.5"
-							orient="auto"
-						>
-							<polygon points="0 0, 7 2.5, 0 5" fill={t.color} />
-						</marker>
-					))}
-				</defs>
 				{graphSvgContent}
 			</svg>
 			{editingRel && (
