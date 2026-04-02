@@ -6,14 +6,18 @@ import RelationshipModal from "@/components/RelationshipModal";
 import Sidebar from "@/components/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { RelationshipType } from "@/types";
+import type { Character, Group, RelationshipType } from "@/types";
 import "./styles.css";
+import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
 
 function App() {
+	// Supabase
+	const [session, setSession] = useState<Session | null>(null);
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
 	const selectedId = useGraphStore((state) => state.selectedCharId);
@@ -36,6 +40,21 @@ function App() {
 	}, []);
 
 	useEffect(() => {
+		supabase.auth.getSession().then(({ data: { session } }) => {
+			setSession(session);
+		});
+
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange((_event, session) => {
+			setSession(session);
+			setIsLoaded(false); // Force a reload of data when login state changes
+		});
+
+		return () => subscription.unsubscribe();
+	}, []);
+
+	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.ctrlKey && e.key === "z") {
 				useGraphStore.temporal.getState().undo();
@@ -48,38 +67,104 @@ function App() {
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, []);
-
 	useEffect(() => {
-		// 1. Load data on startup
-		const initStorage = async () => {
-			const savedData = await loadFromDisk();
-			if (savedData) {
-				// Assuming your store has an importData action
-				// that sets { characters, relationships, types }
-				useGraphStore.getState().importData(savedData);
-			} else {
-				// FIRST LAUNCH: No save file exists.
-				// The store is already using `defaultData`.
-				// Let's instantly save this default state to disk so the file is created.
-				const initialState = useGraphStore.getState();
-				await saveToDisk({
-					version: "1.0.0",
-					characters: initialState.characters,
-					relationships: initialState.relationships,
-					relationshipTypes: initialState.relationshipTypes,
-					groups: initialState.groups,
+		const initData = async () => {
+			if (session) {
+				// --- ONLINE MODE: Fetch from 4 tables concurrently ---
+				const [charsRes, groupsRes, relsRes, typesRes] = await Promise.all([
+					supabase.from("Characters").select("*"),
+					supabase.from("Groups").select("*"),
+					supabase.from("Relationships").select("*"),
+					supabase.from("RelationshipTypes").select("*"),
+				]);
+
+				useGraphStore.getState().importData({
+					characters: charsRes.data || [],
+					groups: groupsRes.data || [],
+					relationships: relsRes.data || [],
+					relationshipTypes: typesRes.data || [],
 				});
+			} else {
+				// --- OFFLINE MODE: Load from disk ---
+				const localData = await loadFromDisk();
+				if (localData) {
+					useGraphStore.getState().importData(localData);
+				}
 			}
 			setIsLoaded(true);
 		};
 
-		initStorage();
+		initData();
 
-		// 2. Subscribe to Zustand changes to Auto-Save
-		// This runs every time ANY state in useGraphStore changes
+		// --- MULTIPLAYER LIVE SYNC ---
+		let channel: RealtimeChannel;
+		if (session) {
+			channel = supabase
+				.channel("db-sync")
+				// Listen for Character changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "Characters" },
+					(payload) => {
+						const store = useGraphStore.getState();
+						if (payload.eventType === "INSERT")
+							store.addCharacter(payload.new as Character);
+						if (payload.eventType === "UPDATE")
+							store.updateCharacter(payload.new as Character);
+						if (payload.eventType === "DELETE")
+							store.deleteCharacter(payload.old.id);
+					},
+				)
+				// Listen for Group changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "Groups" },
+					(payload) => {
+						const store = useGraphStore.getState();
+						if (payload.eventType === "INSERT")
+							store.addGroup(payload.new as Group);
+						if (payload.eventType === "UPDATE")
+							store.updateGroup(payload.new as Group);
+						if (payload.eventType === "DELETE")
+							store.deleteGroup(payload.old.id);
+					},
+				)
+				// Listen for Relationship changes (Composite Keys are tricky, so we just reload relationships on change)
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "Relationships" },
+					async () => {
+						const { data } = await supabase.from("Relationships").select("*");
+						if (data) {
+							useGraphStore.getState().importData({ relationships: data });
+						}
+					},
+				)
+				// Listen for Type changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "RelationshipTypes" },
+					async () => {
+						const { data } = await supabase
+							.from("RelationshipTypes")
+							.select("*");
+						useGraphStore
+							.getState()
+							.importData({ relationshipTypes: data as RelationshipType[] });
+					},
+				)
+				.subscribe();
+		}
+
+		return () => {
+			if (channel) supabase.removeChannel(channel);
+		};
+	}, [session]);
+
+	useEffect(() => {
 		const unsubscribe = useGraphStore.subscribe((state, prevState) => {
 			// Don't save if we haven't finished the initial load yet
-			if (!isLoaded) return;
+			if (!isLoaded || session) return;
 
 			// Optional: Only save if the actual graph data changed (ignore UI state like selectedCharId)
 			if (
@@ -89,7 +174,7 @@ function App() {
 				state.groups !== prevState.groups
 			) {
 				saveToDisk({
-					version: "1.0.0",
+					version: "2",
 					characters: state.characters,
 					relationships: state.relationships,
 					relationshipTypes: state.relationshipTypes,
@@ -99,7 +184,7 @@ function App() {
 		});
 
 		return () => unsubscribe();
-	}, [isLoaded]);
+	}, [isLoaded, session]);
 
 	// Prevent rendering the app until data is loaded from disk to prevent flashing
 	if (!isLoaded) {

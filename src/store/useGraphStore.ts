@@ -1,7 +1,8 @@
+import { toast } from "sonner";
 import { temporal } from "zundo";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { JsonData } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 // Import your JSON file to use as the default state!
 import type { Character, Group, Relationship, RelationshipType } from "@/types";
 
@@ -9,18 +10,7 @@ const defaultData = {
 	characters: [] as Character[],
 	relationships: [] as Relationship[],
 	groups: [] as Group[],
-	relationshipTypes: [
-		{ id: "friend", label: "Positive", color: "#1a9548", description: "", value: 0.7 },
-		{
-			id: "negative",
-			label: "Negative",
-			color: "#6a0000",
-			description: "",
-			value: -0.7,
-		},
-		{ id: "neutral", label: "Neutral", color: "#808080", description: "", value: 0 },
-		// ... add your other default Polish relationship types here
-	] as RelationshipType[],
+	relationshipTypes: [] as RelationshipType[],
 };
 type ViewMode = "character" | "network";
 
@@ -56,16 +46,16 @@ interface GraphState {
 	addGroup: (group: Omit<Group, "id">) => void;
 	updateGroup: (group: Partial<Group>) => void;
 	deleteGroup: (id: string) => void;
-	assignCharacterToGroup: (charId: string, groupId: string | undefined) => void;
+	assignCharacterToGroup: (charId: string, groupId: string | null) => void;
 
 	// --- UTILITIES ---
-	importData: (importedJson: JsonData) => void;
+	importData: (importedJson: Partial<GraphState>) => void;
 	resetToDefault: () => void;
 }
 
 export const useGraphStore = create<GraphState>()(
 	persist(
-		temporal((set) => ({
+		temporal((set, get) => ({
 			// Initialize with your JSON data
 			...defaultData,
 			selectedCharId: null,
@@ -76,13 +66,24 @@ export const useGraphStore = create<GraphState>()(
 			setViewMode: (mode) => set({ viewMode: mode }),
 
 			// --- CHARACTERS ---
-			addCharacter: (char) =>
+			addCharacter: async (char) => {
+				const prevCharacters = get().characters;
+				const newChar = { ...char, id: crypto.randomUUID() };
+
 				set((state) => ({
-					characters: [
-						...state.characters,
-						{ ...char, id: crypto.randomUUID() },
-					],
-				})),
+					characters: [...state.characters, newChar],
+				}));
+				console.log(newChar);
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase.from("Characters").insert(newChar);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ characters: prevCharacters });
+						toast.error("Error adding character!");
+					}
+				}
+			},
 
 			updateCharacter: (char) =>
 				set((state) => ({
@@ -153,10 +154,7 @@ export const useGraphStore = create<GraphState>()(
 			// --- GROUPS ---
 			addGroup: (group) =>
 				set((state) => ({
-					groups: [
-						...state.groups,
-						{ ...group, id: crypto.randomUUID() },
-					],
+					groups: [...state.groups, { ...group, id: crypto.randomUUID() }],
 				})),
 
 			updateGroup: (group) =>
@@ -171,7 +169,7 @@ export const useGraphStore = create<GraphState>()(
 					groups: state.groups.filter((g) => g.id !== id),
 					// Unassign characters from deleted group
 					characters: state.characters.map((c) =>
-						c.groupId === id ? { ...c, groupId: undefined } : c,
+						c.groupId === id ? { ...c, groupId: null } : c,
 					),
 				})),
 
@@ -191,13 +189,20 @@ export const useGraphStore = create<GraphState>()(
 					groups: defaultData.groups,
 					selectedCharId: null,
 				}),
-			importData: (importedJson) =>
-				set(() => ({
-					characters: importedJson.characters || [],
-					relationshipTypes: importedJson.relationshipTypes || [],
-					relationships: importedJson.relationships || [],
-					groups: importedJson.groups || [],
-					selectedCharId: null,
+			importData: (importedJson: Partial<GraphState>) =>
+				set((state) => ({
+					// Use ?? (nullish coalescing) or || to fall back to the CURRENT state, not an empty array
+					characters: importedJson.characters ?? state.characters,
+					relationshipTypes:
+						importedJson.relationshipTypes ?? state.relationshipTypes,
+					relationships: importedJson.relationships ?? state.relationships,
+					groups: importedJson.groups ?? state.groups,
+
+					// Preserve the currently viewed character unless the import explicitly asks to reset it!
+					selectedCharId:
+						importedJson.selectedCharId !== undefined
+							? importedJson.selectedCharId
+							: state.selectedCharId,
 				})),
 		})),
 		{
