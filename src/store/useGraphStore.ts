@@ -78,7 +78,9 @@ export const useGraphStore = create<GraphState>()(
 				if (data.session) {
 					const { error } = await supabase
 						.from("Characters")
-						.insert({ ...char, id });
+						.insert({ ...char, id })
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ characters: prevCharacters });
@@ -95,11 +97,19 @@ export const useGraphStore = create<GraphState>()(
 					),
 				}));
 				const { data } = await supabase.auth.getSession();
+				console.log(char);
 				if (data.session) {
 					const { error } = await supabase
 						.from("Characters")
-						.update(char)
-						.eq("id", char.id);
+						.update({
+							name: char.name,
+							description: char.description,
+							avatar: char.avatar,
+							groupId: char.groupId,
+						})
+						.eq("id", char.id)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ characters: prevCharacters });
@@ -126,7 +136,9 @@ export const useGraphStore = create<GraphState>()(
 					const { error } = await supabase
 						.from("Characters")
 						.delete()
-						.eq("id", id);
+						.eq("id", id)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({
@@ -150,7 +162,9 @@ export const useGraphStore = create<GraphState>()(
 				if (data.session) {
 					const { error } = await supabase
 						.from("RelationshipTypes")
-						.insert({ ...type, id });
+						.insert({ ...type, id })
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ relationshipTypes: prevTypes });
@@ -171,7 +185,9 @@ export const useGraphStore = create<GraphState>()(
 					const { error } = await supabase
 						.from("RelationshipTypes")
 						.update(type)
-						.eq("id", type.id);
+						.eq("id", type.id)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ relationshipTypes: prevTypes });
@@ -193,7 +209,9 @@ export const useGraphStore = create<GraphState>()(
 					const { error } = await supabase
 						.from("RelationshipTypes")
 						.delete()
-						.eq("id", id);
+						.eq("id", id)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({
@@ -213,7 +231,11 @@ export const useGraphStore = create<GraphState>()(
 				}));
 				const { data } = await supabase.auth.getSession();
 				if (data.session) {
-					const { error } = await supabase.from("Relationships").insert(newRel);
+					const { error } = await supabase
+						.from("Relationships")
+						.insert(newRel)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ relationships: prevRelationships });
@@ -240,7 +262,9 @@ export const useGraphStore = create<GraphState>()(
 						.update(newRel)
 						.eq("fromId", oldRel.fromId)
 						.eq("toId", oldRel.toId)
-						.eq("typeId", oldRel.typeId);
+						.eq("typeId", oldRel.typeId)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ relationships: prevRelationships });
@@ -264,7 +288,9 @@ export const useGraphStore = create<GraphState>()(
 						.delete()
 						.eq("fromId", fromId)
 						.eq("toId", toId)
-						.eq("typeId", typeId);
+						.eq("typeId", typeId)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({
@@ -286,7 +312,9 @@ export const useGraphStore = create<GraphState>()(
 				if (data.session) {
 					const { error } = await supabase
 						.from("Groups")
-						.insert({ ...group, id });
+						.insert({ ...group, id })
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ groups: prevGroups });
@@ -307,7 +335,9 @@ export const useGraphStore = create<GraphState>()(
 					const { error } = await supabase
 						.from("Groups")
 						.update(group)
-						.eq("id", group.id);
+						.eq("id", group.id)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ groups: prevGroups });
@@ -328,7 +358,12 @@ export const useGraphStore = create<GraphState>()(
 				}));
 				const { data } = await supabase.auth.getSession();
 				if (data.session) {
-					const { error } = await supabase.from("Groups").delete().eq("id", id);
+					const { error } = await supabase
+						.from("Groups")
+						.delete()
+						.eq("id", id)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({
@@ -352,7 +387,9 @@ export const useGraphStore = create<GraphState>()(
 					const { error } = await supabase
 						.from("Characters")
 						.update({ groupId })
-						.eq("id", charId);
+						.eq("id", charId)
+						.select()
+						.single();
 					if (error) {
 						console.error("Supabase Error: ", error);
 						set({ characters: prevCharacters });
