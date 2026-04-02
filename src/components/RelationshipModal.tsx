@@ -47,6 +47,7 @@ export default function RelationshipModal({
 			toId: characters.find((c) => c.id !== fromId)?.id || "",
 			typeId: types[0]?.id || "",
 			description: "",
+			value: null,
 		},
 	);
 	useEffect(() => {
@@ -57,7 +58,7 @@ export default function RelationshipModal({
 					toId: characters.find((c) => c.id !== fromId)?.id || "",
 					typeId: types[0]?.id || "",
 					description: "",
-					// value: undefined // (Optional) Resets your value slider
+					value: null, // (Optional) Resets your value slider
 				},
 			);
 		}
@@ -159,7 +160,7 @@ export default function RelationshipModal({
 							{formData.value != null ? (
 								<button
 									type="button"
-									onClick={() => setFormData({ ...formData, value: undefined })}
+									onClick={() => setFormData({ ...formData, value: null })}
 									className="text-[9px] font-mono opacity-40 hover:opacity-80 underline"
 								>
 									Reset to type default

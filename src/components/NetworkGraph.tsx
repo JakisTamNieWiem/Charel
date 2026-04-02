@@ -10,7 +10,7 @@ interface Node {
 	vx: number;
 	vy: number;
 	name: string;
-	avatar?: string;
+	avatar: string | null;
 }
 
 export default function NetworkGraph() {

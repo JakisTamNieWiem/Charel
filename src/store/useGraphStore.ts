@@ -29,12 +29,12 @@ interface GraphState {
 
 	// --- ACTIONS: CHARACTERS ---
 	addCharacter: (char: Omit<Character, "id">) => void;
-	updateCharacter: (char: Partial<Character>) => void;
+	updateCharacter: (char: Character) => void;
 	deleteCharacter: (id: string) => void;
 
 	// --- ACTIONS: RELATIONSHIP TYPES ---
 	addType: (type: Omit<RelationshipType, "id">) => void;
-	updateType: (type: Partial<RelationshipType>) => void;
+	updateType: (type: RelationshipType) => void;
 	deleteType: (id: string) => void;
 
 	// --- ACTIONS: RELATIONSHIPS ---
@@ -44,7 +44,7 @@ interface GraphState {
 
 	// --- ACTIONS: GROUPS ---
 	addGroup: (group: Omit<Group, "id">) => void;
-	updateGroup: (group: Partial<Group>) => void;
+	updateGroup: (group: Group) => void;
 	deleteGroup: (id: string) => void;
 	assignCharacterToGroup: (charId: string, groupId: string | null) => void;
 
@@ -73,7 +73,7 @@ export const useGraphStore = create<GraphState>()(
 				set((state) => ({
 					characters: [...state.characters, { ...char, id }],
 				}));
-				console.log("UUID", id);
+
 				const { data } = await supabase.auth.getSession();
 				if (data.session) {
 					const { error } = await supabase
@@ -87,14 +87,31 @@ export const useGraphStore = create<GraphState>()(
 				}
 			},
 
-			updateCharacter: (char) =>
+			updateCharacter: async (char) => {
+				const prevCharacters = get().characters;
 				set((state) => ({
 					characters: state.characters.map((c) =>
-						c.id === char.id ? { ...c, ...char } : c,
+						c.id === char.id ? char : c,
 					),
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("Characters")
+						.update(char)
+						.eq("id", char.id);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ characters: prevCharacters });
+						toast.error("Error updating character!");
+					}
+				}
+			},
 
-			deleteCharacter: (id) =>
+			deleteCharacter: async (id) => {
+				const prevCharacters = get().characters;
+				const prevRelationships = get().relationships;
+				const prevSelectedCharId = get().selectedCharId;
 				set((state) => ({
 					characters: state.characters.filter((c) => c.id !== id),
 					// CASCADING DELETE: If a character is deleted, remove all their relationships too!
@@ -103,38 +120,110 @@ export const useGraphStore = create<GraphState>()(
 					),
 					selectedCharId:
 						state.selectedCharId === id ? null : state.selectedCharId,
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("Characters")
+						.delete()
+						.eq("id", id);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({
+							characters: prevCharacters,
+							relationships: prevRelationships,
+							selectedCharId: prevSelectedCharId,
+						});
+						toast.error("Error deleting character!");
+					}
+				}
+			},
 
 			// --- RELATIONSHIP TYPES ---
-			addType: (type) =>
+			addType: async (type) => {
+				const prevTypes = get().relationshipTypes;
+				const id = crypto.randomUUID();
 				set((state) => ({
-					relationshipTypes: [
-						...state.relationshipTypes,
-						{ ...type, id: crypto.randomUUID() },
-					],
-				})),
+					relationshipTypes: [...state.relationshipTypes, { ...type, id }],
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("RelationshipTypes")
+						.insert({ ...type, id });
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ relationshipTypes: prevTypes });
+						toast.error("Error adding relationship type!");
+					}
+				}
+			},
 
-			updateType: (type) =>
+			updateType: async (type) => {
+				const prevTypes = get().relationshipTypes;
 				set((state) => ({
 					relationshipTypes: state.relationshipTypes.map((t) =>
-						t.id === type.id ? { ...t, ...type } : t,
+						t.id === type.id ? type : t,
 					),
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("RelationshipTypes")
+						.update(type)
+						.eq("id", type.id);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ relationshipTypes: prevTypes });
+						toast.error("Error updating relationship type!");
+					}
+				}
+			},
 
-			deleteType: (id) =>
+			deleteType: async (id) => {
+				const prevTypes = get().relationshipTypes;
+				const prevRelationships = get().relationships;
 				set((state) => ({
 					relationshipTypes: state.relationshipTypes.filter((t) => t.id !== id),
 					// CASCADING DELETE: Remove any relationships that used this deleted type
 					relationships: state.relationships.filter((r) => r.typeId !== id),
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("RelationshipTypes")
+						.delete()
+						.eq("id", id);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({
+							relationshipTypes: prevTypes,
+							relationships: prevRelationships,
+						});
+						toast.error("Error deleting relationship type!");
+					}
+				}
+			},
 
 			// --- RELATIONSHIPS ---
-			addRelationship: (newRel) =>
+			addRelationship: async (newRel) => {
+				const prevRelationships = get().relationships;
 				set((state) => ({
 					relationships: [...state.relationships, newRel],
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase.from("Relationships").insert(newRel);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ relationships: prevRelationships });
+						toast.error("Error adding relationship!");
+					}
+				}
+			},
 
-			updateRelationship: (oldRel, newRel) =>
+			updateRelationship: async (oldRel, newRel) => {
+				const prevRelationships = get().relationships;
 				set((state) => ({
 					relationships: state.relationships.map((r) =>
 						r.fromId === oldRel.fromId &&
@@ -143,44 +232,134 @@ export const useGraphStore = create<GraphState>()(
 							? newRel
 							: r,
 					),
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("Relationships")
+						.update(newRel)
+						.eq("fromId", oldRel.fromId)
+						.eq("toId", oldRel.toId)
+						.eq("typeId", oldRel.typeId);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ relationships: prevRelationships });
+						toast.error("Error updating relationship!");
+					}
+				}
+			},
 
-			deleteRelationship: (fromId, toId, typeId) =>
+			deleteRelationship: async (fromId, toId, typeId) => {
+				const prevRelationships = get().relationships;
 				set((state) => ({
 					relationships: state.relationships.filter(
 						(r) =>
 							!(r.fromId === fromId && r.toId === toId && r.typeId === typeId),
 					),
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("Relationships")
+						.delete()
+						.eq("fromId", fromId)
+						.eq("toId", toId)
+						.eq("typeId", typeId);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({
+							relationships: prevRelationships,
+						});
+						toast.error("Error deleting relationship!");
+					}
+				}
+			},
 
 			// --- GROUPS ---
-			addGroup: (group) =>
+			addGroup: async (group) => {
+				const prevGroups = get().groups;
+				const id = crypto.randomUUID();
 				set((state) => ({
-					groups: [...state.groups, { ...group, id: crypto.randomUUID() }],
-				})),
+					groups: [...state.groups, { ...group, id }],
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("Groups")
+						.insert({ ...group, id });
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ groups: prevGroups });
+						toast.error("Error adding group!");
+					}
+				}
+			},
 
-			updateGroup: (group) =>
+			updateGroup: async (group) => {
+				const prevGroups = get().groups;
 				set((state) => ({
 					groups: state.groups.map((g) =>
 						g.id === group.id ? { ...g, ...group } : g,
 					),
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("Groups")
+						.update(group)
+						.eq("id", group.id);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ groups: prevGroups });
+						toast.error("Error updating group!");
+					}
+				}
+			},
 
-			deleteGroup: (id) =>
+			deleteGroup: async (id) => {
+				const prevGroups = get().groups;
+				const prevCharacters = get().characters;
 				set((state) => ({
 					groups: state.groups.filter((g) => g.id !== id),
 					// Unassign characters from deleted group
 					characters: state.characters.map((c) =>
 						c.groupId === id ? { ...c, groupId: null } : c,
 					),
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase.from("Groups").delete().eq("id", id);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({
+							characters: prevCharacters,
+							groups: prevGroups,
+						});
+						toast.error("Error deleting relationship type!");
+					}
+				}
+			},
 
-			assignCharacterToGroup: (charId, groupId) =>
+			assignCharacterToGroup: async (charId, groupId) => {
+				const prevCharacters = get().characters;
 				set((state) => ({
 					characters: state.characters.map((c) =>
 						c.id === charId ? { ...c, groupId } : c,
 					),
-				})),
+				}));
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
+					const { error } = await supabase
+						.from("Characters")
+						.update({ groupId })
+						.eq("id", charId);
+					if (error) {
+						console.error("Supabase Error: ", error);
+						set({ characters: prevCharacters });
+						toast.error("Error assigning character to group!");
+					}
+				}
+			},
 
 			// --- UTILITIES ---
 			resetToDefault: () =>

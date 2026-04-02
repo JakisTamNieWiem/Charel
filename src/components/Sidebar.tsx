@@ -106,7 +106,7 @@ export default function Sidebar() {
 
 	return (
 		<>
-			<div className="w-80 *:bg-[#141414] border-r border-white/10 relative flex flex-col items-center border-bottom">
+			<div className="w-80 h-full *:bg-[#141414] border-r border-white/10 relative flex flex-col items-center border-bottom">
 				<div className="w-full p-4 self-start flex items-center justify-between">
 					<h1 className="text-2xl font-bold tracking-tighter flex items-center gap-2 serif">
 						<Users className="w-8 h-8" />
@@ -137,7 +137,10 @@ export default function Sidebar() {
 					)}
 				</div>
 				<LoginModal open={loginModalOpen} onOpenChange={setLoginModalOpen} />
-				<Tabs defaultValue="characters" className="flex flex-col h-full w-full">
+				<Tabs
+					defaultValue="characters"
+					className="flex flex-col size-full pb-16"
+				>
 					<div className="px-3 flex w-full justify-between">
 						<TabsList className="w-full shrink-0">
 							<TabsTrigger
@@ -176,77 +179,75 @@ export default function Sidebar() {
 						<Separator />
 					</div>
 					<TabsContent
-						className="flex-1 flex flex-col m-0 overflow-hidden"
+						className="flex-1 flex flex-col overflow-hidden"
 						value="characters"
 					>
-						<div className="h-full">
-							<div className="px-4 flex items-center justify-between">
-								<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
-									Characters
-								</h2>
-								<Button
-									onClick={() => setEditingCharacter("new")}
-									variant="ghost"
-									className=""
-								>
-									<Plus className="w-4 h-4" />
-								</Button>
-							</div>
-
-							<ScrollArea className="flex-1 px-4 h-full">
-								<div className="space-y-2 py-4">
-									{allChars.map((char) => (
-										<div
-											key={char.id}
-											onClick={() => setSelectedCharId(char.id)}
-											className={cn(
-												"group px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3",
-												selectedId === char.id
-													? "bg-white/10 border-white/20"
-													: "bg-transparent border-transparent hover:bg-white/5",
-											)}
-										>
-											<Avatar className="size-14">
-												<AvatarImage src={char.avatar ?? undefined} />
-												<AvatarFallback>{char.name}</AvatarFallback>
-											</Avatar>
-
-											<div className="flex-1 min-w-0">
-												<h3 className="font-medium truncate">{char.name}</h3>
-												<p className="text-xs opacity-50 truncate">
-													{char.description}
-												</p>
-											</div>
-
-											<div className="opacity-0 group-hover:opacity-100 flex flex-col">
-												<Button
-													size="icon-sm"
-													variant="ghost"
-													className="p-1 hover:text-blue-400 hover:bg-transparent!"
-													onClick={(e) => {
-														e.stopPropagation();
-														setEditingCharacter(char);
-													}}
-												>
-													<Edit2 size="16px" />
-												</Button>
-												<Button
-													size="icon-sm"
-													variant="ghost"
-													onClick={(e) => {
-														e.stopPropagation();
-														deleteCharacter(char.id);
-													}}
-													className="p-1 hover:text-red-400 hover:bg-transparent!"
-												>
-													<Trash2 className="w-3 h-3" />
-												</Button>
-											</div>
-										</div>
-									))}
-								</div>
-							</ScrollArea>
+						<div className="px-4 flex items-center justify-between">
+							<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
+								Characters
+							</h2>
+							<Button
+								onClick={() => setEditingCharacter("new")}
+								variant="ghost"
+								className=""
+							>
+								<Plus className="w-4 h-4" />
+							</Button>
 						</div>
+
+						<ScrollArea className="flex-1 p-4 h-full">
+							<div className="space-y-2 py-4">
+								{allChars.map((char) => (
+									<div
+										key={char.id}
+										onClick={() => setSelectedCharId(char.id)}
+										className={cn(
+											"group px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3",
+											selectedId === char.id
+												? "bg-white/10 border-white/20"
+												: "bg-transparent border-transparent hover:bg-white/5",
+										)}
+									>
+										<Avatar className="size-14">
+											<AvatarImage src={char.avatar ?? undefined} />
+											<AvatarFallback>{char.name}</AvatarFallback>
+										</Avatar>
+
+										<div className="flex-1 min-w-0">
+											<h3 className="font-medium truncate">{char.name}</h3>
+											<p className="text-xs opacity-50 truncate">
+												{char.description}
+											</p>
+										</div>
+
+										<div className="opacity-0 group-hover:opacity-100 flex flex-col">
+											<Button
+												size="icon-sm"
+												variant="ghost"
+												className="p-1 hover:text-blue-400 hover:bg-transparent!"
+												onClick={(e) => {
+													e.stopPropagation();
+													setEditingCharacter(char);
+												}}
+											>
+												<Edit2 size="16px" />
+											</Button>
+											<Button
+												size="icon-sm"
+												variant="ghost"
+												onClick={(e) => {
+													e.stopPropagation();
+													deleteCharacter(char.id);
+												}}
+												className="p-1 hover:text-red-400 hover:bg-transparent!"
+											>
+												<Trash2 className="w-3 h-3" />
+											</Button>
+										</div>
+									</div>
+								))}
+							</div>
+						</ScrollArea>
 					</TabsContent>
 					<TabsContent
 						className="flex-1 flex flex-col m-0 overflow-hidden"
@@ -326,6 +327,7 @@ export default function Sidebar() {
 															updateGroup({
 																id: group.id,
 																color: e.target.value,
+																name: group.name,
 															})
 														}
 														className="w-4 h-4 bg-transparent border-none cursor-pointer shrink-0"
@@ -336,6 +338,7 @@ export default function Sidebar() {
 															updateGroup({
 																id: group.id,
 																name: e.target.value,
+																color: group.color,
 															})
 														}
 														className="flex-1 bg-transparent text-sm font-medium focus:outline-none"
@@ -440,79 +443,77 @@ export default function Sidebar() {
 						</div>
 					</TabsContent>
 					<TabsContent
-						className="flex-1 flex flex-col m-0 overflow-hidden"
+						className="flex flex-col m-0 overflow-hidden"
 						value="types"
 					>
-						<div className="h-full">
-							<div className="px-4 flex items-center justify-between">
-								<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
-									Link Types
-								</h2>
-								<button
-									onClick={() =>
-										setEditingType({
-											id: "",
-											label: "",
-											color: "",
-											description: "",
-											value: 0,
-										})
-									}
-									className="p-1 hover:bg-white/10 rounded"
-								>
-									<Plus className="w-4 h-4" />
-								</button>
-							</div>
-							<ScrollArea className="flex-1 px-4 h-full">
-								<div className="space-y-2 py-4 pb-8">
-									{types.map((type) => (
-										<div
-											key={type.id}
-											style={
-												{ "--hover-color": type.color } as React.CSSProperties
-											}
-											className="group px-3 py-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-3 transition-colors duration-200 hover:border-(--hover-color) hover:bg-(--hover-color)/10"
-										>
-											<div
-												className="size-5 rounded-full"
-												style={{ backgroundColor: type.color }}
-											/>
-											<div className="flex-1">
-												<h3 className="text-sm font-medium">{type.label}</h3>
-												<p className="text-[10px] opacity-50">
-													{type.description}
-												</p>
-											</div>
-											<div className="justify-end">
-												<p
-													style={{
-														color: sentimentColor(type.value),
-													}}
-													className="text-xs text-left "
-												>
-													{type.value >= 0 ? "+" : ""}
-													{type.value?.toFixed(2)}
-												</p>
-											</div>
-											<div className="flex flex-col gap-1">
-												<button
-													onClick={() => setEditingType(type)}
-													className="p-1 hover:text-blue-400"
-												>
-													<Edit2 className="w-3 h-3" />
-												</button>
-												<button
-													onClick={() => deleteType(type.id)}
-													className="p-1 hover:text-red-400"
-												>
-													<Trash2 className="w-3 h-3" />
-												</button>
-											</div>
-										</div>
-									))}
-								</div>
-							</ScrollArea>
+						<div className="px-4 flex items-center justify-between">
+							<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
+								Link Types
+							</h2>
+							<button
+								onClick={() =>
+									setEditingType({
+										id: "",
+										label: "",
+										color: "",
+										description: "",
+										value: 0,
+									})
+								}
+								className="p-1 hover:bg-white/10 rounded"
+							>
+								<Plus className="w-4 h-4" />
+							</button>
 						</div>
+						<ScrollArea className="flex-1 px-4 h-full">
+							<div className="space-y-2 py-4 pb-8">
+								{types.map((type) => (
+									<div
+										key={type.id}
+										style={
+											{ "--hover-color": type.color } as React.CSSProperties
+										}
+										className="group px-3 py-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-3 transition-colors duration-200 hover:border-(--hover-color) hover:bg-(--hover-color)/10"
+									>
+										<div
+											className="size-5 rounded-full"
+											style={{ backgroundColor: type.color }}
+										/>
+										<div className="flex-1">
+											<h3 className="text-sm font-medium">{type.label}</h3>
+											<p className="text-[10px] opacity-50">
+												{type.description}
+											</p>
+										</div>
+										<div className="justify-end">
+											<p
+												style={{
+													color: sentimentColor(type.value),
+												}}
+												className="text-xs text-left "
+											>
+												{type.value >= 0 ? "+" : ""}
+												{type.value?.toFixed(2)}
+											</p>
+										</div>
+										<div className="flex flex-col gap-1">
+											<button
+												onClick={() => setEditingType(type)}
+												className="p-1 hover:text-blue-400"
+											>
+												<Edit2 className="w-3 h-3" />
+											</button>
+											<button
+												onClick={() => deleteType(type.id)}
+												className="p-1 hover:text-red-400"
+											>
+												<Trash2 className="w-3 h-3" />
+											</button>
+										</div>
+									</div>
+								))}
+							</div>
+						</ScrollArea>
 					</TabsContent>
 					<TabsContent
 						className="h-full flex-1 overflow-y-auto px-4 custom-scrollbar"
