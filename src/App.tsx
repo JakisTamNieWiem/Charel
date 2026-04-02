@@ -56,6 +56,7 @@ function App() {
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
+			if (!session) return;
 			if (e.ctrlKey && e.key === "z") {
 				useGraphStore.temporal.getState().undo();
 			}
@@ -66,7 +67,7 @@ function App() {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, []);
+	}, [session]);
 	useEffect(() => {
 		const initData = async () => {
 			if (session) {
