@@ -534,7 +534,10 @@ export default function Sidebar() {
 									Data Management
 								</h2>
 								<div className="flex gap-2">
-									<button
+									<Button
+										variant={"ghost"}
+										disabled={!!session}
+										title={session ? "Disabled when Online" : undefined}
 										onClick={() => {
 											const input = document.createElement("input");
 											input.type = "file";
@@ -564,8 +567,9 @@ export default function Sidebar() {
 										className="p-1 hover:bg-white/10 rounded text-[10px] uppercase font-bold flex items-center gap-1"
 									>
 										<Plus className="w-3 h-3" /> Import
-									</button>
-									<button
+									</Button>
+									<Button
+										variant={"ghost"}
 										onClick={async () => {
 											const data = {
 												version: "1.0.0",
@@ -603,7 +607,7 @@ export default function Sidebar() {
 										className="p-1 hover:bg-white/10 rounded text-[10px] uppercase font-bold flex items-center gap-1"
 									>
 										<Download className="w-3 h-3" /> Export
-									</button>
+									</Button>
 								</div>
 							</div>
 							<div className="h-9/12 relative group">
