@@ -68,6 +68,7 @@ function App() {
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [session]);
+
 	useEffect(() => {
 		const initData = async () => {
 			if (session) {
@@ -188,9 +189,11 @@ function App() {
 							useGraphStore.setState({
 								relationships: state.relationships.filter(
 									(r) =>
-										r.fromId === payload.old.fromId &&
-										r.toId === payload.old.toId &&
-										r.typeId === payload.old.typeId,
+										!(
+											r.fromId === payload.old.fromId &&
+											r.toId === payload.old.toId &&
+											r.typeId === payload.old.typeId
+										),
 								),
 							});
 						}
