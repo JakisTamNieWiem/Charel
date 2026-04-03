@@ -299,7 +299,7 @@ function App() {
 						</div>
 
 						{/* Legend */}
-						<div className="p-6 flex gap-6 z-10 overflow-x-auto no-scrollbar">
+						<div className="p-6 flex flex-wrap gap-6 z-10 overflow-x-auto no-scrollbar">
 							{types.map((type) => (
 								<div
 									key={type.id}
@@ -312,9 +312,11 @@ function App() {
 									<span className="text-[10px] uppercase font-bold tracking-widest opacity-70">
 										{type.label}
 									</span>
-									<div className="absolute bottom-full left-0 mb-2 p-2 bg-white text-black rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 z-50">
-										{type.description}
-									</div>
+									{type.description.length > 0 && (
+										<div className="absolute bottom-full left-0 mb-2 p-2 bg-white text-black rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 z-50">
+											{type.description}
+										</div>
+									)}
 								</div>
 							))}
 						</div>
