@@ -78,7 +78,7 @@ export type Database = {
             columns: ["ownerId"]
             isOneToOne: false
             referencedRelation: "Profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["userId"]
           },
         ]
       }
@@ -114,7 +114,7 @@ export type Database = {
             columns: ["userId"]
             isOneToOne: false
             referencedRelation: "Profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["userId"]
           },
         ]
       }
@@ -163,13 +163,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "Messages_author_fkey"
-            columns: ["userId"]
-            isOneToOne: false
-            referencedRelation: "Profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "Messages_characterId_fkey"
             columns: ["characterId"]
             isOneToOne: false
@@ -183,29 +176,30 @@ export type Database = {
             referencedRelation: "Chats"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "Messages_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "Profiles"
+            referencedColumns: ["userId"]
+          },
         ]
       }
       Profiles: {
         Row: {
-          characterName: string
-          id: string
-          ownerId: string
           role: string
           status: string
+          userId: string
         }
         Insert: {
-          characterName?: string
-          id: string
-          ownerId?: string
           role?: string
           status?: string
+          userId?: string
         }
         Update: {
-          characterName?: string
-          id?: string
-          ownerId?: string
           role?: string
           status?: string
+          userId?: string
         }
         Relationships: []
       }

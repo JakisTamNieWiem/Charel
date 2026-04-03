@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 
 // Helper types based on your schema
 type Chat = Database["public"]["Tables"]["Chats"]["Row"];
+type Profile = Database["public"]["Tables"]["Profiles"]["Row"];
 type Message = Database["public"]["Tables"]["Messages"]["Row"] & {
 	// We will join Character data when fetching so we can display the Avatar & Name
 	character?: { name: string; avatar: string | null };
@@ -14,7 +15,7 @@ interface ChatState {
 	chats: Chat[];
 	messages: Record<string, Message[]>; // Dictionary: {[chatId]: Message[] }
 	activeChatId: string | null;
-
+	profile: Profile | null;
 	// THE DM MAGIC: Which character is the user currently typing as?
 	activeSpeakerId: string | null;
 
@@ -22,6 +23,7 @@ interface ChatState {
 	setChats: (chats: Chat[]) => void;
 	setActiveChatId: (chatId: string | null) => void;
 	setActiveSpeakerId: (characterId: string) => void;
+	setProfile: (profile: Profile) => void;
 
 	// Message handling
 	addMessage: (chatId: string, message: Message) => void;
@@ -35,11 +37,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 	chats: [],
 	messages: {},
 	activeChatId: null,
+	profile: null,
 	activeSpeakerId: null,
 
 	setChats: (chats) => set({ chats }),
 	setActiveChatId: (chatId) => set({ activeChatId: chatId }),
 	setActiveSpeakerId: (characterId) => set({ activeSpeakerId: characterId }),
+
+	setProfile: (profile) => set({ profile }),
 
 	setMessages: (chatId, messages) =>
 		set((state) => ({

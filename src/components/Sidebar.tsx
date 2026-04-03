@@ -23,10 +23,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, RelationshipType } from "@/types";
 import LoginModal from "./LoginModal";
 import TypeModal from "./TypeModal";
+import { Badge } from "./ui/badge";
 import {
 	Select,
 	SelectContent,
@@ -101,6 +103,7 @@ export default function Sidebar() {
 	const [session, setSession] = useState<Session | null>(null);
 
 	const [version, setVersion] = useState<string>("");
+	const profile = useChatStore((state) => state.profile);
 
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -123,6 +126,12 @@ export default function Sidebar() {
 							? session.user.email?.split("@")[0][0].toUpperCase() +
 								session.user.email?.split("@")[0].slice(1)
 							: "Charel"}
+						{profile &&
+							(profile.role === "dm" ? (
+								<Badge variant={"outline"}>DM</Badge>
+							) : (
+								<Badge variant={"outline"}>Player</Badge>
+							))}
 					</h1>
 					{session ? (
 						<div className="flex items-center justify-between">

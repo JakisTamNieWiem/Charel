@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
+import { useChatStore } from "./store/useChatStore";
 
 function App() {
 	// Supabase
@@ -73,12 +74,18 @@ function App() {
 		const initData = async () => {
 			if (session) {
 				// --- ONLINE MODE: Fetch from 4 tables concurrently ---
-				const [charsRes, groupsRes, relsRes, typesRes] = await Promise.all([
-					supabase.from("Characters").select("*"),
-					supabase.from("Groups").select("*"),
-					supabase.from("Relationships").select("*"),
-					supabase.from("RelationshipTypes").select("*"),
-				]);
+				const [charsRes, groupsRes, relsRes, typesRes, profileRes] =
+					await Promise.all([
+						supabase.from("Characters").select("*"),
+						supabase.from("Groups").select("*"),
+						supabase.from("Relationships").select("*"),
+						supabase.from("RelationshipTypes").select("*"),
+						supabase
+							.from("Profiles")
+							.select("*")
+							.eq("userId", session.user.id)
+							.single(),
+					]);
 
 				useGraphStore.getState().importData({
 					characters: charsRes.data || [],
@@ -86,6 +93,8 @@ function App() {
 					relationships: relsRes.data || [],
 					relationshipTypes: typesRes.data || [],
 				});
+				if (profileRes.data)
+					useChatStore.getState().setProfile(profileRes.data);
 			} else {
 				// --- OFFLINE MODE: Load from disk ---
 				const localData = await loadFromDisk();
