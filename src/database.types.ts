@@ -22,7 +22,7 @@ export type Database = {
           groupId: string | null
           id: string
           name: string
-          owner_id: string
+          ownerId: string
         }
         Insert: {
           avatar?: string | null
@@ -31,7 +31,7 @@ export type Database = {
           groupId?: string | null
           id?: string
           name: string
-          owner_id?: string
+          ownerId?: string
         }
         Update: {
           avatar?: string | null
@@ -40,9 +40,83 @@ export type Database = {
           groupId?: string | null
           id?: string
           name?: string
-          owner_id?: string
+          ownerId?: string
         }
         Relationships: []
+      }
+      Chats: {
+        Row: {
+          cover: string | null
+          created_at: string
+          id: string
+          isGroup: boolean | null
+          lastMessageAt: string | null
+          name: string
+          ownerId: string
+        }
+        Insert: {
+          cover?: string | null
+          created_at?: string
+          id?: string
+          isGroup?: boolean | null
+          lastMessageAt?: string | null
+          name?: string
+          ownerId?: string
+        }
+        Update: {
+          cover?: string | null
+          created_at?: string
+          id?: string
+          isGroup?: boolean | null
+          lastMessageAt?: string | null
+          name?: string
+          ownerId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Chats_ownerId_fkey"
+            columns: ["ownerId"]
+            isOneToOne: false
+            referencedRelation: "Profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ChatsMembers: {
+        Row: {
+          chatId: string
+          created_at: string
+          lastReadAt: string | null
+          userId: string
+        }
+        Insert: {
+          chatId: string
+          created_at?: string
+          lastReadAt?: string | null
+          userId: string
+        }
+        Update: {
+          chatId?: string
+          created_at?: string
+          lastReadAt?: string | null
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ChatsMembers_chatId_fkey"
+            columns: ["chatId"]
+            isOneToOne: false
+            referencedRelation: "Chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ChatsMembers_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "Profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       Groups: {
         Row: {
@@ -59,6 +133,79 @@ export type Database = {
           color?: string
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      Messages: {
+        Row: {
+          characterId: string
+          chat: string
+          content: string
+          created_at: string
+          id: number
+          userId: string
+        }
+        Insert: {
+          characterId: string
+          chat: string
+          content: string
+          created_at?: string
+          id?: number
+          userId: string
+        }
+        Update: {
+          characterId?: string
+          chat?: string
+          content?: string
+          created_at?: string
+          id?: number
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Messages_author_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "Profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Messages_characterId_fkey"
+            columns: ["characterId"]
+            isOneToOne: false
+            referencedRelation: "Characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Messages_chat_fkey"
+            columns: ["chat"]
+            isOneToOne: false
+            referencedRelation: "Chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Profiles: {
+        Row: {
+          characterName: string
+          id: string
+          ownerId: string
+          role: string
+          status: string
+        }
+        Insert: {
+          characterName?: string
+          id: string
+          ownerId?: string
+          role?: string
+          status?: string
+        }
+        Update: {
+          characterName?: string
+          id?: string
+          ownerId?: string
+          role?: string
+          status?: string
         }
         Relationships: []
       }

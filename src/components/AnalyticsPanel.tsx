@@ -9,7 +9,7 @@ import { useGraphStore } from "@/store/useGraphStore";
 interface CharStat {
 	id: string;
 	name: string;
-	avatar?: string;
+	avatar: string | null;
 	connectionCount: number;
 	avgValue: number;
 	totalPositive: number;
@@ -24,7 +24,7 @@ export default function AnalyticsPanel() {
 
 	const stats = useMemo(() => {
 		const typeValueMap = new Map(types.map((t) => [t.id, t.value ?? 0]));
-		const relValue = (r: { typeId: string; value?: number }) =>
+		const relValue = (r: { typeId: string; value: number | null }) =>
 			r.value ?? typeValueMap.get(r.typeId) ?? 0;
 
 		// All relationship values
@@ -539,7 +539,7 @@ export default function AnalyticsPanel() {
 											{i + 1}
 										</span>
 										<Avatar className="size-6">
-											<AvatarImage src={c.avatar} />
+											<AvatarImage src={c.avatar ?? undefined} />
 											<AvatarFallback className="text-[8px]">
 												{c.name.slice(0, 2)}
 											</AvatarFallback>
@@ -585,7 +585,7 @@ export default function AnalyticsPanel() {
 											{i + 1}
 										</span>
 										<Avatar className="size-6">
-											<AvatarImage src={c.avatar} />
+											<AvatarImage src={c.avatar ?? undefined} />
 											<AvatarFallback className="text-[8px]">
 												{c.name.slice(0, 2)}
 											</AvatarFallback>
@@ -715,7 +715,7 @@ function CharacterStatRow({
 			</h3>
 			<div className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
 				<Avatar className="size-8">
-					<AvatarImage src={char.avatar} />
+					<AvatarImage src={char.avatar ?? undefined} />
 					<AvatarFallback className="text-[10px]">
 						{char.name.slice(0, 2)}
 					</AvatarFallback>

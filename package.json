@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "lint": "bunx tsc --noEmit && bunx biome check",
     "preview": "vite preview",
     "tauri": "tauri",
     "types": "bunx supabase gen types typescript --project-id kaaekcmhkzjajsnwixxo --schema public > ./src/database.types.ts"
