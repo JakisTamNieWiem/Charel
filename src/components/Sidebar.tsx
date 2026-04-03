@@ -1,4 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
+import { getVersion } from "@tauri-apps/api/app";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import {
@@ -99,16 +100,24 @@ export default function Sidebar() {
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
 	const [session, setSession] = useState<Session | null>(null);
 
+	const [version, setVersion] = useState<string>("");
+
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data }) => setSession(data.session));
 		supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+	}, []);
+	useEffect(() => {
+		getVersion().then((v) => setVersion(`Version: ${v}`));
 	}, []);
 
 	return (
 		<>
 			<div className="w-80 h-full *:bg-[#141414] border-r border-white/10 relative flex flex-col items-center border-bottom">
 				<div className="w-full p-4 self-start flex items-center justify-between">
-					<h1 className="text-2xl font-bold tracking-tighter flex items-center gap-2 serif">
+					<h1
+						title={version}
+						className="text-2xl font-bold tracking-tighter flex items-center gap-2 serif"
+					>
 						<Users className="w-8 h-8" />
 						{session?.user.email?.split("@")
 							? session.user.email?.split("@")[0][0].toUpperCase() +
