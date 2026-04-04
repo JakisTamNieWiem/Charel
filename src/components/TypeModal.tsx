@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { RelationshipType } from "@/types";
+import type { RelationshipType } from "@/types/types";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Slider } from "./ui/slider";

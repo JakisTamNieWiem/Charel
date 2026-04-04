@@ -4,7 +4,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabase";
 // Import your JSON file to use as the default state!
-import type { Character, Group, Relationship, RelationshipType } from "@/types";
+import type {
+	Character,
+	Group,
+	Relationship,
+	RelationshipType,
+} from "@/types/types";
 
 const defaultData = {
 	characters: [] as Character[],

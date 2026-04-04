@@ -187,16 +187,19 @@ export type Database = {
       }
       Profiles: {
         Row: {
+          displayName: string | null
           role: string
           status: string
           userId: string
         }
         Insert: {
+          displayName?: string | null
           role?: string
           status?: string
           userId?: string
         }
         Update: {
+          displayName?: string | null
           role?: string
           status?: string
           userId?: string

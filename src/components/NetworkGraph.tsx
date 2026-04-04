@@ -36,8 +36,6 @@ export default function NetworkGraph() {
 	// --- PAN & DRAG STATE ---
 	const panRef = useRef({ x: 0, y: 0 });
 	const scaleRef = useRef(1);
-	const dragStartRef = useRef({ x: 0, y: 0 });
-	const rafRef = useRef<number | null>(null);
 
 	const isDraggingRef = useRef(false);
 	const [isDragging, setIsDragging] = useState(false);
@@ -49,15 +47,6 @@ export default function NetworkGraph() {
 	const animFrameRef = useRef<number>(0);
 	const clustersRef = useRef<Map<string, number>>(new Map());
 	const nodeRadius = 24;
-
-	const getMousePositionInSVG = (e: React.PointerEvent) => {
-		if (!svgRef.current) return { x: 0, y: 0 };
-		const svg = svgRef.current;
-		const pt = svg.createSVGPoint();
-		pt.x = e.clientX;
-		pt.y = e.clientY;
-		return pt.matrixTransform(svg.getScreenCTM()?.inverse());
-	};
 
 	// 1. Initialize nodes & trigger first render!
 	useEffect(() => {
@@ -352,11 +341,29 @@ export default function NetworkGraph() {
 
 	const handleWheel = useCallback(
 		(e: React.WheelEvent) => {
+			if (!svgRef.current) return;
+			const svg = svgRef.current;
+			const pt = svg.createSVGPoint();
+			pt.x = e.clientX;
+			pt.y = e.clientY;
+
+			// Find exact mouse position in SVG space before zooming
+			const svgPt = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+
 			const zoomSensitivity = 0.002;
-			scaleRef.current = Math.max(
+			const oldScale = scaleRef.current;
+			const newScale = Math.max(
 				0.1,
-				Math.min(scaleRef.current - e.deltaY * zoomSensitivity, 5),
+				Math.min(oldScale - e.deltaY * zoomSensitivity, 5),
 			);
+
+			// Push the pan in the opposite direction of the zoom to keep the mouse anchored
+			panRef.current.x =
+				svgPt.x - ((svgPt.x - panRef.current.x) / oldScale) * newScale;
+			panRef.current.y =
+				svgPt.y - ((svgPt.y - panRef.current.y) / oldScale) * newScale;
+
+			scaleRef.current = newScale;
 			applyTransform();
 		},
 		[applyTransform],
@@ -395,43 +402,46 @@ export default function NetworkGraph() {
 				onWheel={handleWheel}
 				onPointerDown={(e) => {
 					e.currentTarget.setPointerCapture(e.pointerId);
-					const svgPt = getMousePositionInSVG(e);
-
+					// No more absolute math! Just set the flags.
 					if (!dragNodeRef.current) {
 						setIsDragging(true);
 						isDraggingRef.current = true;
-						dragStartRef.current = {
-							x: svgPt.x - panRef.current.x,
-							y: svgPt.y - panRef.current.y,
-						};
 					}
 				}}
 				onPointerMove={(e) => {
-					const svgPt = getMousePositionInSVG(e);
+					if (!svgRef.current) return;
+
+					// THE FIX: Calculate the exact hardware ratio between Screen Pixels and SVG Units.
+					// Since your viewBox is "-1000 -1000 2000 2000", the width is 2000.
+					const ratio = 2000 / svgRef.current.clientWidth;
 
 					if (dragNodeRef.current) {
-						const nodeX = (svgPt.x - panRef.current.x) / scaleRef.current;
-						const nodeY = (svgPt.y - panRef.current.y) / scaleRef.current;
-
 						const node = nodesRef.current.find(
 							(n) => n.id === dragNodeRef.current,
 						);
 						if (node) {
-							node.x = nodeX;
-							node.y = nodeY;
+							// Apply raw mouse delta scaled by the ratio and zoom level
+							// This prevents "snapping to center" and keeps the node perfectly glued!
+							node.x += (e.movementX * ratio) / scaleRef.current;
+							node.y += (e.movementY * ratio) / scaleRef.current;
 							node.vx = 0;
 							node.vy = 0;
+
+							// SYNCHRONOUS DOM UPDATE: Kills the "tar" input lag!
+							const nodeEl = nodeRefs.current.get(node.id);
+							if (nodeEl)
+								nodeEl.setAttribute(
+									"transform",
+									`translate(${node.x}, ${node.y})`,
+								);
 						}
 					} else if (isDraggingRef.current) {
-						panRef.current.x = svgPt.x - dragStartRef.current.x;
-						panRef.current.y = svgPt.y - dragStartRef.current.y;
+						// Apply raw mouse delta for flawless background panning
+						panRef.current.x += e.movementX * ratio;
+						panRef.current.y += e.movementY * ratio;
 
-						if (!rafRef.current) {
-							rafRef.current = requestAnimationFrame(() => {
-								applyTransform();
-								rafRef.current = null;
-							});
-						}
+						// SYNCHRONOUS DOM UPDATE
+						applyTransform();
 					}
 				}}
 				onPointerUp={() => {
@@ -440,6 +450,7 @@ export default function NetworkGraph() {
 					dragNodeRef.current = null;
 				}}
 				onPointerCancel={() => {
+					setIsDragging(false);
 					isDraggingRef.current = false;
 					dragNodeRef.current = null;
 				}}
@@ -518,7 +529,7 @@ export default function NetworkGraph() {
 										if (el) nodeRefs.current.set(node.id, el);
 									}}
 									transform={`translate(${node.x}, ${node.y})`}
-									className="cursor-pointer transition-all"
+									className="cursor-pointer"
 									onPointerDown={() => {
 										dragNodeRef.current = node.id;
 									}}

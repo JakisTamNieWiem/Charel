@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { Database } from "@/database.types"; // Your generated types
 import { supabase } from "@/lib/supabase";
+import type { Database } from "@/types/database.types"; // Your generated types
 
 // Helper types based on your schema
 type Chat = Database["public"]["Tables"]["Chats"]["Row"];

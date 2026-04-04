@@ -3,7 +3,7 @@ import { Input } from "@/components//ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { processAvatarImage } from "@/lib/utils";
-import type { Character } from "@/types";
+import type { Character } from "@/types/types";
 import {
 	Dialog,
 	DialogClose,
@@ -55,7 +55,7 @@ export default function CharacterModal({
 					</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-4">
-					<div className="space-y-1">
+					<Field className="space-y-1">
 						<Label
 							htmlFor="name"
 							className="text-[10px] uppercase font-mono tracking-widest opacity-50"
@@ -70,8 +70,8 @@ export default function CharacterModal({
 							}
 							className="w-full bg-white/5 border border-white/10 p-3 rounded-lg focus:outline-none focus:border-white/30"
 						/>
-					</div>
-					<div className="space-y-1">
+					</Field>
+					<Field className="space-y-1">
 						<Label
 							htmlFor="description"
 							className="text-[10px] uppercase font-mono tracking-widest opacity-50"
@@ -84,9 +84,9 @@ export default function CharacterModal({
 							onChange={(e) =>
 								setFormData({ ...formData, description: e.target.value })
 							}
-							className="w-full bg-white/5 border border-white/10 p-3 rounded-lg h-24 focus:outline-none focus:border-white/30"
+							className="w-full max-h-14 bg-white/5 border border-white/10 p-3 rounded-lg h-24 focus:outline-none focus:border-white/30"
 						/>
-					</div>
+					</Field>
 					<div className="space-y-1 space-x-2 flex items-center">
 						<Field className="self-start mt-1">
 							<Label
@@ -137,26 +137,24 @@ export default function CharacterModal({
 					</div>
 				</div>
 				<DialogFooter>
-					<div className="flex gap-3 pt-4">
-						<DialogClose asChild>
-							<Button
-								variant={"secondary"}
-								className="flex-1 p-3 border border-white/10 rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
-							>
-								Cancel
-							</Button>
-						</DialogClose>
-						<DialogClose asChild>
-							<Button
-								onClick={() => {
-									onSave(formData);
-								}}
-								className="flex-1 p-3rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
-							>
-								Save
-							</Button>
-						</DialogClose>
-					</div>
+					<DialogClose asChild>
+						<Button
+							variant={"secondary"}
+							className="flex-1 p-3 border border-white/10 rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
+						>
+							Cancel
+						</Button>
+					</DialogClose>
+					<DialogClose asChild>
+						<Button
+							onClick={() => {
+								onSave(formData);
+							}}
+							className="flex-1 p-3rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
+						>
+							Save
+						</Button>
+					</DialogClose>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

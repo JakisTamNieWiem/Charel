@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Relationship } from "@/types";
+import type { Relationship } from "@/types/types";
 import RelationshipModal from "./RelationshipModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
@@ -82,11 +82,28 @@ export default function CharacterGraph() {
 	};
 
 	// --- LAYOUT MATH ---
-	const centerRadius = 80;
 	const relatedRadius = 40;
+	const maxBundleSize = relatedCharacters.reduce((max, char) => {
+		const relCount = relationships.filter(
+			(r) =>
+				(r.fromId === selectedId && r.toId === char.id) ||
+				(r.fromId === char.id && r.toId === selectedId),
+		).length;
+		return Math.max(max, relCount);
+	}, 0);
+
+	const centerRadius = Math.max(
+		80,
+		60 + relatedCharacters.length * 1.5,
+		(maxBundleSize * 16) / 2 + 30,
+	);
 	const minRadiusForNoTouch =
 		(relatedCharacters.length * (relatedRadius * 2 + 7)) / (2 * Math.PI);
-	const radius = Math.max(220, Math.ceil(minRadiusForNoTouch));
+	const radius = Math.max(
+		220,
+		Math.ceil(minRadiusForNoTouch),
+		centerRadius + relatedRadius + 100, // At least 100px of breathing room for arrows
+	);
 	const margin = 150;
 	const svgSize = (radius + margin) * 2;
 	const relationshipData = useMemo(() => {
@@ -165,7 +182,14 @@ export default function CharacterGraph() {
 				};
 			});
 		});
-	}, [selectedId, relatedCharacters, relationships, types, radius]);
+	}, [
+		selectedId,
+		relatedCharacters,
+		relationships,
+		types,
+		radius,
+		centerRadius,
+	]);
 	const handleWheel = (e: React.WheelEvent) => {
 		const zoomSensitivity = 0.002;
 		scaleRef.current = Math.max(
@@ -206,7 +230,7 @@ export default function CharacterGraph() {
 												cy={curveMidY}
 												cx={curveMidX}
 												r="1"
-												fill="white"
+												fill="transparent"
 												className="pointer-events-none!"
 											/>
 										</TooltipTrigger>
@@ -399,6 +423,7 @@ export default function CharacterGraph() {
 		setSelectedCharId,
 		tooltipSide,
 		types.find,
+		centerRadius,
 	]);
 	return (
 		<div

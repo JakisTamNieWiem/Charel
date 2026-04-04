@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "lint": "bunx tsc --noEmit && bunx biome check",
     "preview": "vite preview",
-    "tauri": "tauri",
+    "tauri": "$env:TAURI_SIGNING_PRIVATE_KEY=\"C:\\Users\\noleo\\.tauri\\charel.key\"; tauri",
     "types": "bunx supabase gen types typescript --project-id kaaekcmhkzjajsnwixxo --schema public > ./src/database.types.ts"
   },
   "dependencies": {

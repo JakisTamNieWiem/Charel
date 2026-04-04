@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Relationship } from "@/types";
+import type { Relationship } from "@/types/types";
 import { Button } from "./ui/button";
 import {
 	Dialog,

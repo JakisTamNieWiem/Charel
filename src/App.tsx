@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import NetworkGraph from "@/components/NetworkGraph";
 import RelationshipModal from "@/components/RelationshipModal";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Sidebar/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Character, Relationship, RelationshipType } from "@/types";
+import type { Character, Relationship, RelationshipType } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Plus } from "lucide-react";
@@ -76,10 +76,16 @@ function App() {
 				// --- ONLINE MODE: Fetch from 4 tables concurrently ---
 				const [charsRes, groupsRes, relsRes, typesRes, profileRes] =
 					await Promise.all([
-						supabase.from("Characters").select("*"),
-						supabase.from("Groups").select("*"),
-						supabase.from("Relationships").select("*"),
-						supabase.from("RelationshipTypes").select("*"),
+						supabase
+							.from("Characters")
+							.select("id, name, description, avatar, groupId"),
+						supabase.from("Groups").select("id, name, color"),
+						supabase
+							.from("Relationships")
+							.select("fromId, toId, typeId, description, value"),
+						supabase
+							.from("RelationshipTypes")
+							.select("id, color, description, label, value"),
 						supabase
 							.from("Profiles")
 							.select("*")
@@ -263,7 +269,7 @@ function App() {
 		);
 	}
 	return (
-		<div className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
+		<div className="flex h-screen w-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
 			{/* Sidebar */}
 			<Sidebar />
 			{/* Main Content */}

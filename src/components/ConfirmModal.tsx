@@ -1,57 +1,55 @@
-import { useState } from "react";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
-} from "./ui/dialog";
+} from "@/components/ui/dialog";
 
 interface ConfirmModalProps {
 	title: string;
 	message: string;
 	onConfirm: () => void;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }
 
 export default function ConfirmModal({
 	title,
 	message,
 	onConfirm,
+	open,
+	onOpenChange,
 }: ConfirmModalProps) {
-	const [open, setOpen] = useState(false);
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>
-				<Button
-					variant={"destructive"}
-					className="px-2 py-1 rounded text-[8px]"
-				>
-					Delete
-				</Button>
-			</DialogTrigger>
+		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle className="underline underline-offset-8">
 						{title}
 					</DialogTitle>
 				</DialogHeader>
-
 				<p className="text-sm opacity-70">{message}</p>
-				<div className="flex gap-3 pt-4">
-					<button
-						onClick={() => setOpen(false)}
-						className="flex-1 p-3 border border-white/10 rounded-lg hover:bg-white/5 transition-colors uppercase text-xs font-bold tracking-widest"
-					>
-						Cancel
-					</button>
-					<button
-						onClick={onConfirm}
-						className="flex-1 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors uppercase text-xs font-bold tracking-widest"
-					>
-						Delete
-					</button>
-				</div>
+				<DialogFooter>
+					<DialogClose asChild>
+						<Button
+							variant={"secondary"}
+							className="flex-1 p-3 border border-white/10 rounded-lg hover:bg-white/5 transition-colors uppercase text-xs font-bold tracking-widest"
+						>
+							Cancel
+						</Button>
+					</DialogClose>
+					<DialogClose asChild>
+						<Button
+							onClick={onConfirm}
+							className="flex-1 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors uppercase text-xs font-bold tracking-widest"
+						>
+							Delete
+						</Button>
+					</DialogClose>
+				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);
