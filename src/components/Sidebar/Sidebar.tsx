@@ -64,7 +64,7 @@ export default function Sidebar() {
 	})();
 
 	return (
-		<div className="w-80 h-full *:bg-[#141414] border-r border-white/10 relative flex flex-col items-center border-bottom">
+		<div className="w-80 h-full *:bg-background border-r border-white/10 relative flex flex-col items-center border-bottom">
 			<div className="w-full p-4 self-start flex items-center justify-between">
 				<div className="flex gap-2">
 					<ThemeToggle />
@@ -141,10 +141,7 @@ export default function Sidebar() {
 				<div className="px-3 pt-2">
 					<Separator />
 				</div>
-				<TabsContent
-					className="flex-1 flex flex-col overflow-hidden"
-					value="characters"
-				>
+				<TabsContent className="overflow-hidden" value="characters">
 					<CharacterTab />
 				</TabsContent>
 				<TabsContent value="network">
@@ -156,7 +153,7 @@ export default function Sidebar() {
 				<TabsContent className="overflow-hidden" value="types">
 					<RelationshipTypesTab />
 				</TabsContent>
-				<TabsContent className="h-full  px-4" value="settings">
+				<TabsContent className="h-full" value="settings">
 					<SettingsTab session={session} />
 				</TabsContent>
 			</Tabs>

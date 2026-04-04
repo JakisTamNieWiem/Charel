@@ -1,4 +1,3 @@
-import { AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import NetworkGraph from "@/components/NetworkGraph";
@@ -14,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
+import { Badge } from "./components/ui/badge";
 import { useChatStore } from "./store/useChatStore";
 
 function App() {
@@ -269,7 +269,7 @@ function App() {
 		);
 	}
 	return (
-		<div className="flex h-screen w-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
+		<div className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden">
 			{/* Sidebar */}
 			<Sidebar />
 			{/* Main Content */}
@@ -279,8 +279,8 @@ function App() {
 				) : (
 					<>
 						{/* Header */}
-						<header className="p-6 flex items-center justify-between z-10">
-							<div>
+						<header className="absolute w-full backdrop-blur-sm p-6 flex items-center justify-between z-15">
+							<div className="flex-1">
 								<h2 className="text-4xl font-bold tracking-tighter uppercase italic serif">
 									{selectedCharacter?.name || "Select a character"}
 								</h2>
@@ -288,6 +288,7 @@ function App() {
 									{selectedCharacter?.description}
 								</p>
 							</div>
+
 							<Button
 								onClick={(e) => {
 									e.preventDefault();
@@ -317,43 +318,37 @@ function App() {
 						</div>
 
 						{/* Legend */}
-						<div className="p-6 flex flex-wrap gap-6 z-10 overflow-x-auto no-scrollbar">
+						<div className="h-full absolute right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar">
 							{types.map((type) => (
-								<div
+								<Badge
+									variant={"secondary"}
 									key={type.id}
-									className="flex items-center gap-2 whitespace-nowrap group relative"
+									style={{ "--badge-color": type.color } as React.CSSProperties}
+									className="pr-1"
 								>
-									<div
-										className="w-2 h-2 rounded-full"
-										style={{ backgroundColor: type.color }}
-									/>
-									<span className="text-[10px] uppercase font-bold tracking-widest opacity-70">
+									<span className="text-[10px] uppercase font-bold tracking-widest">
 										{type.label}
 									</span>
-									{type.description.length > 0 && (
-										<div className="absolute bottom-full left-0 mb-2 p-2 bg-white text-black rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 z-50">
-											{type.description}
-										</div>
-									)}
-								</div>
+									<div
+										className="size-3 rounded-full"
+										style={{ backgroundColor: type.color }}
+									/>
+								</Badge>
 							))}
 						</div>
 					</>
 				)}
 			</main>
 
-			{/* Modals */}
-			<AnimatePresence>
-				{editingType && (
-					<TypeModal
-						type={editingType}
-						open={!!editingType}
-						onOpenChange={(open) => {
-							if (!open) setEditingType(null);
-						}}
-					/>
-				)}
-			</AnimatePresence>
+			{editingType && (
+				<TypeModal
+					type={editingType}
+					open={!!editingType}
+					onOpenChange={(open) => {
+						if (!open) setEditingType(null);
+					}}
+				/>
+			)}
 		</div>
 	);
 }

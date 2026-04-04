@@ -33,22 +33,26 @@ export default function ConfirmModal({
 				</DialogHeader>
 				<p className="text-sm opacity-70">{message}</p>
 				<DialogFooter>
-					<DialogClose asChild>
-						<Button
-							variant={"secondary"}
-							className="flex-1 p-3 border border-white/10 rounded-lg hover:bg-white/5 transition-colors uppercase text-xs font-bold tracking-widest"
-						>
-							Cancel
-						</Button>
-					</DialogClose>
-					<DialogClose asChild>
-						<Button
-							onClick={onConfirm}
-							className="flex-1 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors uppercase text-xs font-bold tracking-widest"
-						>
-							Delete
-						</Button>
-					</DialogClose>
+					<DialogClose
+						render={
+							<Button
+								variant={"secondary"}
+								className="flex-1 p-3 border border-white/10 rounded-lg hover:bg-white/5 transition-colors uppercase text-xs font-bold tracking-widest"
+							>
+								Cancel
+							</Button>
+						}
+					></DialogClose>
+					<DialogClose
+						render={
+							<Button
+								onClick={onConfirm}
+								className="flex-1 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors uppercase text-xs font-bold tracking-widest"
+							>
+								Delete
+							</Button>
+						}
+					></DialogClose>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

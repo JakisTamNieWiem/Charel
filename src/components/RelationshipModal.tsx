@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Relationship } from "@/types/types";
+import type { Character, Relationship } from "@/types/types";
 import { Button } from "./ui/button";
+import {
+	Combobox,
+	ComboboxContent,
+	ComboboxEmpty,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxList,
+} from "./ui/combobox";
 import {
 	Dialog,
 	DialogClose,
@@ -40,6 +48,9 @@ export default function RelationshipModal({
 	onOpenChange,
 }: RelationshipModalProps) {
 	const characters = useGraphStore((state) => state.characters);
+	const toCharacters = characters
+		.filter((c) => c.id !== fromId)
+		.sort((a, b) => a.name.localeCompare(b.name));
 	const types = useGraphStore((state) => state.relationshipTypes);
 	const [formData, setFormData] = useState(
 		initialData || {
@@ -77,45 +88,41 @@ export default function RelationshipModal({
 						<Label className="text-[10px] uppercase font-mono tracking-widest opacity-50">
 							Target Character
 						</Label>
-						<Select
-							value={formData.toId}
-							disabled={!!initialData}
-							onValueChange={(value) =>
-								setFormData({ ...formData, toId: value })
+						<Combobox
+							value={
+								toCharacters.find((c) => c.id === formData.toId)?.name ?? ""
 							}
+							onValueChange={(value) => {
+								if (value) setFormData({ ...formData, toId: value });
+								console.log(formData);
+							}}
+							items={toCharacters}
 						>
-							<SelectTrigger className="w-full bg-white/5 border border-white/10 p-3 rounded-lg focus:outline-none focus:border-white/30 appearance-none disabled:opacity-50">
-								<SelectValue placeholder="Select a character" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectGroup>
-									<SelectLabel>Relationships</SelectLabel>
-
-									{characters
-										.filter((c) => c.id !== fromId)
-										.sort((a, b) => a.name.localeCompare(b.name))
-										.map((c) => (
-											<SelectItem
-												key={c.id}
-												value={c.id}
-												className="bg-[#141414]"
-											>
-												{c.name}
-											</SelectItem>
-										))}
-								</SelectGroup>
-							</SelectContent>
-						</Select>
+							<ComboboxInput placeholder="Select a character" />
+							<ComboboxContent>
+								<ComboboxEmpty>No character found.</ComboboxEmpty>
+								<ComboboxList>
+									{(item: Character) => (
+										<ComboboxItem key={item.id} value={item.id}>
+											{item.name}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxContent>
+						</Combobox>
 					</Field>
 					<Field className="space-y-1">
 						<Label className="text-[10px] uppercase font-mono tracking-widest opacity-50">
 							Type
 						</Label>
 						<Select
+							items={types.map((t) => {
+								return { label: t.label, value: t.id };
+							})}
 							value={formData.typeId}
-							onValueChange={(value) =>
-								setFormData({ ...formData, typeId: value })
-							}
+							onValueChange={(value) => {
+								if (value) setFormData({ ...formData, typeId: value });
+							}}
 						>
 							<SelectTrigger className="w-full bg-white/5 border border-white/10 p-3 rounded-lg focus:outline-none focus:border-white/30 appearance-none disabled:opacity-50">
 								<SelectValue placeholder="Select a relationship" />
@@ -198,9 +205,9 @@ export default function RelationshipModal({
 									max={100}
 									step={1}
 									value={[Math.round(formData.value * 100)]}
-									onValueChange={([v]) =>
-										setFormData({ ...formData, value: v / 100 })
-									}
+									onValueChange={(v) => {
+										setFormData({ ...formData, value: (v as number) / 100 });
+									}}
 								/>
 							</>
 						) : (
@@ -226,14 +233,16 @@ export default function RelationshipModal({
 					</Field>
 				</FieldGroup>
 				<DialogFooter className="flex gap-3 pt-4">
-					<DialogClose asChild>
-						<Button
-							variant={"secondary"}
-							className="flex-1 p-3 border uppercase text-xs font-bold tracking-widest"
-						>
-							Cancel
-						</Button>
-					</DialogClose>
+					<DialogClose
+						render={
+							<Button
+								variant={"secondary"}
+								className="flex-1 p-3 border uppercase text-xs font-bold tracking-widest"
+							>
+								Cancel
+							</Button>
+						}
+					></DialogClose>
 					<Button
 						variant={"default"}
 						onClick={() => {

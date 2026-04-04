@@ -137,24 +137,28 @@ export default function CharacterModal({
 					</div>
 				</div>
 				<DialogFooter>
-					<DialogClose asChild>
-						<Button
-							variant={"secondary"}
-							className="flex-1 p-3 border border-white/10 rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
-						>
-							Cancel
-						</Button>
-					</DialogClose>
-					<DialogClose asChild>
-						<Button
-							onClick={() => {
-								onSave(formData);
-							}}
-							className="flex-1 p-3rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
-						>
-							Save
-						</Button>
-					</DialogClose>
+					<DialogClose
+						render={
+							<Button
+								variant={"secondary"}
+								className="flex-1 p-3 border border-white/10 rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
+							>
+								Cancel
+							</Button>
+						}
+					></DialogClose>
+					<DialogClose
+						render={
+							<Button
+								onClick={() => {
+									onSave(formData);
+								}}
+								className="flex-1 p-3rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
+							>
+								Save
+							</Button>
+						}
+					></DialogClose>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

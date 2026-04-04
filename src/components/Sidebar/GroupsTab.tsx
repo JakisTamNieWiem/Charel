@@ -10,6 +10,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useGraphStore } from "@/store/useGraphStore";
+import { Button } from "../ui/button";
 
 export default function GroupsTab() {
 	const allCharacters = useGraphStore((state) => state.characters);
@@ -23,11 +24,12 @@ export default function GroupsTab() {
 	);
 	return (
 		<div className="h-full">
-			<div className="px-4 flex items-center justify-between">
+			<div className="px-4  min-h-9 flex items-center justify-between">
 				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 					Groups
 				</h2>
-				<button
+				<Button
+					variant={"ghost"}
 					onClick={() =>
 						addGroup({
 							name: `Group ${groups.length + 1}`,
@@ -37,7 +39,7 @@ export default function GroupsTab() {
 					className="p-1 hover:bg-white/10 rounded"
 				>
 					<Plus className="w-4 h-4" />
-				</button>
+				</Button>
 			</div>
 			<ScrollArea className="flex-1 px-4 h-full">
 				<div className="space-y-4 py-4">

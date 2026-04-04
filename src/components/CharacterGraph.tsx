@@ -224,16 +224,18 @@ export default function CharacterGraph() {
 								transform={` rotate(${angleDeg})`}
 							>
 								{isActive && (
-									<Tooltip open={true} disableHoverableContent={true}>
-										<TooltipTrigger asChild>
-											<circle
-												cy={curveMidY}
-												cx={curveMidX}
-												r="1"
-												fill="transparent"
-												className="pointer-events-none!"
-											/>
-										</TooltipTrigger>
+									<Tooltip open={true}>
+										<TooltipTrigger
+											render={
+												<circle
+													cy={curveMidY}
+													cx={curveMidX}
+													r="1"
+													fill="transparent"
+													className="pointer-events-none!"
+												/>
+											}
+										></TooltipTrigger>
 										<TooltipContent
 											side={tooltipSide}
 											align="center"
@@ -472,7 +474,7 @@ export default function CharacterGraph() {
 		>
 			<svg
 				ref={svgRef}
-				className="w-full h-full overflow-visible"
+				className="h-full w-full overflow-visible"
 				// By setting viewBox to start at -half, 0,0 is exactly in the center!
 				viewBox={`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`}
 			>

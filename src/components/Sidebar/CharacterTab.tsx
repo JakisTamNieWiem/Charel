@@ -25,8 +25,8 @@ export default function CharacterTab() {
 	);
 
 	return (
-		<>
-			<div className="px-4 flex items-center justify-between">
+		<div className="h-full pb-10">
+			<div className="px-4 min-h-9 flex items-center justify-between">
 				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 					Characters
 				</h2>
@@ -40,7 +40,7 @@ export default function CharacterTab() {
 			</div>
 
 			<ScrollArea className="flex-1 p-4 h-full">
-				<div className="space-y-2 py-4">
+				<div className="space-y-2">
 					{[...allCharacters]
 						.sort((a, b) => a.name.localeCompare(b.name))
 						.map((char) => (
@@ -125,6 +125,6 @@ export default function CharacterTab() {
 					}}
 				/>
 			)}
-		</>
+		</div>
 	);
 }

@@ -2,9 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Download, Plus } from "lucide-react";
-import ThemeToggle from "@/components/Sidebar/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useGraphStore } from "@/store/useGraphStore";
 
@@ -20,11 +18,13 @@ export default function SettingsTab({ session }: SettingsTabProps) {
 	const groups = useGraphStore((state) => state.groups);
 
 	return (
-		<div className="h-full space-y-4">
-			<div className="flex items-center justify-between">
-				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
-					Data Management
-				</h2>
+		<div className="h-full">
+			<div className="px-4 min-h-9 flex items-center justify-between">
+				<div>
+					<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
+						Data Management
+					</h2>
+				</div>
 				<div className="flex gap-2">
 					<Button
 						variant={"ghost"}
@@ -97,7 +97,7 @@ export default function SettingsTab({ session }: SettingsTabProps) {
 					</Button>
 				</div>
 			</div>
-			<div className="h-9/12 relative group">
+			<div className="p-4 h-9/12 relative group">
 				<Textarea
 					value={JSON.stringify(
 						{
@@ -120,10 +120,10 @@ export default function SettingsTab({ session }: SettingsTabProps) {
 					disabled
 					className="size-full p-3 resize-none! font-mono text-[10px] focus:outline-none! no-scrollbar"
 				/>
+				<p className="text-[10px] opacity-40 italic">
+					Displayed text is shortened, use export button to get full json file.
+				</p>
 			</div>
-			<p className="text-[10px] opacity-40 italic">
-				Displayed text is shortened, use export button to get full json file.
-			</p>
 		</div>
 	);
 }

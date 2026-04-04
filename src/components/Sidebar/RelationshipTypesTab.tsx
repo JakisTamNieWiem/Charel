@@ -4,6 +4,7 @@ import TypeModal from "@/components/TypeModal";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { RelationshipType } from "@/types/types";
+import { Button } from "../ui/button";
 
 export default function RelationshipTypesTab() {
 	const relationshipTypes = useGraphStore((state) => state.relationshipTypes);
@@ -13,11 +14,12 @@ export default function RelationshipTypesTab() {
 
 	return (
 		<div className="flex flex-col h-full">
-			<div className="px-4 flex items-center justify-between">
+			<div className="px-4  min-h-9 flex items-center justify-between">
 				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 					Link Types
 				</h2>
-				<button
+				<Button
+					variant={"ghost"}
 					onClick={() =>
 						setEditingType({
 							id: "",
@@ -30,7 +32,7 @@ export default function RelationshipTypesTab() {
 					className="p-1 hover:bg-white/10 rounded"
 				>
 					<Plus className="w-4 h-4" />
-				</button>
+				</Button>
 			</div>
 			<ScrollArea className="flex-1 px-4 h-full">
 				<div className="space-y-2 py-4 pb-8">
