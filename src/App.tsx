@@ -279,7 +279,7 @@ function App() {
 				) : (
 					<>
 						{/* Header */}
-						<header className="absolute w-full backdrop-blur-sm p-6 flex items-center justify-between z-15">
+						<header className="absolute bg-background/40 w-full backdrop-blur-sm p-6 flex items-center justify-between z-15">
 							<div className="flex-1">
 								<h2
 									style={{ fontFamily: "Geist Variable" }}
@@ -327,7 +327,7 @@ function App() {
 									variant={"secondary"}
 									key={type.id}
 									style={{ "--badge-color": type.color } as React.CSSProperties}
-									className="pr-1"
+									className="pr-1 bg-background/40 backdrop-blur-md"
 								>
 									<span className="text-[10px] uppercase font-bold tracking-widest">
 										{type.label}
