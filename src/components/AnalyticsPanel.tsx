@@ -751,14 +751,17 @@ function RelationStatRow({
 			<h3 className="text-[10px] font-mono uppercase tracking-widest opacity-40">
 				{title}
 			</h3>
-			<div className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-1">
-				<div className="flex items-center gap-2">
-					<span className="text-sm font-medium truncate">{rel.from}</span>
-					<span className="text-[10px] opacity-30">&harr;</span>
-					<span className="text-sm font-medium truncate">{rel.to}</span>
-				</div>
-				<div className="flex items-center justify-end">
-					<span className="text-xs font-mono font-bold" style={{ color }}>
+			<div className="p-3 rounded-lg bg-white/5 border border-white/10 ">
+				<div className="w-full flex items-center justify-between gap-2">
+					<div className="flex items-center space-x-1">
+						<span className="text-sm font-medium truncate">{rel.from}</span>
+						<span className="text-[10px] opacity-30">&harr;</span>
+						<span className="text-sm font-medium truncate">{rel.to}</span>
+					</div>
+					<span
+						className="text-xs font-mono font-bold justify-self-end"
+						style={{ color }}
+					>
 						avg {rel.value > 0 ? "+" : ""}
 						{rel.value.toFixed(2)}
 					</span>

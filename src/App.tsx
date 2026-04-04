@@ -281,7 +281,10 @@ function App() {
 						{/* Header */}
 						<header className="absolute w-full backdrop-blur-sm p-6 flex items-center justify-between z-15">
 							<div className="flex-1">
-								<h2 className="text-4xl font-bold tracking-tighter uppercase italic serif">
+								<h2
+									style={{ fontFamily: "Geist Variable" }}
+									className="text-4xl font-bold tracking-tighter uppercase italic serif"
+								>
 									{selectedCharacter?.name || "Select a character"}
 								</h2>
 								<p className="text-sm opacity-50 max-w-md">

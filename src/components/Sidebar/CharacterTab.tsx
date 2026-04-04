@@ -1,5 +1,5 @@
 import { Edit2, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CharacterModal from "@/components/CharacterModal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,40 @@ export default function CharacterTab() {
 		null,
 	);
 
+	const viewportRef = useRef<HTMLDivElement>(null);
+	const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+	useEffect(() => {
+		// Small timeout ensures the DOM has finished rendering the list
+		const timer = setTimeout(() => {
+			if (selectedId && viewportRef.current) {
+				const element = itemRefs.current.get(selectedId);
+				const viewport = viewportRef.current;
+
+				if (element && viewport) {
+					const elementTop = element.offsetTop;
+					const elementBottom = elementTop + element.offsetHeight;
+					const viewTop = viewport.scrollTop;
+					const viewBottom = viewTop + viewport.clientHeight;
+
+					// 1. If element is above the view
+					if (elementBottom < viewTop) {
+						viewport.scrollTo({ top: elementTop - 24, behavior: "smooth" });
+					}
+					// 2. If element is below the view
+					else if (elementTop > viewBottom) {
+						viewport.scrollTo({
+							top: elementBottom - viewport.clientHeight - 12,
+							behavior: "smooth",
+						});
+					}
+				}
+			}
+		}, 50); // 50ms delay to wait for React render cycle
+
+		return () => clearTimeout(timer);
+	}, [selectedId]);
+
 	return (
 		<div className="h-full pb-10">
 			<div className="px-4 min-h-9 flex items-center justify-between">
@@ -39,13 +73,17 @@ export default function CharacterTab() {
 				</Button>
 			</div>
 
-			<ScrollArea className="flex-1 p-4 h-full">
-				<div className="space-y-2">
+			<ScrollArea viewportRef={viewportRef} className="flex-1 p-4 h-full">
+				<div className=" space-y-2">
 					{[...allCharacters]
 						.sort((a, b) => a.name.localeCompare(b.name))
 						.map((char) => (
 							<div
 								key={char.id}
+								ref={(el) => {
+									if (el) itemRefs.current.set(char.id, el);
+									else itemRefs.current.delete(char.id);
+								}}
 								onClick={() => setSelectedCharId(char.id)}
 								className={cn(
 									"group px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3",
