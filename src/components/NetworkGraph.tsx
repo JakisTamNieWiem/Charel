@@ -23,7 +23,6 @@ interface GraphLink {
 	target: string | GraphNode;
 	typeId: string;
 	color: string;
-	// Perfect circular arc: center + radius of the arc's circle (passes through both nodes)
 	arcCx?: number;
 	arcCy?: number;
 	arcR?: number;
@@ -36,13 +35,36 @@ interface GroupBound {
 	cx: number;
 	cy: number;
 	radius: number;
-	angle: number; // angle from center for radial label placement
+	angle: number;
 }
 
 interface ForceGraphMethods {
 	zoom: (level: number, duration?: number) => void;
 	centerAt: (x: number, y: number, duration?: number) => void;
 	d3Reheat: () => void;
+}
+
+const NODE_SIZE = 20;
+const AVATAR_CACHE_SIZE = 256;
+const GLOW_SPEED = 0.25;
+const GLOW_SPREAD = 0.18;
+const GLOW_STEPS = 40;
+const GLOW_EDGE_FADE_RANGE = 0.12;
+
+function radialTextAlign(cos: number): CanvasTextAlign {
+	return cos > 0.5 ? "left" : cos < -0.5 ? "right" : "center";
+}
+
+function radialTextBaseline(sin: number): CanvasTextBaseline {
+	return sin > 0.5 ? "top" : sin < -0.5 ? "bottom" : "middle";
+}
+
+function sampleQuadratic(sx: number, sy: number, cpX: number, cpY: number, ex: number, ey: number, t: number): [number, number] {
+	const t1 = 1 - t;
+	return [
+		t1 * t1 * sx + 2 * t1 * t * cpX + t * t * ex,
+		t1 * t1 * sy + 2 * t1 * t * cpY + t * t * ey,
+	];
 }
 
 export default function NetworkGraph() {
@@ -54,16 +76,27 @@ export default function NetworkGraph() {
 
 	const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
 	const animTime = useRef(0);
+	const avatarCache = useRef<Map<string, HTMLCanvasElement>>(new Map());
+	const avatarLoading = useRef<Set<string>>(new Set());
 
 	const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 	const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
-
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	// Avatar cache: loaded canvases + in-progress tracking to avoid duplicate Image() creation
-	const avatarCache = useRef<Map<string, HTMLCanvasElement>>(new Map());
-	const avatarLoading = useRef<Set<string>>(new Set());
+	const [themeKey, setThemeKey] = useState(0);
+	useEffect(() => {
+		const observer = new MutationObserver(() => setThemeKey((k) => k + 1));
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+		return () => observer.disconnect();
+	}, []);
+
+	const themeColors = useMemo(() => {
+		void themeKey;
+		const s = getComputedStyle(document.documentElement);
+		const v = (name: string) => s.getPropertyValue(name).trim();
+		return { bg: v("--background"), fg: v("--foreground"), card: v("--card") };
+	}, [themeKey]);
 
 	useEffect(() => {
 		const container = containerRef.current;
@@ -75,18 +108,19 @@ export default function NetworkGraph() {
 			}
 		});
 		observer.observe(container);
-		if (container.clientWidth > 0) setDimensions({ width: container.clientWidth, height: container.clientHeight });
+		if (container.clientWidth > 0) {
+			setDimensions({ width: container.clientWidth, height: container.clientHeight });
+		}
 		return () => observer.disconnect();
 	}, []);
 
-	// Animation loop: triggers re-renders at ~30fps while hovering for glow flow
 	const [animTick, setAnimTick] = useState(0);
 	useEffect(() => {
 		if (!hoveredNode && !hoveredGroup) return;
 		let raf: number;
 		let last = 0;
 		const tick = (now: number) => {
-			if (now - last > 33) { // ~30fps
+			if (now - last > 33) {
 				animTime.current = now * 0.001;
 				setAnimTick((t) => t + 1);
 				last = now;
@@ -97,7 +131,6 @@ export default function NetworkGraph() {
 		return () => cancelAnimationFrame(raf);
 	}, [hoveredNode, hoveredGroup]);
 
-	// --- DATA DENORMALIZATION & PRE-CALC ---
 	const { gData, groupBounds } = useMemo(() => {
 		const typeMap = new Map(types.map((t) => [t.id, t]));
 		const groupInfoMap = new Map(groups.map((g) => [g.id, g]));
@@ -105,34 +138,31 @@ export default function NetworkGraph() {
 		const groupMap = new Map<string | null, GraphNode[]>();
 		for (const c of allChars) {
 			const group = groupInfoMap.get(c.groupId || "");
-			const nodes = groupMap.get(c.groupId) || [];
-			nodes.push({
+			const entries = groupMap.get(c.groupId) || [];
+			entries.push({
 				...c,
 				color: group?.color || "#ffffff",
 				initials: c.name.substring(0, 2).toUpperCase(),
 			});
-			groupMap.set(c.groupId, nodes);
+			groupMap.set(c.groupId, entries);
 		}
 
-		const sortedGroupIds = Array.from(groupMap.keys())
-
+		const sortedGroupIds = Array.from(groupMap.keys());
 		const nodes: GraphNode[] = [];
 		const bounds: GroupBound[] = [];
 		const groupCount = sortedGroupIds.length;
 
-		// Pre-compute each group's inner radius so we can size the outer circle
 		const groupInnerRadii = sortedGroupIds.map((groupId) => {
 			const count = groupMap.get(groupId)?.length || 0;
 			return Math.max(80, count * 10);
 		});
-		
-		const outerRadius = 600
+
+		const outerRadius = 600;
 
 		sortedGroupIds.forEach((groupId, gIdx) => {
 			const groupNodes = groupMap.get(groupId) || [];
 			const groupInfo = groupInfoMap.get(groupId || "");
-			const groupAngle = (gIdx / groupCount) * 2 * Math.PI - Math.PI / 2; // start at top
-
+			const groupAngle = (gIdx / groupCount) * 2 * Math.PI - Math.PI / 2;
 			const gCx = groupCount === 1 ? 0 : Math.cos(groupAngle) * outerRadius;
 			const gCy = groupCount === 1 ? 0 : Math.sin(groupAngle) * outerRadius;
 			const innerRadius = groupInnerRadii[gIdx];
@@ -148,27 +178,23 @@ export default function NetworkGraph() {
 
 			if (groupInfo) {
 				bounds.push({
-					id: groupInfo.id,
-					name: groupInfo.name,
-					color: groupInfo.color,
-					cx: gCx, cy: gCy,
-					radius: innerRadius + 40,
-					angle: groupAngle,
+					id: groupInfo.id, name: groupInfo.name, color: groupInfo.color,
+					cx: gCx, cy: gCy, radius: innerRadius + 40, angle: groupAngle,
 				});
 			}
 		});
 
-		const nodeMap = new Map(nodes.map(n => [n.id, n]));
+		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-		// One fixed arc radius = max pairwise distance between any two nodes
 		let maxDist2 = 0;
 		for (let i = 0; i < nodes.length; i++) {
 			for (let j = i + 1; j < nodes.length; j++) {
-				const dx = nodes[i].x! - nodes[j].x!, dy = nodes[i].y! - nodes[j].y!;
+				const dx = nodes[i].x! - nodes[j].x!;
+				const dy = nodes[i].y! - nodes[j].y!;
 				maxDist2 = Math.max(maxDist2, dx * dx + dy * dy);
 			}
 		}
-		const arcR = (Math.sqrt(maxDist2) || 1) * 0.50;
+		const arcR = (Math.sqrt(maxDist2) || 1) * 0.5;
 
 		const links: GraphLink[] = relationships
 			.filter((r) => nodeMap.has(r.fromId) && nodeMap.has(r.toId))
@@ -176,12 +202,11 @@ export default function NetworkGraph() {
 				const fromNode = nodeMap.get(r.fromId)!;
 				const toNode = nodeMap.get(r.toId)!;
 				const type = typeMap.get(r.typeId);
-				const isCrossGroup = fromNode.groupId !== toNode.groupId;
 
 				let arcCx: number | undefined;
 				let arcCy: number | undefined;
 
-				if (isCrossGroup) {
+				if (fromNode.groupId !== toNode.groupId) {
 					const x1 = fromNode.x!, y1 = fromNode.y!;
 					const x2 = toNode.x!, y2 = toNode.y!;
 					const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
@@ -196,16 +221,13 @@ export default function NetworkGraph() {
 						const c2x = mx - h * px, c2y = my - h * py;
 						const d1 = c1x * c1x + c1y * c1y;
 						const d2 = c2x * c2x + c2y * c2y;
-						// Angular distance determines routing direction
-						const fromAngle = Math.atan2(y1, x1);
-						const toAngle = Math.atan2(y2, x2);
-						let delta = toAngle - fromAngle;
+
+						let delta = Math.atan2(y2, x2) - Math.atan2(y1, x1);
 						while (delta > Math.PI) delta -= 2 * Math.PI;
 						while (delta < -Math.PI) delta += 2 * Math.PI;
-						// Small angle → inward (center farther from origin)
-						// Large angle → outward (center closer to origin)
-						const goOutward = Math.abs(delta) > Math.PI / 2;
-						if (goOutward) {
+
+						const useCloserCenter = Math.abs(delta) > Math.PI / 2;
+						if (useCloserCenter) {
 							arcCx = d1 < d2 ? c1x : c2x;
 							arcCy = d1 < d2 ? c1y : c2y;
 						} else {
@@ -225,7 +247,6 @@ export default function NetworkGraph() {
 		return { gData: { nodes, links }, groupBounds: bounds };
 	}, [allChars, relationships, groups, types]);
 
-	// Set of node IDs connected to the hovered node
 	const connectedNodes = useMemo(() => {
 		if (!hoveredNode) return new Set<string>();
 		const connected = new Set<string>();
@@ -236,39 +257,31 @@ export default function NetworkGraph() {
 		return connected;
 	}, [hoveredNode, relationships]);
 
-
-	// --- AVATAR PRE-RENDERING (tracks in-progress loads) ---
 	const getAvatarCanvas = useCallback((avatar: string): HTMLCanvasElement | null => {
 		const cached = avatarCache.current.get(avatar);
 		if (cached) return cached;
-
 		if (avatarLoading.current.has(avatar)) return null;
 		avatarLoading.current.add(avatar);
 
 		const img = new Image();
 		img.src = avatar;
 		img.onload = () => {
-			const size = 256;
 			const canvas = document.createElement("canvas");
-			canvas.width = size;
-			canvas.height = size;
+			canvas.width = AVATAR_CACHE_SIZE;
+			canvas.height = AVATAR_CACHE_SIZE;
 			const ctx = canvas.getContext("2d");
 			if (ctx) {
 				ctx.beginPath();
-				ctx.arc(size / 2, size / 2, size / 2, 0, 2 * Math.PI);
+				ctx.arc(AVATAR_CACHE_SIZE / 2, AVATAR_CACHE_SIZE / 2, AVATAR_CACHE_SIZE / 2, 0, 2 * Math.PI);
 				ctx.clip();
-				ctx.drawImage(img, 0, 0, size, size);
+				ctx.drawImage(img, 0, 0, AVATAR_CACHE_SIZE, AVATAR_CACHE_SIZE);
 				avatarCache.current.set(avatar, canvas);
 			}
 			avatarLoading.current.delete(avatar);
 		};
-		img.onerror = () => {
-			avatarLoading.current.delete(avatar);
-		};
+		img.onerror = () => avatarLoading.current.delete(avatar);
 		return null;
 	}, []);
-
-	// --- RENDER CALLBACKS ---
 
 	const nodeCanvasObject = useCallback(
 		(nodeObj: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -276,11 +289,8 @@ export default function NetworkGraph() {
 			const isHovered = node.id === hoveredNode;
 			const isGroupHovered = node.groupId === hoveredGroup;
 			const isConnected = connectedNodes.has(node.id);
-
 			const x = node.x!, y = node.y!;
-			const size = 20;
 
-			// Only use dot fallback at extreme zoom-out
 			if (globalScale < 0.05 && !isHovered && !isGroupHovered && !isConnected) {
 				ctx.fillStyle = node.color;
 				ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI); ctx.fill();
@@ -288,80 +298,70 @@ export default function NetworkGraph() {
 			}
 
 			const isHighlighted = isHovered || isGroupHovered || isConnected;
-			const opacity = (!hoveredNode && !hoveredGroup) ? 1 : (isHighlighted ? 1 : 0.05);
-			ctx.globalAlpha = opacity;
+			ctx.globalAlpha = (!hoveredNode && !hoveredGroup) ? 1 : (isHighlighted ? 1 : 0.05);
 
-			// Ring
 			ctx.beginPath();
-			ctx.arc(x, y, size, 0, 2 * Math.PI);
-			ctx.fillStyle = "#141414";
+			ctx.arc(x, y, NODE_SIZE, 0, 2 * Math.PI);
+			ctx.fillStyle = themeColors.card;
 			ctx.fill();
 			ctx.lineWidth = Math.min((isHovered || isConnected) ? 3 / globalScale : 1.5 / globalScale, 4);
-			ctx.strokeStyle = (isHovered || isConnected) ? "#fff" : node.color;
+			ctx.strokeStyle = (isHovered || isConnected) ? themeColors.fg : node.color;
 			ctx.stroke();
 
-			// Avatar or initials - always visible
 			const avatar = node.avatar ? getAvatarCanvas(node.avatar) : null;
 			if (avatar) {
-				ctx.drawImage(avatar, x - size + 1, y - size + 1, (size - 1) * 2, (size - 1) * 2);
+				ctx.drawImage(avatar, x - NODE_SIZE + 1, y - NODE_SIZE + 1, (NODE_SIZE - 1) * 2, (NODE_SIZE - 1) * 2);
 			} else {
-				ctx.fillStyle = "#fff";
-				ctx.font = `bold ${Math.round(size * 0.8)}px sans-serif`;
+				ctx.fillStyle = themeColors.fg;
+				ctx.font = `bold ${Math.round(NODE_SIZE * 0.8)}px sans-serif`;
 				ctx.textAlign = "center"; ctx.textBaseline = "middle";
 				ctx.fillText(node.initials, x, y);
 			}
 
-			// Label - radially outside the node relative to group center
 			if (globalScale > 0.3) {
 				const dx = x - (node.groupCx ?? 0);
 				const dy = y - (node.groupCy ?? 0);
 				const d = Math.sqrt(dx * dx + dy * dy) || 1;
 				const cos = dx / d;
 				const sin = dy / d;
-				const textDist = size + Math.min(8 / globalScale, 20);
-				const textX = x + textDist * cos;
-				const textY = y + textDist * sin;
-				const textAnchor: CanvasTextAlign = cos > 0.5 ? "left" : cos < -0.5 ? "right" : "center";
-				const textBaseline: CanvasTextBaseline = sin > 0.5 ? "top" : sin < -0.5 ? "bottom" : "middle";
+				const textDist = NODE_SIZE + Math.min(8 / globalScale, 20);
 				ctx.font = `500 ${Math.min(Math.round(11 / globalScale), 40)}px sans-serif`;
-				ctx.fillStyle = "#fff";
-				ctx.textAlign = textAnchor;
-				ctx.textBaseline = textBaseline;
-				ctx.fillText(node.name, textX, textY);
+				ctx.fillStyle = themeColors.fg;
+				ctx.textAlign = radialTextAlign(cos);
+				ctx.textBaseline = radialTextBaseline(sin);
+				ctx.fillText(node.name, x + textDist * cos, y + textDist * sin);
 			}
 			ctx.globalAlpha = 1;
 		},
-		[hoveredNode, hoveredGroup, connectedNodes, getAvatarCanvas],
+		[hoveredNode, hoveredGroup, connectedNodes, getAvatarCanvas, themeColors],
 	);
 
 	const linkCanvasObject = useCallback(
-		(linkObj: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-			const start = linkObj.source;
-			const end = linkObj.target;
+		(linkObj: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
+			const link = linkObj as GraphLink;
+			const start = link.source as GraphNode;
+			const end = link.target as GraphNode;
 			if (!start.x || !end.x) return;
 
 			const isCrossGroup = start.groupId !== end.groupId;
 			const isActive = (hoveredNode && (start.id === hoveredNode || end.id === hoveredNode)) ||
-							(hoveredGroup && (start.groupId === hoveredGroup || end.groupId === hoveredGroup));
+				(hoveredGroup && (start.groupId === hoveredGroup || end.groupId === hoveredGroup));
 
 			const opacity = (!hoveredNode && !hoveredGroup) ? 0.25 : (isActive ? 0.8 : 0.02);
 			if (opacity < 0.02) return;
 
-			const sx = start.x, sy = start.y, ex = end.x, ey = end.y;
+			const sx = start.x!, sy = start.y!, ex = end.x!, ey = end.y!;
 
-			// Compute control point (shared by base line and glow)
 			let cpX: number | undefined, cpY: number | undefined;
 			if (isCrossGroup) {
 				const mx = (sx + ex) / 2, my = (sy + ey) / 2;
 				const dx = ex - sx, dy = ey - sy;
-				const curvature = 0.25;
-				cpX = mx - dy * curvature;
-				cpY = my + dx * curvature;
+				cpX = mx - dy * 0.25;
+				cpY = my + dx * 0.25;
 			}
 
-			// Draw base line
 			ctx.globalAlpha = opacity;
-			ctx.strokeStyle = linkObj.color;
+			ctx.strokeStyle = link.color;
 			ctx.lineWidth = isCrossGroup ? 0.6 / globalScale : 0.2 / globalScale;
 			ctx.beginPath();
 			ctx.moveTo(sx, sy);
@@ -372,46 +372,35 @@ export default function NetworkGraph() {
 			}
 			ctx.stroke();
 
-			// Smooth flowing glow on hover — light traveling through a cable
 			if (isActive) {
-				const center = (animTime.current * 0.25) % 1; // faster pulses
-				const spread = 0.18; // shorter impulse
-				const steps = 40;
-				// Dim the glow near endpoints so stacking at nodes isn't too bright
-				const edgeFade = (t: number) => {
-					const d = Math.min(t, 1 - t); // 0 at endpoints, 0.5 at middle
-					return Math.min(d / 0.12, 1); // fade over first/last 12%
-				};
+				const center = (animTime.current * GLOW_SPEED) % 1;
 
-				const samplePoint = (t: number) => {
-					if (cpX != null) {
-						const t1 = 1 - t;
-						return [t1 * t1 * sx + 2 * t1 * t * cpX + t * t * ex,
-								t1 * t1 * sy + 2 * t1 * t * cpY! + t * t * ey];
-					}
-					return [sx + (ex - sx) * t, sy + (ey - sy) * t];
-				};
-
-				for (let i = 0; i < steps - 1; i++) {
-					const t0 = i / (steps - 1);
-					const t1 = (i + 1) / (steps - 1);
+				for (let i = 0; i < GLOW_STEPS - 1; i++) {
+					const t0 = i / (GLOW_STEPS - 1);
+					const t1 = (i + 1) / (GLOW_STEPS - 1);
 					const mid = (t0 + t1) / 2;
+
 					let dist = Math.abs(mid - center);
 					dist = Math.min(dist, 1 - dist);
-					const intensity = Math.max(0, 1 - dist / spread);
-					const glow = intensity * intensity * (3 - 2 * intensity) * edgeFade(mid);
+					const intensity = Math.max(0, 1 - dist / GLOW_SPREAD);
+					const edgeFade = Math.min(Math.min(mid, 1 - mid) / GLOW_EDGE_FADE_RANGE, 1);
+					const glow = intensity * intensity * (3 - 2 * intensity) * edgeFade;
 					if (glow < 0.01) continue;
 
-					const [x0, y0] = samplePoint(t0);
-					const [x1, y1] = samplePoint(t1);
+					const [x0, y0] = cpX != null
+						? sampleQuadratic(sx, sy, cpX, cpY!, ex, ey, t0)
+						: [sx + (ex - sx) * t0, sy + (ey - sy) * t0];
+					const [x1, y1] = cpX != null
+						? sampleQuadratic(sx, sy, cpX, cpY!, ex, ey, t1)
+						: [sx + (ex - sx) * t1, sy + (ey - sy) * t1];
 
 					ctx.beginPath();
 					ctx.moveTo(x0, y0);
 					ctx.lineTo(x1, y1);
-					ctx.strokeStyle = linkObj.color;
+					ctx.strokeStyle = link.color;
 					ctx.lineWidth = Math.max(3 / globalScale, 1);
 					ctx.globalAlpha = glow * 0.5;
-					ctx.shadowColor = linkObj.color;
+					ctx.shadowColor = link.color;
 					ctx.shadowBlur = Math.max(25 * glow / globalScale, 8 * glow);
 					ctx.stroke();
 				}
@@ -421,7 +410,7 @@ export default function NetworkGraph() {
 
 			ctx.globalAlpha = 1;
 		},
-		[hoveredNode, hoveredGroup, animTick]
+		[hoveredNode, hoveredGroup, animTick],
 	);
 
 	const onRenderBg = useCallback(
@@ -441,11 +430,9 @@ export default function NetworkGraph() {
 					const cos = Math.cos(b.angle);
 					const sin = Math.sin(b.angle);
 					const labelDist = b.radius + Math.min(25 / globalScale, 50);
-					const labelX = b.cx + labelDist * cos;
-					const labelY = b.cy + labelDist * sin;
-					ctx.textAlign = cos > 0.5 ? "left" : cos < -0.5 ? "right" : "center";
-					ctx.textBaseline = sin > 0.5 ? "top" : sin < -0.5 ? "bottom" : "middle";
-					ctx.fillText(b.name.toUpperCase(), labelX, labelY);
+					ctx.textAlign = radialTextAlign(cos);
+					ctx.textBaseline = radialTextBaseline(sin);
+					ctx.fillText(b.name.toUpperCase(), b.cx + labelDist * cos, b.cy + labelDist * sin);
 				}
 			}
 			ctx.globalAlpha = 1;
@@ -453,17 +440,28 @@ export default function NetworkGraph() {
 		[groupBounds, hoveredGroup],
 	);
 
+	const nodePointerAreaPaint = useCallback(
+		(nodeObj: object, color: string, ctx: CanvasRenderingContext2D) => {
+			const node = nodeObj as GraphNode;
+			ctx.fillStyle = color;
+			ctx.beginPath();
+			ctx.arc(node.x!, node.y!, NODE_SIZE, 0, 2 * Math.PI);
+			ctx.fill();
+		},
+		[],
+	);
+
 	return (
-		<div className="flex h-full w-full bg-[#0a0a0a]">
+		<div className="flex h-full w-full bg-background">
 			<div ref={containerRef} className="flex-1 h-full overflow-hidden relative">
 				<div className="absolute top-6 left-6 z-10 flex flex-col gap-2 pointer-events-none">
 					{groups.map((g) => (
 						<div key={g.id}
-							className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 pointer-events-auto cursor-pointer transition-all hover:bg-white/10"
+							className="flex items-center gap-2 bg-card/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-foreground/5 pointer-events-auto cursor-pointer transition-all hover:bg-foreground/10"
 							onMouseEnter={() => setHoveredGroup(g.id)}
 							onMouseLeave={() => setHoveredGroup(null)}>
 							<div className="w-2 h-2 rounded-full" style={{ backgroundColor: g.color }} />
-							<span className="text-[10px] font-bold uppercase tracking-widest text-white/70">{g.name}</span>
+							<span className="text-[10px] font-bold uppercase tracking-widest text-foreground/70">{g.name}</span>
 						</div>
 					))}
 				</div>
@@ -474,13 +472,7 @@ export default function NetworkGraph() {
 						width={dimensions.width} height={dimensions.height}
 						graphData={gData}
 						nodeCanvasObject={nodeCanvasObject}
-						nodePointerAreaPaint={(nodeObj: object, color: string, ctx: CanvasRenderingContext2D) => {
-							const node = nodeObj as GraphNode;
-							ctx.fillStyle = color;
-							ctx.beginPath();
-							ctx.arc(node.x!, node.y!, 20, 0, 2 * Math.PI);
-							ctx.fill();
-						}}
+						nodePointerAreaPaint={nodePointerAreaPaint}
 						linkCanvasObject={linkCanvasObject}
 						onRenderFramePre={onRenderBg}
 						nodeLabel={() => ""}
