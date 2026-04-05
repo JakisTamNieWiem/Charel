@@ -4,6 +4,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 export const THEME_PALETTES = [
 	{ label: "Zen", value: "zen" },
 	{ label: "Damon", value: "damon" },
+	{ label: "Caffeine", value: "caffeine" },
+	{ label: "Deep Purple", value: "deeppurple" },
+	{ label: "Whatsapp", value: "whatsapp" },
 ] as const;
 
 type ThemeMode = "dark" | "light" | "system";

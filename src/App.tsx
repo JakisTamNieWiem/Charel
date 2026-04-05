@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
 import type {
 	Message,
+	Profile,
 	RealtimeMessageDeletePayload,
 	RealtimeMessagePayload,
 } from "@/types/chat";
@@ -83,26 +84,20 @@ function App() {
 		const initData = async () => {
 			setSyncing(true);
 			if (session) {
-				// --- ONLINE MODE: Fetch from 4 tables concurrently ---
-				const [charsRes, groupsRes, relsRes, typesRes, profileRes] =
+				const [charsRes, groupsRes, relsRes, typesRes, profileRes, chatsRes] =
 					await Promise.all([
-						supabase
-							.from("Characters")
-							.select("id, name, description, avatar, groupId"),
+						supabase.from("Characters").select("*"),
 						supabase.from("Groups").select("id, name, color"),
-						supabase
-							.from("Relationships")
-							.select("fromId, toId, typeId, description, value"),
-						supabase
-							.from("RelationshipTypes")
-							.select("id, color, description, label, value"),
+						supabase.from("Relationships").select("*"),
+						supabase.from("RelationshipTypes").select("*"),
 						supabase
 							.from("Profiles")
 							.select("*")
 							.eq("userId", session.user.id)
 							.single(),
+						supabase.from("Chats").select("*"),
 					]);
-
+				console.log(chatsRes.data);
 				useGraphStore.getState().importData({
 					characters: charsRes.data || [],
 					groups: groupsRes.data || [],
@@ -110,15 +105,13 @@ function App() {
 					relationshipTypes: typesRes.data || [],
 				});
 				if (profileRes.data) {
-					useChatStore.getState().setProfile(profileRes.data);
+					useChatStore.getState().setProfile(profileRes.data as Profile);
 					// Auto-set speaker for players
-					if (
-						profileRes.data.role === "player" &&
-						profileRes.data.characterId
-					) {
-						useChatStore
-							.getState()
-							.setActiveSpeakerId(profileRes.data.characterId);
+					const fisrtChar = charsRes.data?.filter(
+						(c) => c.ownerId === profileRes.data.userId,
+					)[0];
+					if (fisrtChar) {
+						useChatStore.getState().setActiveSpeakerId(fisrtChar.id);
 					}
 				}
 			} else {

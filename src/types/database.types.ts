@@ -84,24 +84,34 @@ export type Database = {
       }
       ChatsMembers: {
         Row: {
+          characterId: string
           chatId: string
           created_at: string
           lastReadAt: string | null
           userId: string
         }
         Insert: {
+          characterId: string
           chatId: string
           created_at?: string
           lastReadAt?: string | null
           userId: string
         }
         Update: {
+          characterId?: string
           chatId?: string
           created_at?: string
           lastReadAt?: string | null
           userId?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ChatsMembers_characterId_fkey"
+            columns: ["characterId"]
+            isOneToOne: false
+            referencedRelation: "Characters"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ChatsMembers_chatId_fkey"
             columns: ["chatId"]
@@ -142,7 +152,7 @@ export type Database = {
           chat: string
           content: string
           created_at: string
-          id: number
+          id: string
           userId: string
         }
         Insert: {
@@ -150,7 +160,7 @@ export type Database = {
           chat: string
           content: string
           created_at?: string
-          id?: number
+          id?: string
           userId: string
         }
         Update: {
@@ -158,7 +168,7 @@ export type Database = {
           chat?: string
           content?: string
           created_at?: string
-          id?: number
+          id?: string
           userId?: string
         }
         Relationships: [

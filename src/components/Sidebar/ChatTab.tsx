@@ -253,7 +253,7 @@ export default function ChatTab() {
 							if (char) setActiveSpeakerId(char.id);
 						}
 					}}
-					items={characters}
+					items={characters.filter((c) => c.ownerId === profile.userId)}
 				>
 					<ComboboxInput
 						placeholder="Select character..."
