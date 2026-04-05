@@ -269,7 +269,7 @@ function App() {
 		);
 	}
 	return (
-		<div className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden">
+		<div className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden bg-dot-grid">
 			{/* Sidebar */}
 			<Sidebar />
 			{/* Main Content */}
@@ -279,8 +279,8 @@ function App() {
 				) : (
 					<>
 						{/* Header */}
-						<header className="absolute bg-background/40 w-full backdrop-blur-sm p-6 flex items-center justify-between z-15">
-							<div className="flex-1">
+						<header className="absolute w-full p-6 flex items-center justify-between z-15">
+							<div className="bg-background/40  backdrop-blur-sm  p-4 rounded-2xl">
 								<h2
 									style={{ fontFamily: "Geist Variable" }}
 									className="text-4xl font-bold tracking-tighter uppercase italic serif"
