@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import NetworkGraph from "@/components/NetworkGraph";
 import RelationshipModal from "@/components/RelationshipModal";
-import Sidebar from "@/components/Sidebar/Sidebar";
+import AppSidebar from "@/components/Sidebar/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship, RelationshipType } from "@/types/types";
@@ -271,7 +271,7 @@ function App() {
 	return (
 		<div className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden bg-dot-grid">
 			{/* Sidebar */}
-			<Sidebar />
+			<AppSidebar />
 			{/* Main Content */}
 			<main className="flex-1 relative overflow-hidden flex flex-col">
 				{viewMode === "network" ? (

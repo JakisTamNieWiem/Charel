@@ -117,8 +117,8 @@ export default function TypeModal({
 							defaultValue={[0]}
 							step={1}
 							value={[Math.round((formData.value ?? 0) * 100)]}
-							onValueChange={([v]) =>
-								setFormData({ ...formData, value: v / 100 })
+							onValueChange={(v) =>
+								setFormData({ ...formData, value: (v as number) / 100 })
 							}
 						/>
 						<div className="flex justify-between text-[9px] opacity-30 font-mono">

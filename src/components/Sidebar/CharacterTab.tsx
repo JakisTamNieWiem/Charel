@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import CharacterModal from "@/components/CharacterModal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character } from "@/types/types";
@@ -59,8 +58,8 @@ export default function CharacterTab() {
 	}, [selectedId]);
 
 	return (
-		<div className="h-full pb-10">
-			<div className="px-4 min-h-9 flex items-center justify-between">
+		<div>
+			<div className="p-2 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
 				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 					Characters
 				</h2>
@@ -73,65 +72,64 @@ export default function CharacterTab() {
 				</Button>
 			</div>
 
-			<ScrollArea viewportRef={viewportRef} className="flex-1 p-4 h-full">
-				<div className=" space-y-2">
-					{[...allCharacters]
-						.sort((a, b) => a.name.localeCompare(b.name))
-						.map((char) => (
-							<div
-								key={char.id}
-								ref={(el) => {
-									if (el) itemRefs.current.set(char.id, el);
-									else itemRefs.current.delete(char.id);
-								}}
-								onClick={() => setSelectedCharId(char.id)}
-								className={cn(
-									"group px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3",
-									selectedId === char.id
-										? "bg-white/10 border-white/20"
-										: "bg-transparent border-transparent hover:bg-white/5",
-								)}
-							>
-								<Avatar className="size-14">
-									<AvatarImage src={char.avatar ?? undefined} />
-									<AvatarFallback>{char.name}</AvatarFallback>
-								</Avatar>
+			<div className=" space-y-2">
+				{[...allCharacters]
+					.sort((a, b) => a.name.localeCompare(b.name))
+					.map((char) => (
+						<div
+							key={char.id}
+							ref={(el) => {
+								if (el) itemRefs.current.set(char.id, el);
+								else itemRefs.current.delete(char.id);
+							}}
+							onClick={() => setSelectedCharId(char.id)}
+							className={cn(
+								"group/character px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3 relative",
+								selectedId === char.id
+									? "bg-white/10 border-white/20"
+									: "bg-transparent border-transparent hover:bg-white/5",
+							)}
+						>
+							<Avatar className="size-14">
+								<AvatarImage src={char.avatar ?? undefined} />
+								<AvatarFallback>{char.name}</AvatarFallback>
+							</Avatar>
 
-								<div className="flex-1 min-w-0">
-									<h3 className="font-medium truncate">{char.name}</h3>
-									<p className="text-xs opacity-50 truncate">
-										{char.description}
-									</p>
-								</div>
-
-								<div className="opacity-0 group-hover:opacity-100 flex flex-col">
-									<Button
-										size="icon-sm"
-										variant="ghost"
-										className="p-1 hover:text-blue-400 hover:bg-transparent!"
-										onClick={(e) => {
-											e.stopPropagation();
-											setEditingCharacter(char);
-										}}
-									>
-										<Edit2 size="16px" />
-									</Button>
-									<Button
-										size="icon-sm"
-										variant="ghost"
-										onClick={(e) => {
-											e.stopPropagation();
-											setDeletingCharacter(char);
-										}}
-										className="p-1 hover:text-red-400 hover:bg-transparent!"
-									>
-										<Trash2 className="w-3 h-3" />
-									</Button>
-								</div>
+							<div className="flex-1 min-w-0">
+								<h3 className="font-medium truncate">{char.name}</h3>
+								<p className="text-xs opacity-50 truncate">
+									{char.description}
+								</p>
 							</div>
-						))}
-				</div>
-			</ScrollArea>
+
+							<div className="opacity-0 group-hover/character:opacity-100 flex flex-col">
+								<Button
+									size="icon-sm"
+									variant="ghost"
+									className="p-1 hover:text-blue-400 hover:bg-transparent!"
+									onClick={(e) => {
+										e.stopPropagation();
+										setEditingCharacter(char);
+									}}
+								>
+									<Edit2 size="16px" />
+								</Button>
+								<Button
+									size="icon-sm"
+									variant="ghost"
+									onClick={(e) => {
+										e.stopPropagation();
+										setDeletingCharacter(char);
+									}}
+									className="p-1 hover:text-red-400 hover:bg-transparent!"
+								>
+									<Trash2 className="w-3 h-3" />
+								</Button>
+							</div>
+						</div>
+					))}
+			</div>
+
 			{deletingCharacter && (
 				<ConfirmModal
 					title="Delete"
