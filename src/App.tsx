@@ -286,7 +286,7 @@ function App() {
 					className="max-h-screen! max-w-screen! pt-6"
 				>
 					<AppSidebar />
-					<SidebarInset className="relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! bg-dot-grid shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]!  ring-1 ring-inset ring-black/50">
+					<SidebarInset className="relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! bg-dot-grid shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80">
 						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
 							{viewMode === "network" ? (
 								<NetworkGraph />

@@ -81,10 +81,26 @@ export default function CharacterTab() {
 							}}
 							onClick={() => setSelectedCharId(char.id)}
 							className={cn(
-								"group/character px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center relative scroll-mt-16",
+								"group/character px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative scroll-mt-16",
+
+								// 1. ACTIVE STATE (When physically clicking the mouse down)
+								// Applies a deep inner shadow, darkens the background, and slightly shrinks the element
+								"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
+								"active:shadow-[inset_0_4px_8px_rgba(0,0,0,0.15)] dark:active:shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]",
+								"active:border-transparent",
+
+								// 2. SELECTED vs UNSELECTED STATE
 								selectedId === char.id
-									? "bg-(--foreground)/10 border-(--foreground)/20"
-									: "bg-transparent border-transparent hover:bg-foreground/5",
+									? [
+											// Selected: Slightly pressed in (Shallow inner shadow)
+											"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
+											"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
+										]
+									: [
+											// Unselected: Flat, pops slightly on hover
+											"bg-transparent border-transparent shadow-none",
+											"hover:bg-(--sidebar-foreground)/5",
+										],
 							)}
 						>
 							<Avatar className="size-14 mr-3">
