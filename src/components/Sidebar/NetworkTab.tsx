@@ -1,5 +1,3 @@
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGraphStore } from "@/store/useGraphStore";
@@ -203,64 +201,6 @@ export default function NetworkTab() {
 			groupStats,
 		};
 	}, [characters, relationships, types, groups]);
-
-	const exportStats = async () => {
-		const data = {
-			overview: {
-				totalCharacters: stats.totalCharacters,
-				totalRelationships: stats.totalRelationships,
-				avgSentiment: +stats.avgRelValue.toFixed(4),
-				median: +stats.median.toFixed(4),
-				variance: +stats.variance.toFixed(4),
-				stdDev: +stats.stdDev.toFixed(4),
-				networkDensity: +stats.density.toFixed(4),
-				reciprocity: +stats.reciprocity.toFixed(4),
-				positiveRelations: stats.positiveCount,
-				negativeRelations: stats.negativeCount,
-				neutralRelations: stats.neutralCount,
-			},
-			sentimentDistribution: stats.histogram.map((count, i) => ({
-				rangeFrom: +(-1 + (i * 2) / stats.histogram.length).toFixed(2),
-				rangeTo: +(-1 + ((i + 1) * 2) / stats.histogram.length).toFixed(2),
-				count,
-			})),
-			bestRelation: stats.bestRel,
-			worstRelation: stats.worstRel,
-			mostLikeable: stats.mostLikeable
-				? {
-						name: stats.mostLikeable.name,
-						avgValue: +stats.mostLikeable.avgValue.toFixed(4),
-					}
-				: null,
-			mostDisliked: stats.mostDisliked
-				? {
-						name: stats.mostDisliked.name,
-						avgValue: +stats.mostDisliked.avgValue.toFixed(4),
-					}
-				: null,
-			groups: stats.groupStats,
-			characters: stats.charStats.map((c) => ({
-				name: c.name,
-				connections: c.connectionCount,
-				avgValue: +c.avgValue.toFixed(4),
-				positiveLinks: c.totalPositive,
-				negativeLinks: c.totalNegative,
-			})),
-		};
-		try {
-			const filePath = await save({
-				filters: [{ name: "JSON Data", extensions: ["json"] }],
-				defaultPath: `charel-analytics-${new Date().toISOString().split("T")[0]}.json`,
-			});
-			if (filePath) {
-				await writeTextFile(filePath, JSON.stringify(data, null, 2));
-				alert("Data exported successfully!");
-			}
-		} catch (error) {
-			console.error("Export failed:", error);
-			alert("Failed to export data.");
-		}
-	};
 
 	return (
 		<div className="h-full flex flex-col overflow-hidden">
