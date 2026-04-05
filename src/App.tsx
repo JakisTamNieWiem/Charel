@@ -14,6 +14,11 @@ import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
 import { Badge } from "./components/ui/badge";
+import {
+	SidebarInset,
+	SidebarProvider,
+	SidebarTrigger,
+} from "./components/ui/sidebar";
 import { useChatStore } from "./store/useChatStore";
 
 function App() {
@@ -269,90 +274,103 @@ function App() {
 		);
 	}
 	return (
-		<div className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden bg-dot-grid">
-			{/* Sidebar */}
+		<SidebarProvider
+			defaultOpen={true}
+			style={{ "--sidebar-width": "20rem" } as React.CSSProperties}
+			className="max-h-screen max-w-screen"
+		>
 			<AppSidebar />
-			{/* Main Content */}
-			<main className="flex-1 relative overflow-hidden flex flex-col">
-				{viewMode === "network" ? (
-					<NetworkGraph />
-				) : (
-					<>
-						{/* Header */}
-						<header className="absolute w-full p-6 flex items-center justify-between z-15">
-							<div className="bg-background/40  backdrop-blur-sm  p-4 rounded-2xl">
-								<h2
-									style={{ fontFamily: "Geist Variable" }}
-									className="text-4xl font-bold tracking-tighter uppercase italic serif"
-								>
-									{selectedCharacter?.name || "Select a character"}
-								</h2>
-								<p className="text-sm opacity-50 max-w-md">
-									{selectedCharacter?.description}
-								</p>
-							</div>
+			<SidebarInset className="flex flex-col bg-transparent overflow-hidden">
+				<div className="flex bg-background text-white font-sans overflow-hidden bg-dot-grid">
+					{/* Sidebar */}
+					{/* Main Content */}
+					<main className="flex-1 relative max-h-screen overflow-hidden flex flex-col">
+						{viewMode === "network" ? (
+							<NetworkGraph />
+						) : (
+							<>
+								{/* Header */}
+								<header className="w-full p-6 flex items-center justify-between z-15 shrink-0">
+									<div className="bg-background/40  backdrop-blur-sm  p-4 rounded-2xl">
+										<h2
+											style={{ fontFamily: "Geist Variable" }}
+											className="text-4xl font-bold tracking-tighter uppercase italic serif"
+										>
+											{selectedCharacter?.name || "Select a character"}
+										</h2>
+										<p className="text-sm opacity-50 max-w-md">
+											{selectedCharacter?.description}
+										</p>
+									</div>
 
-							<Button
-								onClick={(e) => {
-									e.preventDefault();
-									setOpenRelModal(true);
-								}}
-								className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
-							>
-								<Plus className="w-4 h-4" /> New Relation
-							</Button>
-							{selectedId && (
-								<RelationshipModal
-									fromId={selectedId}
-									onSave={addRelationship}
-									open={openRelModal}
-									onOpenChange={setOpenRelModal}
-								/>
-							)}
-						</header>
+									<Button
+										onClick={(e) => {
+											e.preventDefault();
+											setOpenRelModal(true);
+										}}
+										className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
+									>
+										<Plus className="w-4 h-4" /> New Relation
+									</Button>
+									{selectedId && (
+										<RelationshipModal
+											fromId={selectedId}
+											onSave={addRelationship}
+											open={openRelModal}
+											onOpenChange={setOpenRelModal}
+										/>
+									)}
+								</header>
 
-						{/* Graph Area */}
-						<div className="flex-1 relative overflow-hidden">
-							{selectedCharacter ? (
-								<CharacterGraph />
-							) : (
-								<h1 className="p-4">Character not found</h1>
-							)}
-						</div>
+								{/* Graph Area */}
+								<div className="flex-1 relative overflow-y-visible">
+									{selectedCharacter ? (
+										<CharacterGraph />
+									) : (
+										<h1 className="p-4">Character not found</h1>
+									)}
+								</div>
 
-						{/* Legend */}
-						<div className="h-full absolute right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar">
-							{types.map((type) => (
-								<Badge
-									variant={"secondary"}
-									key={type.id}
-									style={{ "--badge-color": type.color } as React.CSSProperties}
-									className="pr-1 bg-background/40 backdrop-blur-md"
-								>
-									<span className="text-[10px] uppercase font-bold tracking-widest">
-										{type.label}
-									</span>
-									<div
-										className="size-3 rounded-full"
-										style={{ backgroundColor: type.color }}
-									/>
-								</Badge>
-							))}
-						</div>
-					</>
-				)}
-			</main>
-
-			{editingType && (
-				<TypeModal
-					type={editingType}
-					open={!!editingType}
-					onOpenChange={(open) => {
-						if (!open) setEditingType(null);
-					}}
-				/>
-			)}
-		</div>
+								{/* Legend */}
+								<div className="h-full absolute! right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar">
+									{types.map((type) => (
+										<Badge
+											variant={"secondary"}
+											key={type.id}
+											style={
+												{ "--badge-color": type.color } as React.CSSProperties
+											}
+											className="pr-1 bg-background/40 backdrop-blur-md"
+										>
+											<span className="text-[10px] uppercase font-bold tracking-widest">
+												{type.label}
+											</span>
+											<div
+												className="size-3 rounded-full"
+												style={{ backgroundColor: type.color }}
+											/>
+										</Badge>
+									))}
+								</div>
+							</>
+						)}
+						<SidebarTrigger
+							variant="secondary"
+							className="absolute bottom-0 m-2"
+						/>
+					</main>
+					{editingType && (
+						<TypeModal
+							type={editingType}
+							open={!!editingType}
+							onOpenChange={(open) => {
+								if (!open) setEditingType(null);
+							}}
+						/>
+					)}
+				</div>
+			</SidebarInset>
+		</SidebarProvider>
 	);
 }
 

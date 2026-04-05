@@ -26,7 +26,9 @@ export default function CharacterGraph() {
 		);
 		const ids = new Set(rels.flatMap((r) => [r.fromId, r.toId]));
 		ids.delete(selectedId);
-		return allChars.filter((c) => ids.has(c.id));
+		return allChars
+			.filter((c) => ids.has(c.id))
+			.sort((a, b) => a.name.localeCompare(b.name));
 	}, [allChars, relationships, selectedId]);
 	const [openRelModal, setOpenRelModal] = useState(false);
 	const [editingRel, setEditingRel] = useState<Relationship | null>(null);
@@ -430,7 +432,7 @@ export default function CharacterGraph() {
 	return (
 		<div
 			className={cn(
-				"w-full h-full overflow-hidden touch-none select-none",
+				"w-screen h-screen touch-none select-none",
 				isDragging ? "cursor-grabbing" : "cursor-grab",
 			)}
 			onWheel={handleWheel}

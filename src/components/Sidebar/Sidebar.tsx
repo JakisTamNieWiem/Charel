@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import {
 	Sidebar,
 	SidebarContent,
-	SidebarFooter,
 	SidebarGroup,
 	SidebarHeader,
 } from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Separator } from "../ui/separator";
@@ -26,7 +26,7 @@ import SettingsTab from "./SettingsTab";
 import ThemeToggle from "./ThemeToggle";
 
 export default function AppSidebar() {
-	// const { state, open, setOpen, toggleSidebar } = useSidebar();
+	const { state, toggleSidebar } = useSidebar();
 	const setViewMode = useGraphStore((state) => state.setViewMode);
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
 	const [session, setSession] = useState<Session | null>(null);
@@ -73,9 +73,9 @@ export default function AppSidebar() {
 	})();
 	//w-80 h-full *:bg-background border-r border-white/10 relative flex flex-col items-center border-bottom
 	return (
-		<Tabs defaultValue="characters">
-			<Sidebar className="w-80 relative">
-				<SidebarHeader className="p-3">
+		<Sidebar variant="inset">
+			<Tabs defaultValue="characters" className="h-full">
+				<SidebarHeader className="p-3 py-4 gap-4">
 					<div className="w-full flex justify-between items-center">
 						<div className="flex gap-2">
 							<ThemeToggle />
@@ -179,7 +179,33 @@ export default function AppSidebar() {
 						</TabsContent>
 					</SidebarGroup>
 				</SidebarContent>
-			</Sidebar>
-		</Tabs>
+				<div
+					onClick={toggleSidebar}
+					className={cn(
+						"absolute inset-y-0 -right-2 w-4 z-50 cursor-pointer group/trigger",
+						"flex items-center justify-center transition-all",
+					)}
+				>
+					{/* This is the visual line that glows on hover */}
+					<div
+						className={cn(
+							"h-full w-[2px] transition-colors duration-200",
+							"group-hover/trigger:bg-primary/50", // Glows with your theme's primary color
+							"group-active/trigger:bg-primary", // Brightens when clicked
+						)}
+					/>
+
+					{/* Optional: Add a tiny "chevron" or hint that appears only on hover */}
+					<div className="absolute top-1/2 -translate-y-1/2 right-1 opacity-0 group-hover/trigger:opacity-100 transition-opacity">
+						<div
+							className={cn(
+								"w-1 h-8 rounded-full bg-primary/20",
+								state === "collapsed" ? "translate-x-1" : "-translate-x-2",
+							)}
+						/>
+					</div>
+				</div>
+			</Tabs>
+		</Sidebar>
 	);
 }
