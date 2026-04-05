@@ -155,7 +155,7 @@ export default function AppSidebar() {
 									disabled={isSyncing}
 									className={cn(
 										"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest transition-all ",
-										session ? "text-emerald-400" : "text-red-500",
+										session ? "text-emerald-400 dark:text-emerald-600" : "text-red-500 dark:text-red-400",
 									)}
 									onClick={() =>
 										session ? supabase.auth.signOut() : setLoginModalOpen(true)
