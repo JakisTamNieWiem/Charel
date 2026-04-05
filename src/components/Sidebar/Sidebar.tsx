@@ -82,7 +82,7 @@ export default function AppSidebar() {
 	})();
 	//w-80 h-full *:bg-background border-r border-white/10 relative flex flex-col items-center border-bottom
 	return (
-		<Sidebar variant="inset" collapsible="icon" className="pt-0 z-150">
+		<Sidebar variant="inset" collapsible="icon" className="pt-0 z-45">
 			<Tabs
 				defaultValue="characters"
 				orientation="vertical"
@@ -134,7 +134,7 @@ export default function AppSidebar() {
 				</div>
 
 				<div className="flex flex-col flex-1 min-w-0 overflow-hidden group-data-[state=collapsed]:hidden">
-					<SidebarHeader className="p-2 py-4 gap-4">
+					<SidebarHeader className="p-2 pb-4 pt-8 gap-4">
 						<div className="w-full flex justify-between items-center">
 							<div className="flex gap-2 items-center px-2">
 								<div className="flex flex-col">
@@ -152,7 +152,7 @@ export default function AppSidebar() {
 									variant="ghost"
 									disabled={isSyncing}
 									className={cn(
-										"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest transition-all ",
+										"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest transition-all z-150",
 										session
 											? "text-emerald-400 dark:text-emerald-600"
 											: "text-red-500 dark:text-red-400",

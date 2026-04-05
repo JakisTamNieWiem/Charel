@@ -5,6 +5,17 @@ import { Download, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useGraphStore } from "@/store/useGraphStore";
+import { THEME_PALETTES, type ThemeColor, useTheme } from "../ThemeProvider";
+import { Label } from "../ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from "../ui/select";
 
 interface SettingsTabProps {
 	session: Session | null;
@@ -17,9 +28,41 @@ export default function SettingsTab({ session }: SettingsTabProps) {
 	const relationships = useGraphStore((state) => state.relationships);
 	const groups = useGraphStore((state) => state.groups);
 
+	const { color, setColor } = useTheme();
+
 	return (
 		<div className="h-full">
-			<div className="p-2 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
+			<div className="p-2 min-h-9 flex flex-col justify-between space-y-2">
+				<Label className="text-xs font-mono uppercase tracking-widest opacity-50">
+					Theme
+				</Label>
+				<Select
+					items={THEME_PALETTES}
+					value={color}
+					onValueChange={(value) => {
+						if (value) setColor(value as ThemeColor);
+					}}
+				>
+					<SelectTrigger className="w-full">
+						<SelectValue placeholder="Select a theme" />
+					</SelectTrigger>
+					<SelectContent alignItemWithTrigger={false}>
+						<SelectGroup>
+							<SelectLabel>Themes</SelectLabel>
+							{THEME_PALETTES.map((theme) => (
+								<SelectItem
+									key={theme.value}
+									value={theme.value}
+									className="cursor-pointer focus:bg-white/10"
+								>
+									{theme.label}
+								</SelectItem>
+							))}
+						</SelectGroup>
+					</SelectContent>
+				</Select>
+			</div>
+			<div className="p-2 min-h-9 flex items-center justify-between">
 				<div>
 					<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 						Data Management
@@ -97,7 +140,7 @@ export default function SettingsTab({ session }: SettingsTabProps) {
 					</Button>
 				</div>
 			</div>
-			<div className="p-4 max-h-9/12 relative group">
+			<div className="p-2 max-h-9/12 relative group">
 				<Textarea
 					value={JSON.stringify(
 						{
