@@ -266,7 +266,7 @@ function App() {
 	}, [isLoaded, session]);
 
 	// Prevent rendering the app until data is loaded from disk to prevent flashing
-	const appReady = isAuthResolved && isDataLoaded;
+	const appReady = isDataLoaded;
 	return (
 		<>
 			<AnimatePresence mode="wait">

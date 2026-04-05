@@ -7,7 +7,7 @@ export default function LoadingScreen() {
 			initial={{ opacity: 1 }}
 			exit={{ opacity: 0 }}
 			transition={{ duration: 0.5, ease: "easeInOut" }}
-			className="fixed inset-0 z-1000 bg-[#0a0a0a] flex flex-col items-center justify-center"
+			className="fixed inset-0 z-1000 bg-background flex flex-col items-center justify-center"
 		>
 			{/* Animated Logo */}
 			<motion.div
