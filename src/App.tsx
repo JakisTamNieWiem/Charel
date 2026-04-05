@@ -7,6 +7,8 @@ import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship, RelationshipType } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
+import { LayoutGrid, Circle } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimatePresence, motion } from "motion/react";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
@@ -29,6 +31,8 @@ function App() {
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
 	const viewMode = useGraphStore((state) => state.viewMode);
+	const networkMode = useGraphStore((state) => state.networkMode);
+	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
 
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
 
@@ -289,7 +293,21 @@ function App() {
 					<SidebarInset className="relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! bg-dot-grid shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80">
 						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
 							{viewMode === "network" ? (
-								<NetworkGraph />
+								<>
+									<NetworkGraph />
+									<div className="absolute top-6 right-6 z-10">
+										<Tabs value={networkMode} onValueChange={(v) => setNetworkMode(v)} orientation="vertical">
+											<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
+												<TabsTrigger value="group" className="h-7 px-3 text-[11px]">
+													<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
+												</TabsTrigger>
+												<TabsTrigger value="global" className="h-7 px-3 text-[11px]">
+													<Circle className="w-3 h-3 mr-1.5" /> Global
+												</TabsTrigger>
+											</TabsList>
+										</Tabs>
+									</div>
+								</>
 							) : selectedCharacter ? (
 								<CharacterGraph />
 							) : (
@@ -299,7 +317,7 @@ function App() {
 							)}
 							<SidebarTrigger
 								variant="secondary"
-								className="absolute bottom-0 m-2 pointer-events-auto z-50"
+								className="absolute bottom-0 m-2 pointer-events-auto z-50 cursor-pointer"
 							/>
 						</main>
 						{editingType && (
