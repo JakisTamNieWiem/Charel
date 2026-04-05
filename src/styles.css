@@ -449,7 +449,11 @@ a {
       transparent 0
     );
     background-size: 40px 40px;
-    background-position: center;
+     /* 1. LOCK TO VIEWPORT: This stops the grid from moving when the container resizes */
+    background-attachment: fixed; 
+    
+    /* 2. ANCHOR TO CORNER: Ensures zooming the browser window doesn't shift the grid */
+    background-position: top left; 
   }
 
   :is(.dark) .bg-dot-grid {

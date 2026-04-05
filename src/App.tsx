@@ -278,7 +278,7 @@ function App() {
 				initial={{ opacity: 0 }}
 				animate={{ opacity: appReady ? 1 : 0 }}
 				transition={{ duration: 0.8, delay: 0.2 }}
-				className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden bg-dot-grid"
+				className="flex h-screen w-screen bg-sidebar text-foreground font-sans overflow-hidden"
 			>
 				<SidebarProvider
 					defaultOpen={true}
@@ -286,7 +286,7 @@ function App() {
 					className="max-h-screen! max-w-screen! pt-6"
 				>
 					<AppSidebar />
-					<SidebarInset className="flex flex-col bg-transparent overflow-hidden relative">
+					<SidebarInset className="relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! bg-dot-grid shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]!  ring-1 ring-inset ring-black/50">
 						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
 							{viewMode === "network" ? (
 								<NetworkGraph />

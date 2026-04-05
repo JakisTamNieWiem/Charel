@@ -438,7 +438,7 @@ export default function CharacterGraph() {
 		centerRadius,
 	]);
 	return (
-		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-background bg-dot-grid">
+		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-transparent">
 			{/* LAYER 1: THE GRAPH (Anchored to Right edge of Screen) */}
 			<div className="col-start-1 row-start-1 w-full h-full pointer-events-auto z-0">
 				<div
@@ -497,8 +497,8 @@ export default function CharacterGraph() {
 				{/* LAYER 2: THE FOREGROUND UI (Stays strictly within SidebarInset bounds) */}
 				<div className="col-start-1 row-start-1 z-10 w-full h-full flex flex-col justify-between pointer-events-none">
 					{/* Header */}
-					<header className="w-full p-6 flex items-center justify-between shrink-0 pointer-events-none">
-						<div className="bg-background/40 backdrop-blur-sm p-4 rounded-2xl pointer-events-auto">
+					<header className="w-full p-6 flex items-center justify-between shrink-0 pointer-events-none ">
+						<div className="bg-background/40 backdrop-blur-md p-4 rounded-2xl pointer-events-auto">
 							<h2
 								style={{ fontFamily: "Geist Variable" }}
 								className="text-4xl font-bold tracking-tighter uppercase italic serif"
@@ -523,13 +523,13 @@ export default function CharacterGraph() {
 					</header>
 
 					{/* Legend Container */}
-					<div className="h-full w-min p-6 flex flex-col flex-wrap justify-start items-end gap-3 pointer-events-none self-end">
+					<div className="h-full w-min p-6 flex flex-col flex-wrap-reverse justify-start items-start gap-3 pointer-events-none self-end">
 						{types.map((type) => (
 							<Badge
 								variant={"secondary"}
 								key={type.id}
 								style={{ "--badge-color": type.color } as React.CSSProperties}
-								className="pr-1 bg-background/40 backdrop-blur-md pointer-events-auto"
+								className="selft-endp-2.5 pr-1 bg-card/40 backdrop-blur-md pointer-events-auto border border-foreground/5 transition-all hover:bg-foreground/10"
 							>
 								<span className="text-[10px] uppercase font-bold tracking-widest">
 									{type.label}

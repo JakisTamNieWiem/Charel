@@ -84,7 +84,7 @@ export default function CharacterTab() {
 								"group/character px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center relative scroll-mt-16",
 								selectedId === char.id
 									? "bg-(--foreground)/10 border-(--foreground)/20"
-									: "bg-transparent border-transparent hover:bg-(--foreground)/5",
+									: "bg-transparent border-transparent hover:bg-foreground/5",
 							)}
 						>
 							<Avatar className="size-14 mr-3">
