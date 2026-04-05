@@ -110,7 +110,7 @@ export default function CharacterGraph() {
 	const svgSize = (radius + margin) * 2;
 	const relationshipData = useMemo(() => {
 		return relatedCharacters.flatMap((char, i: number) => {
-			const angleDeg = (i / relatedCharacters.length) * 360;
+			const angleDeg = (i / relatedCharacters.length) * 360 - 90;
 
 			const rels = relationships.filter(
 				(r) =>
@@ -322,7 +322,8 @@ export default function CharacterGraph() {
 				)}
 
 				{relatedCharacters.map((char, i: number) => {
-					const angle = (i / relatedCharacters.length) * 2 * Math.PI;
+					const angle =
+						(i / relatedCharacters.length) * 2 * Math.PI - Math.PI / 2;
 					const cos = Math.cos(angle);
 					const sin = Math.sin(angle);
 					const x = radius * cos;

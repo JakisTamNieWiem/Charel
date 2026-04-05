@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/style/noNonNullAssertion: Fuck warnings about non-null assertions */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import { useGraphStore } from "@/store/useGraphStore";
@@ -59,7 +60,15 @@ function radialTextBaseline(sin: number): CanvasTextBaseline {
 	return sin > 0.5 ? "top" : sin < -0.5 ? "bottom" : "middle";
 }
 
-function sampleQuadratic(sx: number, sy: number, cpX: number, cpY: number, ex: number, ey: number, t: number): [number, number] {
+function sampleQuadratic(
+	sx: number,
+	sy: number,
+	cpX: number,
+	cpY: number,
+	ex: number,
+	ey: number,
+	t: number,
+): [number, number] {
 	const t1 = 1 - t;
 	return [
 		t1 * t1 * sx + 2 * t1 * t * cpX + t * t * ex,
@@ -87,7 +96,10 @@ export default function NetworkGraph() {
 	const [themeKey, setThemeKey] = useState(0);
 	useEffect(() => {
 		const observer = new MutationObserver(() => setThemeKey((k) => k + 1));
-		observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ["class"],
+		});
 		return () => observer.disconnect();
 	}, []);
 
@@ -109,7 +121,10 @@ export default function NetworkGraph() {
 		});
 		observer.observe(container);
 		if (container.clientWidth > 0) {
-			setDimensions({ width: container.clientWidth, height: container.clientHeight });
+			setDimensions({
+				width: container.clientWidth,
+				height: container.clientHeight,
+			});
 		}
 		return () => observer.disconnect();
 	}, []);
@@ -169,17 +184,28 @@ export default function NetworkGraph() {
 
 			groupNodes.forEach((node, nIdx) => {
 				const nAngle = (nIdx / groupNodes.length) * 2 * Math.PI;
-				const x = groupNodes.length === 1 ? gCx : gCx + Math.cos(nAngle) * innerRadius;
-				const y = groupNodes.length === 1 ? gCy : gCy + Math.sin(nAngle) * innerRadius;
-				node.fx = x; node.fy = y; node.x = x; node.y = y;
-				node.groupCx = gCx; node.groupCy = gCy;
+				const x =
+					groupNodes.length === 1 ? gCx : gCx + Math.cos(nAngle) * innerRadius;
+				const y =
+					groupNodes.length === 1 ? gCy : gCy + Math.sin(nAngle) * innerRadius;
+				node.fx = x;
+				node.fy = y;
+				node.x = x;
+				node.y = y;
+				node.groupCx = gCx;
+				node.groupCy = gCy;
 				nodes.push(node);
 			});
 
 			if (groupInfo) {
 				bounds.push({
-					id: groupInfo.id, name: groupInfo.name, color: groupInfo.color,
-					cx: gCx, cy: gCy, radius: innerRadius + 40, angle: groupAngle,
+					id: groupInfo.id,
+					name: groupInfo.name,
+					color: groupInfo.color,
+					cx: gCx,
+					cy: gCy,
+					radius: innerRadius + 40,
+					angle: groupAngle,
 				});
 			}
 		});
@@ -207,18 +233,25 @@ export default function NetworkGraph() {
 				let arcCy: number | undefined;
 
 				if (fromNode.groupId !== toNode.groupId) {
-					const x1 = fromNode.x!, y1 = fromNode.y!;
-					const x2 = toNode.x!, y2 = toNode.y!;
-					const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-					const dx = x2 - x1, dy = y2 - y1;
+					const x1 = fromNode.x!,
+						y1 = fromNode.y!;
+					const x2 = toNode.x!,
+						y2 = toNode.y!;
+					const mx = (x1 + x2) / 2,
+						my = (y1 + y2) / 2;
+					const dx = x2 - x1,
+						dy = y2 - y1;
 					const dist = Math.sqrt(dx * dx + dy * dy);
 					const halfD = dist / 2;
 
 					if (halfD < arcR && dist > 0) {
 						const h = Math.sqrt(arcR * arcR - halfD * halfD);
-						const px = -dy / dist, py = dx / dist;
-						const c1x = mx + h * px, c1y = my + h * py;
-						const c2x = mx - h * px, c2y = my - h * py;
+						const px = -dy / dist,
+							py = dx / dist;
+						const c1x = mx + h * px,
+							c1y = my + h * py;
+						const c2x = mx - h * px,
+							c2y = my - h * py;
 						const d1 = c1x * c1x + c1y * c1y;
 						const d2 = c2x * c2x + c2y * c2y;
 
@@ -238,9 +271,13 @@ export default function NetworkGraph() {
 				}
 
 				return {
-					source: r.fromId, target: r.toId,
-					arcCx, arcCy, arcR: arcCx != null ? arcR : undefined,
-					typeId: r.typeId, color: type?.color || "#555",
+					source: r.fromId,
+					target: r.toId,
+					arcCx,
+					arcCy,
+					arcR: arcCx != null ? arcR : undefined,
+					typeId: r.typeId,
+					color: type?.color || "#555",
 				};
 			});
 
@@ -257,31 +294,40 @@ export default function NetworkGraph() {
 		return connected;
 	}, [hoveredNode, relationships]);
 
-	const getAvatarCanvas = useCallback((avatar: string): HTMLCanvasElement | null => {
-		const cached = avatarCache.current.get(avatar);
-		if (cached) return cached;
-		if (avatarLoading.current.has(avatar)) return null;
-		avatarLoading.current.add(avatar);
+	const getAvatarCanvas = useCallback(
+		(avatar: string): HTMLCanvasElement | null => {
+			const cached = avatarCache.current.get(avatar);
+			if (cached) return cached;
+			if (avatarLoading.current.has(avatar)) return null;
+			avatarLoading.current.add(avatar);
 
-		const img = new Image();
-		img.src = avatar;
-		img.onload = () => {
-			const canvas = document.createElement("canvas");
-			canvas.width = AVATAR_CACHE_SIZE;
-			canvas.height = AVATAR_CACHE_SIZE;
-			const ctx = canvas.getContext("2d");
-			if (ctx) {
-				ctx.beginPath();
-				ctx.arc(AVATAR_CACHE_SIZE / 2, AVATAR_CACHE_SIZE / 2, AVATAR_CACHE_SIZE / 2, 0, 2 * Math.PI);
-				ctx.clip();
-				ctx.drawImage(img, 0, 0, AVATAR_CACHE_SIZE, AVATAR_CACHE_SIZE);
-				avatarCache.current.set(avatar, canvas);
-			}
-			avatarLoading.current.delete(avatar);
-		};
-		img.onerror = () => avatarLoading.current.delete(avatar);
-		return null;
-	}, []);
+			const img = new Image();
+			img.src = avatar;
+			img.onload = () => {
+				const canvas = document.createElement("canvas");
+				canvas.width = AVATAR_CACHE_SIZE;
+				canvas.height = AVATAR_CACHE_SIZE;
+				const ctx = canvas.getContext("2d");
+				if (ctx) {
+					ctx.beginPath();
+					ctx.arc(
+						AVATAR_CACHE_SIZE / 2,
+						AVATAR_CACHE_SIZE / 2,
+						AVATAR_CACHE_SIZE / 2,
+						0,
+						2 * Math.PI,
+					);
+					ctx.clip();
+					ctx.drawImage(img, 0, 0, AVATAR_CACHE_SIZE, AVATAR_CACHE_SIZE);
+					avatarCache.current.set(avatar, canvas);
+				}
+				avatarLoading.current.delete(avatar);
+			};
+			img.onerror = () => avatarLoading.current.delete(avatar);
+			return null;
+		},
+		[],
+	);
 
 	const nodeCanvasObject = useCallback(
 		(nodeObj: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -289,32 +335,46 @@ export default function NetworkGraph() {
 			const isHovered = node.id === hoveredNode;
 			const isGroupHovered = node.groupId === hoveredGroup;
 			const isConnected = connectedNodes.has(node.id);
-			const x = node.x!, y = node.y!;
+			const x = node.x!,
+				y = node.y!;
 
 			if (globalScale < 0.05 && !isHovered && !isGroupHovered && !isConnected) {
 				ctx.fillStyle = node.color;
-				ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI); ctx.fill();
+				ctx.beginPath();
+				ctx.arc(x, y, 3, 0, 2 * Math.PI);
+				ctx.fill();
 				return;
 			}
 
 			const isHighlighted = isHovered || isGroupHovered || isConnected;
-			ctx.globalAlpha = (!hoveredNode && !hoveredGroup) ? 1 : (isHighlighted ? 1 : 0.05);
+			ctx.globalAlpha =
+				!hoveredNode && !hoveredGroup ? 1 : isHighlighted ? 1 : 0.05;
 
 			ctx.beginPath();
 			ctx.arc(x, y, NODE_SIZE, 0, 2 * Math.PI);
 			ctx.fillStyle = themeColors.card;
 			ctx.fill();
-			ctx.lineWidth = Math.min((isHovered || isConnected) ? 3 / globalScale : 1.5 / globalScale, 4);
-			ctx.strokeStyle = (isHovered || isConnected) ? themeColors.fg : node.color;
+			ctx.lineWidth = Math.min(
+				isHovered || isConnected ? 3 / globalScale : 1.5 / globalScale,
+				4,
+			);
+			ctx.strokeStyle = isHovered || isConnected ? themeColors.fg : node.color;
 			ctx.stroke();
 
 			const avatar = node.avatar ? getAvatarCanvas(node.avatar) : null;
 			if (avatar) {
-				ctx.drawImage(avatar, x - NODE_SIZE + 1, y - NODE_SIZE + 1, (NODE_SIZE - 1) * 2, (NODE_SIZE - 1) * 2);
+				ctx.drawImage(
+					avatar,
+					x - NODE_SIZE + 1,
+					y - NODE_SIZE + 1,
+					(NODE_SIZE - 1) * 2,
+					(NODE_SIZE - 1) * 2,
+				);
 			} else {
 				ctx.fillStyle = themeColors.fg;
 				ctx.font = `bold ${Math.round(NODE_SIZE * 0.8)}px sans-serif`;
-				ctx.textAlign = "center"; ctx.textBaseline = "middle";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
 				ctx.fillText(node.initials, x, y);
 			}
 
@@ -336,6 +396,7 @@ export default function NetworkGraph() {
 		[hoveredNode, hoveredGroup, connectedNodes, getAvatarCanvas, themeColors],
 	);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Needed for animation to work
 	const linkCanvasObject = useCallback(
 		(linkObj: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
 			const link = linkObj as GraphLink;
@@ -344,18 +405,26 @@ export default function NetworkGraph() {
 			if (!start.x || !end.x) return;
 
 			const isCrossGroup = start.groupId !== end.groupId;
-			const isActive = (hoveredNode && (start.id === hoveredNode || end.id === hoveredNode)) ||
-				(hoveredGroup && (start.groupId === hoveredGroup || end.groupId === hoveredGroup));
+			const isActive =
+				(hoveredNode && (start.id === hoveredNode || end.id === hoveredNode)) ||
+				(hoveredGroup &&
+					(start.groupId === hoveredGroup || end.groupId === hoveredGroup));
 
-			const opacity = (!hoveredNode && !hoveredGroup) ? 0.25 : (isActive ? 0.8 : 0.02);
+			const opacity =
+				!hoveredNode && !hoveredGroup ? 0.25 : isActive ? 0.8 : 0.02;
 			if (opacity < 0.02) return;
 
-			const sx = start.x!, sy = start.y!, ex = end.x!, ey = end.y!;
+			const sx = start.x!,
+				sy = start.y!,
+				ex = end.x!,
+				ey = end.y!;
 
 			let cpX: number | undefined, cpY: number | undefined;
 			if (isCrossGroup) {
-				const mx = (sx + ex) / 2, my = (sy + ey) / 2;
-				const dx = ex - sx, dy = ey - sy;
+				const mx = (sx + ex) / 2,
+					my = (sy + ey) / 2;
+				const dx = ex - sx,
+					dy = ey - sy;
 				cpX = mx - dy * 0.25;
 				cpY = my + dx * 0.25;
 			}
@@ -383,16 +452,21 @@ export default function NetworkGraph() {
 					let dist = Math.abs(mid - center);
 					dist = Math.min(dist, 1 - dist);
 					const intensity = Math.max(0, 1 - dist / GLOW_SPREAD);
-					const edgeFade = Math.min(Math.min(mid, 1 - mid) / GLOW_EDGE_FADE_RANGE, 1);
+					const edgeFade = Math.min(
+						Math.min(mid, 1 - mid) / GLOW_EDGE_FADE_RANGE,
+						1,
+					);
 					const glow = intensity * intensity * (3 - 2 * intensity) * edgeFade;
 					if (glow < 0.01) continue;
 
-					const [x0, y0] = cpX != null
-						? sampleQuadratic(sx, sy, cpX, cpY!, ex, ey, t0)
-						: [sx + (ex - sx) * t0, sy + (ey - sy) * t0];
-					const [x1, y1] = cpX != null
-						? sampleQuadratic(sx, sy, cpX, cpY!, ex, ey, t1)
-						: [sx + (ex - sx) * t1, sy + (ey - sy) * t1];
+					const [x0, y0] =
+						cpX != null
+							? sampleQuadratic(sx, sy, cpX, cpY!, ex, ey, t0)
+							: [sx + (ex - sx) * t0, sy + (ey - sy) * t0];
+					const [x1, y1] =
+						cpX != null
+							? sampleQuadratic(sx, sy, cpX, cpY!, ex, ey, t1)
+							: [sx + (ex - sx) * t1, sy + (ey - sy) * t1];
 
 					ctx.beginPath();
 					ctx.moveTo(x0, y0);
@@ -401,7 +475,7 @@ export default function NetworkGraph() {
 					ctx.lineWidth = Math.max(3 / globalScale, 1);
 					ctx.globalAlpha = glow * 0.5;
 					ctx.shadowColor = link.color;
-					ctx.shadowBlur = Math.max(25 * glow / globalScale, 8 * glow);
+					ctx.shadowBlur = Math.max((25 * glow) / globalScale, 8 * glow);
 					ctx.stroke();
 				}
 				ctx.shadowColor = "transparent";
@@ -421,10 +495,12 @@ export default function NetworkGraph() {
 
 				ctx.globalAlpha = isHovered ? 0.15 : 0.035;
 				ctx.fillStyle = b.color;
-				ctx.beginPath(); ctx.arc(b.cx, b.cy, b.radius, 0, 2 * Math.PI); ctx.fill();
+				ctx.beginPath();
+				ctx.arc(b.cx, b.cy, b.radius, 0, 2 * Math.PI);
+				ctx.fill();
 
 				if (isHovered || globalScale > 0.1) {
-					ctx.globalAlpha = isHovered ? 0.9 : 0.2;
+					ctx.globalAlpha = isHovered ? 0.9 : 0.4;
 					ctx.fillStyle = b.color;
 					ctx.font = `bold ${Math.min(Math.round(22 / globalScale), 60)}px Inter, sans-serif`;
 					const cos = Math.cos(b.angle);
@@ -432,7 +508,11 @@ export default function NetworkGraph() {
 					const labelDist = b.radius + Math.min(25 / globalScale, 50);
 					ctx.textAlign = radialTextAlign(cos);
 					ctx.textBaseline = radialTextBaseline(sin);
-					ctx.fillText(b.name.toUpperCase(), b.cx + labelDist * cos, b.cy + labelDist * sin);
+					ctx.fillText(
+						b.name.toUpperCase(),
+						b.cx + labelDist * cos,
+						b.cy + labelDist * sin,
+					);
 				}
 			}
 			ctx.globalAlpha = 1;
@@ -452,16 +532,26 @@ export default function NetworkGraph() {
 	);
 
 	return (
-		<div className="flex h-full w-full bg-background">
-			<div ref={containerRef} className="flex-1 h-full overflow-hidden relative">
+		<div className="flex h-full w-full bg-background bg-dot-grid">
+			<div
+				ref={containerRef}
+				className="flex-1 h-full overflow-hidden relative"
+			>
 				<div className="absolute top-6 left-6 z-10 flex flex-col gap-2 pointer-events-none">
 					{groups.map((g) => (
-						<div key={g.id}
+						<div
+							key={g.id}
 							className="flex items-center gap-2 bg-card/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-foreground/5 pointer-events-auto cursor-pointer transition-all hover:bg-foreground/10"
 							onMouseEnter={() => setHoveredGroup(g.id)}
-							onMouseLeave={() => setHoveredGroup(null)}>
-							<div className="w-2 h-2 rounded-full" style={{ backgroundColor: g.color }} />
-							<span className="text-[10px] font-bold uppercase tracking-widest text-foreground/70">{g.name}</span>
+							onMouseLeave={() => setHoveredGroup(null)}
+						>
+							<div
+								className="w-2 h-2 rounded-full"
+								style={{ backgroundColor: g.color }}
+							/>
+							<span className="text-[10px] font-bold uppercase tracking-widest text-foreground/70">
+								{g.name}
+							</span>
 						</div>
 					))}
 				</div>
@@ -469,16 +559,20 @@ export default function NetworkGraph() {
 					<ForceGraph2D
 						// @ts-expect-error typings
 						ref={fgRef}
-						width={dimensions.width} height={dimensions.height}
+						width={dimensions.width}
+						height={dimensions.height}
 						graphData={gData}
 						nodeCanvasObject={nodeCanvasObject}
 						nodePointerAreaPaint={nodePointerAreaPaint}
 						linkCanvasObject={linkCanvasObject}
 						onRenderFramePre={onRenderBg}
 						nodeLabel={() => ""}
-						onNodeHover={(node) => setHoveredNode((node as GraphNode)?.id || null)}
+						onNodeHover={(node) =>
+							setHoveredNode((node as GraphNode)?.id || null)
+						}
 						onNodeClick={(node) => setSelectedCharId((node as GraphNode).id)}
-						cooldownTicks={0} warmupTicks={0}
+						cooldownTicks={0}
+						warmupTicks={0}
 						enableNodeDrag={false}
 						enablePointerInteraction={true}
 						enableZoomInteraction={true}

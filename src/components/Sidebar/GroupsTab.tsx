@@ -1,4 +1,5 @@
 import { Plus, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
 	Select,
@@ -9,7 +10,9 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useGraphStore } from "@/store/useGraphStore";
+import type { Group } from "@/types/types";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 
 export default function GroupsTab() {
 	const allCharacters = useGraphStore((state) => state.characters);
@@ -21,6 +24,8 @@ export default function GroupsTab() {
 	const assignCharacterToGroup = useGraphStore(
 		(state) => state.assignCharacterToGroup,
 	);
+	const debounceTimer = useRef<number | null>(null);
+
 	return (
 		<div>
 			<div className="p-2 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
@@ -54,19 +59,26 @@ export default function GroupsTab() {
 						>
 							{/* Group header */}
 							<div className="p-3 bg-white/5 flex items-center gap-2">
-								<input
-									type="color"
-									value={group.color}
-									onChange={(e) =>
-										updateGroup({
-											id: group.id,
-											color: e.target.value,
-											name: group.name,
-										})
-									}
-									className="w-4 h-4 bg-transparent border-none cursor-pointer shrink-0"
-								/>
-								<input
+								<div className="size-6 rounded-full overflow-hidden">
+									<Input
+										type="color"
+										value={group.color}
+										onChange={(e) => {
+											const editedGroup = {
+												id: group.id,
+												name: group.name,
+												color: e.target.value,
+											};
+											if (debounceTimer.current)
+												clearTimeout(debounceTimer.current);
+											debounceTimer.current = setTimeout(() => {
+												updateGroup(editedGroup as Group);
+											}, 500);
+										}}
+										className="size-10 border-none rounded-full p-0 m-0 cursor-pointer -translate-2"
+									/>
+								</div>
+								<Input
 									value={group.name}
 									onChange={(e) =>
 										updateGroup({
