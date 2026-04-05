@@ -277,7 +277,7 @@ function App() {
 		<SidebarProvider
 			defaultOpen={true}
 			style={{ "--sidebar-width": "20rem" } as React.CSSProperties}
-			className="max-h-screen max-w-screen"
+			className="max-h-screen! max-w-screen! pt-6"
 		>
 			<AppSidebar />
 			<SidebarInset className="flex flex-col bg-transparent overflow-hidden">

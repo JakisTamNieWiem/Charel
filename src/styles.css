@@ -451,6 +451,7 @@ a {
     background-size: 40px 40px;
     background-position: center;
   }
+
   :is(.dark) .bg-dot-grid {
     --grid-transparency: 80%;
   }
