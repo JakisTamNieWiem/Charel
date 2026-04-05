@@ -1,38 +1,49 @@
+// src/components/ThemeProvider.tsx
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "dark" | "light" | "system";
+export const THEME_PALETTES = [
+	{ label: "Zen", value: "zen" },
+	{ label: "Damon", value: "damon" },
+] as const;
+
+type ThemeMode = "dark" | "light" | "system";
+export type ThemeColor = (typeof THEME_PALETTES)[number]["value"];
 
 type ThemeProviderProps = {
 	children: React.ReactNode;
-	defaultTheme?: Theme;
-	storageKey?: string;
+	defaultTheme?: ThemeMode;
+	defaultColor?: ThemeColor;
 };
 
 type ThemeProviderState = {
-	theme: Theme;
-	setTheme: (theme: Theme) => void;
+	theme: ThemeMode;
+	setTheme: (theme: ThemeMode) => void;
+	color: ThemeColor;
+	setColor: (color: ThemeColor) => void;
 };
 
-const initialState: ThemeProviderState = {
-	theme: "system",
-	setTheme: () => null,
-};
-
-const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
+const ThemeProviderContext = createContext<ThemeProviderState | undefined>(
+	undefined,
+);
 
 export function ThemeProvider({
 	children,
 	defaultTheme = "system",
-	storageKey = "vite-ui-theme",
-	...props
+	defaultColor = "zen",
 }: ThemeProviderProps) {
-	const [theme, setTheme] = useState<Theme>(
-		() => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
+	// 1. State for Light/Dark
+	const [theme, setThemeState] = useState<ThemeMode>(
+		() => (localStorage.getItem("app-theme") as ThemeMode) || defaultTheme,
 	);
 
+	// 2. State for Color Palette
+	const [color, setColorState] = useState<ThemeColor>(
+		() => (localStorage.getItem("app-color") as ThemeColor) || defaultColor,
+	);
+
+	// 3. Effect to apply Light/Dark classes
 	useEffect(() => {
 		const root = window.document.documentElement;
-
 		root.classList.remove("light", "dark");
 
 		if (theme === "system") {
@@ -40,24 +51,42 @@ export function ThemeProvider({
 				.matches
 				? "dark"
 				: "light";
-
 			root.classList.add(systemTheme);
 			return;
 		}
-
 		root.classList.add(theme);
 	}, [theme]);
 
+	// 4. Effect to apply Color Palette classes
+	useEffect(() => {
+		const root = window.document.documentElement;
+
+		// Strip out any existing color classes to prevent conflicts
+		root.classList.forEach((className) => {
+			if (className.startsWith("theme-")) {
+				root.classList.remove(className);
+			}
+		});
+
+		// Add the new color class (e.g., "theme-rose")
+		root.classList.add(`theme-${color}`);
+	}, [color]);
+
 	const value = {
 		theme,
-		setTheme: (theme: Theme) => {
-			localStorage.setItem(storageKey, theme);
-			setTheme(theme);
+		setTheme: (newTheme: ThemeMode) => {
+			localStorage.setItem("app-theme", newTheme);
+			setThemeState(newTheme);
+		},
+		color,
+		setColor: (newColor: ThemeColor) => {
+			localStorage.setItem("app-color", newColor);
+			setColorState(newColor);
 		},
 	};
 
 	return (
-		<ThemeProviderContext.Provider {...props} value={value}>
+		<ThemeProviderContext.Provider value={value}>
 			{children}
 		</ThemeProviderContext.Provider>
 	);
@@ -65,9 +94,7 @@ export function ThemeProvider({
 
 export const useTheme = () => {
 	const context = useContext(ThemeProviderContext);
-
 	if (context === undefined)
 		throw new Error("useTheme must be used within a ThemeProvider");
-
 	return context;
 };

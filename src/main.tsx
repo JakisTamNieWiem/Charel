@@ -9,7 +9,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
-		<ThemeProvider>
+		<ThemeProvider defaultTheme="dark" defaultColor="zen">
 			<TooltipProvider>
 				<Titlebar />
 				<App />
