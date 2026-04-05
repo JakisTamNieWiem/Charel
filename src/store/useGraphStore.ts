@@ -18,6 +18,7 @@ const defaultData = {
 	relationshipTypes: [] as RelationshipType[],
 };
 type ViewMode = "character" | "network";
+type NetworkMode = "group" | "global";
 
 interface GraphState {
 	// --- LOAD STATE ---
@@ -30,10 +31,12 @@ interface GraphState {
 	groups: Group[];
 	selectedCharId: string | null;
 	viewMode: ViewMode;
+	networkMode: NetworkMode;
 
 	// --- ACTIONS: UI ---
 	setSelectedCharId: (id: string | null) => void;
 	setViewMode: (mode: ViewMode) => void;
+	setNetworkMode: (mode: NetworkMode) => void;
 
 	// --- ACTIONS: CHARACTERS ---
 	addCharacter: (char: Omit<Character, "id">) => void;
@@ -70,10 +73,12 @@ export const useGraphStore = create<GraphState>()(
 			...defaultData,
 			selectedCharId: null,
 			viewMode: "character" as ViewMode,
+			networkMode: "group" as NetworkMode,
 
 			// --- UI ---
 			setSelectedCharId: (id) => set({ selectedCharId: id }),
 			setViewMode: (mode) => set({ viewMode: mode }),
+			setNetworkMode: (mode) => set({ networkMode: mode }),
 
 			// --- CHARACTERS ---
 			addCharacter: async (char) => {

@@ -10,7 +10,7 @@ import {
 	Settings,
 	Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Sidebar,
@@ -18,13 +18,11 @@ import {
 	SidebarGroup,
 	SidebarHeader,
 } from "@/components/ui/sidebar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Separator } from "../ui/separator";
-import { useSidebar } from "../ui/sidebar";
 import CharacterTab from "./CharacterTab";
 import GroupsTab from "./GroupsTab";
 import LoginModal from "./LoginModal";
@@ -33,15 +31,52 @@ import RelationshipTypesTab from "./RelationshipTypesTab";
 import SettingsTab from "./SettingsTab";
 import ThemeToggle from "./ThemeToggle";
 
+type SidebarTab = "characters" | "network" | "groups" | "types" | "settings";
+
+const navItems: {
+	value: SidebarTab;
+	icon: React.ElementType;
+	title: string;
+	viewMode: "character" | "network";
+}[] = [
+	{
+		value: "characters",
+		icon: Users,
+		title: "Characters",
+		viewMode: "character",
+	},
+	{
+		value: "network",
+		icon: Network,
+		title: "Network Graph",
+		viewMode: "network",
+	},
+	{ value: "groups", icon: Layers, title: "Groups", viewMode: "network" },
+	{
+		value: "types",
+		icon: Link,
+		title: "Relationship Types",
+		viewMode: "character",
+	},
+	{
+		value: "settings",
+		icon: Settings,
+		title: "Settings",
+		viewMode: "character",
+	},
+];
+
 export default function AppSidebar() {
-	const { state, toggleSidebar } = useSidebar();
+	// const { state, toggleSidebar } = useSidebar();
 	const setViewMode = useGraphStore((state) => state.setViewMode);
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
 	const isSyncing = useGraphStore((state) => state.isSyncing);
 	const [session, setSession] = useState<Session | null>(null);
+	const [activeTab, setActiveTab] = useState<SidebarTab>("characters");
 
 	const [version, setVersion] = useState<string>("");
 	const profile = useChatStore((state) => state.profile);
+	const contentRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -82,55 +117,31 @@ export default function AppSidebar() {
 	})();
 	//w-80 h-full *:bg-background border-r border-white/10 relative flex flex-col items-center border-bottom
 	return (
-		<Sidebar variant="inset" collapsible="icon" className="pt-0 z-45">
-			<Tabs
-				defaultValue="characters"
-				orientation="vertical"
-				className="h-full flex-row gap-0"
-			>
+		<Sidebar variant="inset" collapsible="icon" className="pt-0 z-45 pl-0">
+			<div className="h-full flex flex-row gap-0">
 				<div className="flex flex-col justify-center h-full border-r border-sidebar-border bg-sidebar shrink-0 w-(--sidebar-width-icon)">
-					<TabsList className="flex flex-col justify-center bg-transparent border-none gap-4 py-2">
-						<TabsTrigger
-							title="Characters"
-							value="characters"
-							onClick={() => setViewMode("character")}
-							className="justify-center"
-						>
-							<Users className="w-4 h-4" />
-						</TabsTrigger>
-						<TabsTrigger
-							title="Network Graph"
-							value="network"
-							onClick={() => setViewMode("network")}
-							className="justify-center"
-						>
-							<Network className="w-4 h-4" />
-						</TabsTrigger>
-						<TabsTrigger
-							title="Groups"
-							value="groups"
-							onClick={() => setViewMode("network")}
-							className="justify-center"
-						>
-							<Layers className="w-4 h-4" />
-						</TabsTrigger>
-						<TabsTrigger
-							title="Relationship Types"
-							value="types"
-							onClick={() => setViewMode("character")}
-							className="justify-center"
-						>
-							<Link className="w-4 h-4" />
-						</TabsTrigger>
-						<TabsTrigger
-							title="Settings"
-							value="settings"
-							onClick={() => setViewMode("character")}
-							className="justify-center"
-						>
-							<Settings className="w-4 h-4" />
-						</TabsTrigger>
-					</TabsList>
+					<div className="flex flex-col justify-center gap-2 py-2 px-1">
+						{navItems.map(({ value, icon: Icon, title, viewMode }) => (
+							<Button
+								key={value}
+								variant="ghost"
+								title={title}
+								onClick={() => {
+									setActiveTab(value);
+									setViewMode(viewMode);
+									contentRef.current?.scrollTo(0, 0);
+								}}
+								className={cn(
+									"inline-flex items-center justify-center rounded-md px-2 py-1 transition-all [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+									activeTab === value
+										? "text-foreground bg-background shadow-sm dark:bg-input/30"
+										: "text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground",
+								)}
+							>
+								<Icon className="w-4 h-4" />
+							</Button>
+						))}
+					</div>
 				</div>
 
 				<div className="flex flex-col flex-1 min-w-0 overflow-hidden group-data-[state=collapsed]:hidden">
@@ -178,60 +189,19 @@ export default function AppSidebar() {
 					<div className="px-3">
 						<Separator />
 					</div>
-					<SidebarContent>
+					<SidebarContent ref={contentRef}>
 						<SidebarGroup className="pt-0 pr-0">
-							<TabsContent value="characters">
-								<CharacterTab />
-							</TabsContent>
-
-							<TabsContent value="network">
-								<NetworkTab />
-							</TabsContent>
-
-							<TabsContent value="groups">
-								<GroupsTab />
-							</TabsContent>
-
-							<TabsContent value="types">
-								<RelationshipTypesTab />
-							</TabsContent>
-
-							<TabsContent className="h-full" value="settings">
-								<SettingsTab session={session} />
-							</TabsContent>
+							{activeTab === "characters" && <CharacterTab />}
+							{activeTab === "network" && <NetworkTab />}
+							{activeTab === "groups" && <GroupsTab />}
+							{activeTab === "types" && <RelationshipTypesTab />}
+							{activeTab === "settings" && <SettingsTab session={session} />}
 						</SidebarGroup>
 					</SidebarContent>
 				</div>
 
 				<LoginModal open={loginModalOpen} onOpenChange={setLoginModalOpen} />
-
-				<div
-					onClick={toggleSidebar}
-					className={cn(
-						"absolute inset-y-0 right-0 w-2 z-99 cursor-pointer group/trigger",
-						"flex items-center justify-center transition-all",
-					)}
-				>
-					{/* This is the visual line that glows on hover */}
-					<div
-						className={cn(
-							"h-full w-[2px] transition-colors duration-200",
-							"group-hover/trigger:bg-primary/50", // Glows with your theme's primary color
-							"group-active/trigger:bg-primary", // Brightens when clicked
-						)}
-					/>
-
-					{/* Optional: Add a tiny "chevron" or hint that appears only on hover */}
-					<div className="absolute top-1/2 -translate-y-1/2 right-1 opacity-0 group-hover/trigger:opacity-100 transition-opacity">
-						<div
-							className={cn(
-								"w-1 h-8 rounded-full bg-primary/20",
-								state === "collapsed" ? "translate-x-1" : "-translate-x-2",
-							)}
-						/>
-					</div>
-				</div>
-			</Tabs>
+			</div>
 		</Sidebar>
 	);
 }

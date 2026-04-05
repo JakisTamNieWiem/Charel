@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import { useGraphStore } from "@/store/useGraphStore";
-import AnalyticsPanel from "./AnalyticsPanel";
+
 
 interface GraphNode {
 	id: string;
@@ -40,8 +40,10 @@ interface GroupBound {
 }
 
 interface ForceGraphMethods {
-	zoom: (level: number, duration?: number) => void;
-	centerAt: (x: number, y: number, duration?: number) => void;
+	zoom(): number;
+	zoom(level: number, duration?: number): void;
+	centerAt(): { x: number; y: number };
+	centerAt(x: number, y: number, duration?: number): void;
 	d3Reheat: () => void;
 }
 
@@ -81,6 +83,7 @@ export default function NetworkGraph() {
 	const relationships = useGraphStore((s) => s.relationships);
 	const types = useGraphStore((s) => s.relationshipTypes);
 	const groups = useGraphStore((s) => s.groups);
+	const networkMode = useGraphStore((s) => s.networkMode);
 	const setSelectedCharId = useGraphStore((s) => s.setSelectedCharId);
 
 	const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
@@ -111,22 +114,10 @@ export default function NetworkGraph() {
 	}, [themeKey]);
 
 	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
-		const observer = new ResizeObserver((entries) => {
-			for (const entry of entries) {
-				const { width, height } = entry.contentRect;
-				if (width > 0 && height > 0) setDimensions({ width, height });
-			}
-		});
-		observer.observe(container);
-		if (container.clientWidth > 0) {
-			setDimensions({
-				width: container.clientWidth,
-				height: container.clientHeight,
-			});
-		}
-		return () => observer.disconnect();
+		const update = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
+		update();
+		window.addEventListener("resize", update);
+		return () => window.removeEventListener("resize", update);
 	}, []);
 
 	const [animTick, setAnimTick] = useState(0);
@@ -150,68 +141,94 @@ export default function NetworkGraph() {
 		const typeMap = new Map(types.map((t) => [t.id, t]));
 		const groupInfoMap = new Map(groups.map((g) => [g.id, g]));
 
-		const groupMap = new Map<string | null, GraphNode[]>();
-		for (const c of allChars) {
-			const group = groupInfoMap.get(c.groupId || "");
-			const entries = groupMap.get(c.groupId) || [];
-			entries.push({
-				...c,
-				color: group?.color || "#ffffff",
-				initials: c.name.substring(0, 2).toUpperCase(),
-			});
-			groupMap.set(c.groupId, entries);
-		}
-
-		const sortedGroupIds = Array.from(groupMap.keys());
 		const nodes: GraphNode[] = [];
 		const bounds: GroupBound[] = [];
-		const groupCount = sortedGroupIds.length;
 
-		const groupInnerRadii = sortedGroupIds.map((groupId) => {
-			const count = groupMap.get(groupId)?.length || 0;
-			return Math.max(80, count * 10);
-		});
+		if (networkMode === "global") {
+			const sortedChars = [...allChars].sort((a, b) => a.name.localeCompare(b.name));
+			const radius = Math.max(400, sortedChars.length * 20);
+			
+			sortedChars.forEach((c, i) => {
+				const group = groupInfoMap.get(c.groupId || "");
+				const angle = (i / sortedChars.length) * 2 * Math.PI - Math.PI / 2;
+				const x = Math.cos(angle) * radius;
+				const y = Math.sin(angle) * radius;
+				
+				nodes.push({
+					...c,
+					color: group?.color || "#ffffff",
+					initials: c.name.substring(0, 2).toUpperCase(),
+					fx: x,
+					fy: y,
+					x: x,
+					y: y,
+					groupCx: 0,
+					groupCy: 0,
+				});
+			});
+		} else {
+			const groupMap = new Map<string | null, GraphNode[]>();
+			for (const c of allChars) {
+				const group = groupInfoMap.get(c.groupId || "");
+				const entries = groupMap.get(c.groupId) || [];
+				entries.push({
+					...c,
+					color: group?.color || "#ffffff",
+					initials: c.name.substring(0, 2).toUpperCase(),
+				});
+				groupMap.set(c.groupId, entries);
+			}
 
-		const outerRadius = 600;
+			const sortedGroupIds = Array.from(groupMap.keys());
+			const groupCount = sortedGroupIds.length;
 
-		sortedGroupIds.forEach((groupId, gIdx) => {
-			const groupNodes = groupMap.get(groupId) || [];
-			const groupInfo = groupInfoMap.get(groupId || "");
-			const groupAngle = (gIdx / groupCount) * 2 * Math.PI - Math.PI / 2;
-			const gCx = groupCount === 1 ? 0 : Math.cos(groupAngle) * outerRadius;
-			const gCy = groupCount === 1 ? 0 : Math.sin(groupAngle) * outerRadius;
-			const innerRadius = groupInnerRadii[gIdx];
-
-			groupNodes.forEach((node, nIdx) => {
-				const nAngle = (nIdx / groupNodes.length) * 2 * Math.PI;
-				const x =
-					groupNodes.length === 1 ? gCx : gCx + Math.cos(nAngle) * innerRadius;
-				const y =
-					groupNodes.length === 1 ? gCy : gCy + Math.sin(nAngle) * innerRadius;
-				node.fx = x;
-				node.fy = y;
-				node.x = x;
-				node.y = y;
-				node.groupCx = gCx;
-				node.groupCy = gCy;
-				nodes.push(node);
+			const groupInnerRadii = sortedGroupIds.map((groupId) => {
+				const count = groupMap.get(groupId)?.length || 0;
+				return Math.max(80, count * 10);
 			});
 
-			if (groupInfo) {
-				bounds.push({
-					id: groupInfo.id,
-					name: groupInfo.name,
-					color: groupInfo.color,
-					cx: gCx,
-					cy: gCy,
-					radius: innerRadius + 40,
-					angle: groupAngle,
+			const outerRadius = 600;
+
+			sortedGroupIds.forEach((groupId, gIdx) => {
+				const groupNodes = groupMap.get(groupId) || [];
+				const groupInfo = groupInfoMap.get(groupId || "");
+				const groupAngle = (gIdx / groupCount) * 2 * Math.PI - Math.PI / 2;
+				const gCx = groupCount === 1 ? 0 : Math.cos(groupAngle) * outerRadius;
+				const gCy = groupCount === 1 ? 0 : Math.sin(groupAngle) * outerRadius;
+				const innerRadius = groupInnerRadii[gIdx];
+
+				groupNodes.forEach((node, nIdx) => {
+					const nAngle = (nIdx / groupNodes.length) * 2 * Math.PI;
+					const x =
+						groupNodes.length === 1 ? gCx : gCx + Math.cos(nAngle) * innerRadius;
+					const y =
+						groupNodes.length === 1 ? gCy : gCy + Math.sin(nAngle) * innerRadius;
+					node.fx = x;
+					node.fy = y;
+					node.x = x;
+					node.y = y;
+					node.groupCx = gCx;
+					node.groupCy = gCy;
+					nodes.push(node);
 				});
-			}
-		});
+
+				if (groupInfo) {
+					bounds.push({
+						id: groupInfo.id,
+						name: groupInfo.name,
+						color: groupInfo.color,
+						cx: gCx,
+						cy: gCy,
+						radius: innerRadius + 40,
+						angle: groupAngle,
+					});
+				}
+			});
+		}
 
 		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-
+		
+		// Links logic... (same as before but simplified arc selection)
 		let maxDist2 = 0;
 		for (let i = 0; i < nodes.length; i++) {
 			for (let j = i + 1; j < nodes.length; j++) {
@@ -232,26 +249,23 @@ export default function NetworkGraph() {
 				let arcCx: number | undefined;
 				let arcCy: number | undefined;
 
-				if (fromNode.groupId !== toNode.groupId) {
-					const x1 = fromNode.x!,
-						y1 = fromNode.y!;
-					const x2 = toNode.x!,
-						y2 = toNode.y!;
-					const mx = (x1 + x2) / 2,
-						my = (y1 + y2) / 2;
-					const dx = x2 - x1,
-						dy = y2 - y1;
+				// Circular layout doesn't need cross-group logic necessarily, 
+				// but arcs look better if we use the same principle.
+				const isCrossGroup = networkMode === "group" ? fromNode.groupId !== toNode.groupId : true;
+
+				if (isCrossGroup) {
+					const x1 = fromNode.x!, y1 = fromNode.y!;
+					const x2 = toNode.x!, y2 = toNode.y!;
+					const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+					const dx = x2 - x1, dy = y2 - y1;
 					const dist = Math.sqrt(dx * dx + dy * dy);
 					const halfD = dist / 2;
 
 					if (halfD < arcR && dist > 0) {
 						const h = Math.sqrt(arcR * arcR - halfD * halfD);
-						const px = -dy / dist,
-							py = dx / dist;
-						const c1x = mx + h * px,
-							c1y = my + h * py;
-						const c2x = mx - h * px,
-							c2y = my - h * py;
+						const px = -dy / dist, py = dx / dist;
+						const c1x = mx + h * px, c1y = my + h * py;
+						const c2x = mx - h * px, c2y = my - h * py;
 						const d1 = c1x * c1x + c1y * c1y;
 						const d2 = c2x * c2x + c2y * c2y;
 
@@ -282,7 +296,7 @@ export default function NetworkGraph() {
 			});
 
 		return { gData: { nodes, links }, groupBounds: bounds };
-	}, [allChars, relationships, groups, types]);
+	}, [allChars, relationships, groups, types, networkMode]);
 
 	const connectedNodes = useMemo(() => {
 		if (!hoveredNode) return new Set<string>();
@@ -532,29 +546,9 @@ export default function NetworkGraph() {
 	);
 
 	return (
-		<div className="flex h-full w-full bg-background bg-dot-grid">
-			<div
-				ref={containerRef}
-				className="flex-1 h-full overflow-hidden relative"
-			>
-				<div className="absolute top-6 left-6 z-10 flex flex-col gap-2 pointer-events-none">
-					{groups.map((g) => (
-						<div
-							key={g.id}
-							className="flex items-center gap-2 bg-card/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-foreground/5 pointer-events-auto cursor-pointer transition-all hover:bg-foreground/10"
-							onMouseEnter={() => setHoveredGroup(g.id)}
-							onMouseLeave={() => setHoveredGroup(null)}
-						>
-							<div
-								className="w-2 h-2 rounded-full"
-								style={{ backgroundColor: g.color }}
-							/>
-							<span className="text-[10px] font-bold uppercase tracking-widest text-foreground/70">
-								{g.name}
-							</span>
-						</div>
-					))}
-				</div>
+		<div className="relative flex-1 h-full w-full bg-background bg-dot-grid">
+			{/* Canvas: fixed to viewport so sidebar changes don't move it */}
+			<div ref={containerRef} className="fixed inset-0 pointer-events-auto">
 				{dimensions.width > 0 && (
 					<ForceGraph2D
 						// @ts-expect-error typings
@@ -580,7 +574,46 @@ export default function NetworkGraph() {
 					/>
 				)}
 			</div>
-			<AnalyticsPanel />
+
+			{/* Overlays: relative to the layout so they respect the sidebar */}
+			{networkMode === "group" && (
+				<div className="absolute top-6 left-6 z-10 flex flex-col gap-2 pointer-events-none">
+					{groups.map((g) => (
+						<div
+							key={g.id}
+							className="flex items-center gap-2 bg-card/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-foreground/5 pointer-events-auto cursor-pointer transition-all hover:bg-foreground/10"
+							onMouseEnter={() => setHoveredGroup(g.id)}
+							onMouseLeave={() => setHoveredGroup(null)}
+						>
+							<div
+								className="w-2 h-2 rounded-full"
+								style={{ backgroundColor: g.color }}
+							/>
+							<span className="text-[10px] font-bold uppercase tracking-widest text-foreground/70">
+								{g.name}
+							</span>
+						</div>
+					))}
+				</div>
+			)}
+
+			{/* Legend */}
+			<div className="h-full absolute right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar pointer-events-none">
+				{types.map((type) => (
+					<div
+						key={type.id}
+						className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-background/40 backdrop-blur-md border border-foreground/5"
+					>
+						<span className="text-[10px] uppercase font-bold tracking-widest text-foreground/70">
+							{type.label}
+						</span>
+						<div
+							className="size-3 rounded-full"
+							style={{ backgroundColor: type.color }}
+						/>
+					</div>
+				))}
+			</div>
 		</div>
 	);
 }
