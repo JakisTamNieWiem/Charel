@@ -6,6 +6,7 @@ import {
 	Layers,
 	Link,
 	Loader2,
+	MessageCircle,
 	Network,
 	Settings,
 	Users,
@@ -23,7 +24,9 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Separator } from "../ui/separator";
+import { SidebarTrigger } from "../ui/sidebar";
 import CharacterTab from "./CharacterTab";
+import ChatTab from "./ChatTab";
 import GroupsTab from "./GroupsTab";
 import LoginModal from "./LoginModal";
 import NetworkTab from "./NetworkTab";
@@ -31,39 +34,15 @@ import RelationshipTypesTab from "./RelationshipTypesTab";
 import SettingsTab from "./SettingsTab";
 import ThemeToggle from "./ThemeToggle";
 
-type SidebarTab = "characters" | "network" | "groups" | "types" | "settings";
+type SidebarTab = "characters" | "network" | "groups" | "types" | "settings" | "chat";
 
-const navItems: {
-	value: SidebarTab;
-	icon: React.ElementType;
-	title: string;
-	viewMode: "character" | "network";
-}[] = [
-	{
-		value: "characters",
-		icon: Users,
-		title: "Characters",
-		viewMode: "character",
-	},
-	{
-		value: "network",
-		icon: Network,
-		title: "Network Graph",
-		viewMode: "network",
-	},
+const navItems: { value: SidebarTab; icon: React.ElementType; title: string; viewMode: "character" | "network" | "chat" }[] = [
+	{ value: "characters", icon: Users, title: "Characters", viewMode: "character" },
+	{ value: "network", icon: Network, title: "Network Graph", viewMode: "network" },
 	{ value: "groups", icon: Layers, title: "Groups", viewMode: "network" },
-	{
-		value: "types",
-		icon: Link,
-		title: "Relationship Types",
-		viewMode: "character",
-	},
-	{
-		value: "settings",
-		icon: Settings,
-		title: "Settings",
-		viewMode: "character",
-	},
+	{ value: "types", icon: Link, title: "Relationship Types", viewMode: "character" },
+	{ value: "chat", icon: MessageCircle, title: "Chat", viewMode: "chat" },
+	{ value: "settings", icon: Settings, title: "Settings", viewMode: "character" },
 ];
 
 export default function AppSidebar() {
@@ -119,8 +98,8 @@ export default function AppSidebar() {
 	return (
 		<Sidebar variant="inset" collapsible="icon" className="pt-0 z-45 pl-0">
 			<div className="h-full flex flex-row gap-0">
-				<div className="flex flex-col justify-center h-full border-r border-sidebar-border bg-sidebar shrink-0 w-(--sidebar-width-icon)">
-					<div className="flex flex-col justify-center gap-2 py-2 px-1">
+				<div className="flex flex-col h-full border-r border-sidebar-border bg-sidebar shrink-0 w-(--sidebar-width-icon)">
+					<div className="flex flex-col justify-center gap-2 py-2 px-1 flex-1">
 						{navItems.map(({ value, icon: Icon, title, viewMode }) => (
 							<Button
 								key={value}
@@ -141,6 +120,12 @@ export default function AppSidebar() {
 								<Icon className="w-4 h-4" />
 							</Button>
 						))}
+					</div>
+					<div className="py-2 px-1">
+						<SidebarTrigger
+							variant="ghost"
+							className="w-full inline-flex items-center justify-center rounded-md px-2 py-1 text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground cursor-pointer"
+						/>
 					</div>
 				</div>
 
@@ -195,6 +180,7 @@ export default function AppSidebar() {
 							{activeTab === "network" && <NetworkTab />}
 							{activeTab === "groups" && <GroupsTab />}
 							{activeTab === "types" && <RelationshipTypesTab />}
+							{activeTab === "chat" && <ChatTab />}
 							{activeTab === "settings" && <SettingsTab session={session} />}
 						</SidebarGroup>
 					</SidebarContent>

@@ -1,24 +1,27 @@
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
+import ChatWindow from "@/components/chat/ChatWindow";
 import NetworkGraph from "@/components/NetworkGraph";
 import AppSidebar from "@/components/Sidebar/Sidebar";
 import TypeModal from "@/components/TypeModal";
+import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship, RelationshipType } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
-import { LayoutGrid, Circle } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Circle, LayoutGrid } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
+import type {
+	Message,
+	RealtimeMessageDeletePayload,
+	RealtimeMessagePayload,
+} from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
-import {
-	SidebarInset,
-	SidebarProvider,
-	SidebarTrigger,
-} from "./components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
 import { useChatStore } from "./store/useChatStore";
 
 function App() {
@@ -106,8 +109,18 @@ function App() {
 					relationships: relsRes.data || [],
 					relationshipTypes: typesRes.data || [],
 				});
-				if (profileRes.data)
+				if (profileRes.data) {
 					useChatStore.getState().setProfile(profileRes.data);
+					// Auto-set speaker for players
+					if (
+						profileRes.data.role === "player" &&
+						profileRes.data.characterId
+					) {
+						useChatStore
+							.getState()
+							.setActiveSpeakerId(profileRes.data.characterId);
+					}
+				}
 			} else {
 				// --- OFFLINE MODE: Load from disk ---
 				const localData = await loadFromDisk();
@@ -236,6 +249,60 @@ function App() {
 						}
 					},
 				)
+				// Listen for Message changes
+				.on(
+					"postgres_changes",
+					{ event: "INSERT", schema: "public", table: "Messages" },
+					async (payload) => {
+						const chatStore = useChatStore.getState();
+						const msg = payload.new as RealtimeMessagePayload;
+						const chatId = msg.chat;
+						if (chatStore.messages[chatId]) {
+							const exists = chatStore.messages[chatId].some(
+								(m) => m.id === msg.id,
+							);
+							if (!exists) {
+								const { data } = await supabase
+									.from("Messages")
+									.select("*, character:Characters!characterId(name, avatar)")
+									.eq("id", msg.id)
+									.single();
+								if (data) {
+									chatStore.addMessage(chatId, data as Message);
+								}
+							}
+						}
+					},
+				)
+				.on(
+					"postgres_changes",
+					{ event: "UPDATE", schema: "public", table: "Messages" },
+					(payload) => {
+						const chatStore = useChatStore.getState();
+						const msg = payload.new as RealtimeMessagePayload;
+						chatStore.updateMessageLocal(msg.chat, msg.id, msg.content);
+					},
+				)
+				.on(
+					"postgres_changes",
+					{ event: "DELETE", schema: "public", table: "Messages" },
+					(payload) => {
+						const chatStore = useChatStore.getState();
+						const msg = payload.old as RealtimeMessageDeletePayload;
+						// Try to remove from all loaded chats
+						for (const chatId of Object.keys(chatStore.messages)) {
+							chatStore.removeMessageLocal(chatId, msg.id);
+						}
+					},
+				)
+				// Listen for Chat changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "Chats" },
+					() => {
+						useChatStore.getState().fetchChats();
+					},
+				)
 				.subscribe();
 		}
 
@@ -290,18 +357,35 @@ function App() {
 					className="max-h-screen! max-w-screen! pt-6"
 				>
 					<AppSidebar />
-					<SidebarInset className="relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! bg-dot-grid shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80">
+					<SidebarInset
+						className={cn(
+							"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80",
+							viewMode !== "chat" && "bg-dot-grid",
+						)}
+					>
 						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
-							{viewMode === "network" ? (
+							{viewMode === "chat" ? (
+								<ChatWindow />
+							) : viewMode === "network" ? (
 								<>
 									<NetworkGraph />
 									<div className="absolute top-6 right-6 z-10">
-										<Tabs value={networkMode} onValueChange={(v) => setNetworkMode(v)} orientation="vertical">
+										<Tabs
+											value={networkMode}
+											onValueChange={(v) => setNetworkMode(v)}
+											orientation="vertical"
+										>
 											<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
-												<TabsTrigger value="group" className="h-7 px-3 text-[11px]">
+												<TabsTrigger
+													value="group"
+													className="h-7 px-3 text-[11px]"
+												>
 													<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
 												</TabsTrigger>
-												<TabsTrigger value="global" className="h-7 px-3 text-[11px]">
+												<TabsTrigger
+													value="global"
+													className="h-7 px-3 text-[11px]"
+												>
 													<Circle className="w-3 h-3 mr-1.5" /> Global
 												</TabsTrigger>
 											</TabsList>
@@ -315,10 +399,6 @@ function App() {
 									Character not found
 								</h1>
 							)}
-							<SidebarTrigger
-								variant="secondary"
-								className="absolute bottom-0 m-2 pointer-events-auto z-50 cursor-pointer"
-							/>
 						</main>
 						{editingType && (
 							<TypeModal
