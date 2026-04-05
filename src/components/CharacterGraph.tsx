@@ -377,7 +377,7 @@ export default function CharacterGraph() {
 								y={textY}
 								textAnchor={textAnchor}
 								dominantBaseline={dominantBaseline}
-								className="fill-white text-[10px] font-bold uppercase tracking-widest opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none"
+								className="fill-foreground text-[10px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"
 							>
 								{char.name}
 							</text>

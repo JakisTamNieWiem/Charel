@@ -281,7 +281,7 @@ function App() {
 		>
 			<AppSidebar />
 			<SidebarInset className="flex flex-col bg-transparent overflow-hidden">
-				<div className="flex bg-background text-white font-sans overflow-hidden bg-dot-grid">
+				<div className="flex bg-background text-foreground font-sans overflow-hidden bg-dot-grid">
 					{/* Sidebar */}
 					{/* Main Content */}
 					<main className="flex-1 relative max-h-screen overflow-hidden flex flex-col">
@@ -332,7 +332,7 @@ function App() {
 								</div>
 
 								{/* Legend */}
-								<div className="h-full absolute! right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar">
+								<div className="h-full absolute! right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar pointer-events-none">
 									{types.map((type) => (
 										<Badge
 											variant={"secondary"}

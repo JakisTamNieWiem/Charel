@@ -1,5 +1,5 @@
 import { Plus, Trash2, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
 	Select,
