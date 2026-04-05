@@ -1,6 +1,15 @@
 import type { Session } from "@supabase/supabase-js";
 import { getVersion } from "@tauri-apps/api/app";
-import { Cloud, Layers, Link, Network, Settings, Users } from "lucide-react";
+import {
+	Cloud,
+	CloudOff,
+	Layers,
+	Link,
+	Loader2,
+	Network,
+	Settings,
+	Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +38,7 @@ export default function AppSidebar() {
 	const { state, toggleSidebar } = useSidebar();
 	const setViewMode = useGraphStore((state) => state.setViewMode);
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
+	const isSyncing = useGraphStore((state) => state.isSyncing);
 	const [session, setSession] = useState<Session | null>(null);
 
 	const [version, setVersion] = useState<string>("");
@@ -54,59 +64,63 @@ export default function AppSidebar() {
 	const roleBadge = (() => {
 		if (profile?.role === "dm") {
 			return (
-				<Badge className="font-mono tracking-normal" variant={"default"}>
+				<Badge className="font-mono tracking-normal mt-1" variant={"default"}>
 					DM
 				</Badge>
 			);
 		} else if (profile?.role === "player") {
 			return (
-				<Badge className="font-mono tracking-normal" variant={"outline"}>
+				<Badge className="font-mono tracking-normal mt-1" variant={"outline"}>
 					Player
 				</Badge>
 			);
 		} else
 			return (
-				<Badge className="font-mono tracking-normal" variant={"destructive"}>
+				<Badge
+					className="font-mono tracking-normal mt-1"
+					variant={"destructive"}
+				>
 					Anon
 				</Badge>
 			);
 	})();
 	//w-80 h-full *:bg-background border-r border-white/10 relative flex flex-col items-center border-bottom
 	return (
-		<Sidebar variant="inset">
+		<Sidebar variant="inset" className="pt-0 z-150">
 			<Tabs defaultValue="characters" className="h-full">
-				<SidebarHeader className="p-3 py-4 gap-4">
+				<SidebarHeader className="p-2 py-4 gap-4">
 					<div className="w-full flex justify-between items-center">
-						<div className="flex gap-2">
+						<div className="flex gap-2 items-center">
 							<ThemeToggle />
 							<h1
 								title={version}
-								className="text-2xl font-bold tracking-tighter flex items-center gap-2 serif"
+								className="text-3xl font-bold leading-none tracking-tighter serif self-end"
 							>
 								{displayName}
-								{roleBadge}
 							</h1>
+							{roleBadge}
 						</div>
-						{session ? (
-							<div className="flex items-center justify-between">
-								<Button
-									variant="ghost"
-									onClick={() => supabase.auth.signOut()}
-									className="flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest text-emerald-400"
-									title="Disconnect"
-								>
-									<Cloud className="w-3 h-3" /> Online
-								</Button>
-							</div>
-						) : (
-							<Button
-								variant="ghost"
-								className="flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest text-red-500"
-								onClick={() => setLoginModalOpen(true)}
-							>
-								<Cloud className="w-3 h-3" /> Offline
-							</Button>
-						)}
+						<Button
+							variant="ghost"
+							disabled={isSyncing}
+							className={cn(
+								"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest transition-all ",
+								session ? "text-emerald-400" : "text-red-500",
+							)}
+							onClick={() =>
+								session ? supabase.auth.signOut() : setLoginModalOpen(true)
+							}
+						>
+							{isSyncing ? (
+								<Loader2 className="w-3 h-3 animate-spin" />
+							) : session ? (
+								<Cloud className="w-3 h-3" />
+							) : (
+								<CloudOff className="w-3 h-3" />
+							)}
+
+							{isSyncing ? "Syncing..." : session ? "Online" : "Offline"}
+						</Button>
 						<LoginModal
 							open={loginModalOpen}
 							onOpenChange={setLoginModalOpen}
@@ -153,7 +167,7 @@ export default function AppSidebar() {
 						</TabsList>
 					</div>
 				</SidebarHeader>
-				<div className="px-3 pt-2">
+				<div className="px-3">
 					<Separator />
 				</div>
 				<SidebarContent>

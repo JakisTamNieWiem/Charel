@@ -23,38 +23,35 @@ export default function CharacterTab() {
 		null,
 	);
 
-	const viewportRef = useRef<HTMLDivElement>(null);
 	const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
 	useEffect(() => {
-		// Small timeout ensures the DOM has finished rendering the list
-		const timer = setTimeout(() => {
-			if (selectedId && viewportRef.current) {
+		if (selectedId) {
+			const timer = setTimeout(() => {
 				const element = itemRefs.current.get(selectedId);
-				const viewport = viewportRef.current;
+				if (element) {
+					// In Shadcn Sidebar, SidebarContent is the scrollable parent.
+					// We find the closest parent that handles scrolling.
+					const scrollParent = element.closest('[data-sidebar="content"]');
 
-				if (element && viewport) {
-					const elementTop = element.offsetTop;
-					const elementBottom = elementTop + element.offsetHeight;
-					const viewTop = viewport.scrollTop;
-					const viewBottom = viewTop + viewport.clientHeight;
+					if (scrollParent) {
+						const parentRect = scrollParent.getBoundingClientRect();
+						const elementRect = element.getBoundingClientRect();
 
-					// 1. If element is above the view
-					if (elementBottom < viewTop) {
-						viewport.scrollTo({ top: elementTop - 24, behavior: "smooth" });
-					}
-					// 2. If element is below the view
-					else if (elementTop > viewBottom) {
-						viewport.scrollTo({
-							top: elementBottom - viewport.clientHeight - 12,
-							behavior: "smooth",
-						});
+						const isAbove = elementRect.top < parentRect.top;
+						const isBelow = elementRect.bottom > parentRect.bottom;
+
+						if (isAbove || isBelow) {
+							element.scrollIntoView({
+								behavior: "smooth",
+								block: "nearest", // Ensures it only moves as much as needed
+							});
+						}
 					}
 				}
-			}
-		}, 50); // 50ms delay to wait for React render cycle
-
-		return () => clearTimeout(timer);
+			}, 100);
+			return () => clearTimeout(timer);
+		}
 	}, [selectedId]);
 
 	return (
@@ -84,7 +81,7 @@ export default function CharacterTab() {
 							}}
 							onClick={() => setSelectedCharId(char.id)}
 							className={cn(
-								"group/character px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3 relative",
+								"group/character px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3 relative  scroll-mt-16",
 								selectedId === char.id
 									? "bg-(--foreground)/10 border-(--foreground)/20"
 									: "bg-transparent border-transparent hover:bg-(--foreground)/5",

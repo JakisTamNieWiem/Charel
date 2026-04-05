@@ -3,6 +3,8 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Field, FieldLabel } from "../ui/field";
+import { Input } from "../ui/input";
 
 export default function LoginModal({
 	open,
@@ -40,11 +42,11 @@ export default function LoginModal({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="bg-[#141414] border-white/10 text-white sm:max-w-md">
+			<DialogContent className="sm:max-w-">
 				<DialogHeader>
-					<DialogTitle className="flex flex-col items-center gap-2 pt-4">
-						<div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
-							<Users className="w-6 h-6 opacity-80" />
+					<DialogTitle className="flex flex-col items-center gap-4 pt-4">
+						<div className="size-24 bg-foreground/5 rounded-full flex items-center justify-center border border-foreground/10">
+							<Users className="size-12 opacity-80" />
 						</div>
 						<span className="text-xl font-bold tracking-tighter uppercase italic serif">
 							Server Authentication
@@ -53,35 +55,45 @@ export default function LoginModal({
 				</DialogHeader>
 
 				<form onSubmit={handleLogin} className="space-y-4 mt-4">
-					<div className="space-y-1">
-						<label className="text-[10px] uppercase font-mono tracking-widest opacity-50 ml-1">
+					<Field>
+						<FieldLabel
+							htmlFor="alias"
+							className="text-[10px] uppercase font-mono tracking-widest opacity-50 ml-1"
+						>
 							Character Alias
-						</label>
-						<input
+						</FieldLabel>
+						<Input
+							id="alias"
 							type="text"
 							required
 							placeholder="e.g. Bogdan"
 							value={characterName}
-							onChange={(e) => setCharacterName(e.target.value)}
-							className="w-full bg-white/5 border border-white/10 p-3 rounded-lg focus:outline-none focus:border-white/30 transition-colors"
+							onChange={(e) =>
+								setCharacterName(e.target.value.toLocaleLowerCase())
+							}
+							className="w-full"
 						/>
-					</div>
+					</Field>
 
-					<div className="space-y-1">
-						<label className="text-[10px] uppercase font-mono tracking-widest opacity-50 ml-1">
+					<Field>
+						<FieldLabel
+							htmlFor="passcode"
+							className="text-[10px] uppercase font-mono tracking-widest opacity-50 ml-1"
+						>
 							Passcode
-						</label>
+						</FieldLabel>
 						<div className="relative">
 							<Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
-							<input
+							<Input
+								id="passcode"
 								type="password"
 								required
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
-								className="w-full bg-white/5 border border-white/10 p-3 pl-10 rounded-lg focus:outline-none focus:border-white/30 transition-colors"
+								className="w-full pl-10"
 							/>
 						</div>
-					</div>
+					</Field>
 
 					{error && (
 						<div className="text-red-400 text-[10px] font-mono uppercase tracking-widest text-center bg-red-400/10 p-2 rounded border border-red-400/20">
@@ -92,7 +104,7 @@ export default function LoginModal({
 					<Button
 						type="submit"
 						disabled={loading}
-						className="w-full p-4 mt-2 bg-white text-black rounded-lg hover:bg-white/90 transition-colors uppercase text-xs font-bold tracking-widest"
+						className="w-full p-4 mt-2 transition-colors uppercase text-xs font-bold tracking-widest"
 					>
 						{loading ? (
 							<Loader2 className="w-4 h-4 animate-spin mx-auto" />

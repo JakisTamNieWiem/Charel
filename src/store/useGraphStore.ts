@@ -20,7 +20,10 @@ const defaultData = {
 type ViewMode = "character" | "network";
 
 interface GraphState {
-	// --- STATE ---
+	// --- LOAD STATE ---
+	isSyncing: boolean;
+	setSyncing: (isSyncing: boolean) => void;
+	// --- GRAPH STATE ---
 	characters: Character[];
 	relationshipTypes: RelationshipType[];
 	relationships: Relationship[];
@@ -61,6 +64,8 @@ interface GraphState {
 export const useGraphStore = create<GraphState>()(
 	persist(
 		temporal((set, get) => ({
+			isSyncing: false,
+			setSyncing: (isSyncing: boolean) => set({ isSyncing }),
 			// Initialize with your JSON data
 			...defaultData,
 			selectedCharId: null,

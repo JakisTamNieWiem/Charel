@@ -9,10 +9,12 @@ import type { Character, Relationship, RelationshipType } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Plus } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
+import LoadingScreen from "./components/LoadingScreen";
 import { Badge } from "./components/ui/badge";
 import {
 	SidebarInset,
@@ -24,6 +26,10 @@ import { useChatStore } from "./store/useChatStore";
 function App() {
 	// Supabase
 	const [session, setSession] = useState<Session | null>(null);
+	const [isAuthResolved, setIsAuthResolved] = useState(false);
+	const [isDataLoaded, setIsDataLoaded] = useState(false);
+	const setSyncing = useGraphStore((s) => s.setSyncing);
+
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
 	const types = useGraphStore((state) => state.relationshipTypes);
@@ -48,6 +54,7 @@ function App() {
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
 			setSession(session);
+			setIsAuthResolved(true);
 		});
 
 		const {
@@ -62,7 +69,7 @@ function App() {
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (!session) return;
+			if (session) return;
 			if (e.ctrlKey && e.key === "z") {
 				useGraphStore.temporal.getState().undo();
 			}
@@ -76,7 +83,9 @@ function App() {
 	}, [session]);
 
 	useEffect(() => {
+		if (!isAuthResolved) return;
 		const initData = async () => {
+			setSyncing(true);
 			if (session) {
 				// --- ONLINE MODE: Fetch from 4 tables concurrently ---
 				const [charsRes, groupsRes, relsRes, typesRes, profileRes] =
@@ -113,6 +122,8 @@ function App() {
 					useGraphStore.getState().importData(localData);
 				}
 			}
+			setIsDataLoaded(true); // Data is now in Zustand
+			setSyncing(false);
 			setIsLoaded(true);
 		};
 
@@ -238,7 +249,7 @@ function App() {
 		return () => {
 			if (channel) supabase.removeChannel(channel);
 		};
-	}, [session]);
+	}, [session, isAuthResolved, setSyncing]);
 
 	useEffect(() => {
 		const unsubscribe = useGraphStore.subscribe((state, prevState) => {
@@ -266,111 +277,121 @@ function App() {
 	}, [isLoaded, session]);
 
 	// Prevent rendering the app until data is loaded from disk to prevent flashing
-	if (!isLoaded) {
-		return (
-			<div className="w-screen h-screen bg-[#141414] flex items-center justify-center text-white/50 tracking-widest uppercase text-xs">
-				Initializing Secure Storage...
-			</div>
-		);
-	}
+	const appReady = isAuthResolved && isDataLoaded;
 	return (
-		<SidebarProvider
-			defaultOpen={true}
-			style={{ "--sidebar-width": "20rem" } as React.CSSProperties}
-			className="max-h-screen! max-w-screen! pt-6"
-		>
-			<AppSidebar />
-			<SidebarInset className="flex flex-col bg-transparent overflow-hidden">
-				<div className="flex bg-background text-foreground font-sans overflow-hidden bg-dot-grid">
-					{/* Sidebar */}
-					{/* Main Content */}
-					<main className="flex-1 relative max-h-screen overflow-hidden flex flex-col">
-						{viewMode === "network" ? (
-							<NetworkGraph />
-						) : (
-							<>
-								{/* Header */}
-								<header className="w-full p-6 flex items-center justify-between z-15 shrink-0">
-									<div className="bg-background/40  backdrop-blur-sm  p-4 rounded-2xl">
-										<h2
-											style={{ fontFamily: "Geist Variable" }}
-											className="text-4xl font-bold tracking-tighter uppercase italic serif"
-										>
-											{selectedCharacter?.name || "Select a character"}
-										</h2>
-										<p className="text-sm opacity-50 max-w-md">
-											{selectedCharacter?.description}
-										</p>
-									</div>
+		<>
+			<AnimatePresence mode="wait">
+				{!appReady && <LoadingScreen key="loading" />}
+			</AnimatePresence>
 
-									<Button
-										onClick={(e) => {
-											e.preventDefault();
-											setOpenRelModal(true);
-										}}
-										className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
-									>
-										<Plus className="w-4 h-4" /> New Relation
-									</Button>
-									{selectedId && (
-										<RelationshipModal
-											fromId={selectedId}
-											onSave={addRelationship}
-											open={openRelModal}
-											onOpenChange={setOpenRelModal}
-										/>
-									)}
-								</header>
+			{/* Main App with a slight fade-in delay */}
+			<motion.div
+				initial={{ opacity: 0 }}
+				animate={{ opacity: appReady ? 1 : 0 }}
+				transition={{ duration: 0.8, delay: 0.2 }}
+				className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden bg-dot-grid"
+			>
+				<SidebarProvider
+					defaultOpen={true}
+					style={{ "--sidebar-width": "20rem" } as React.CSSProperties}
+					className="max-h-screen! max-w-screen! pt-6"
+				>
+					<AppSidebar />
+					<SidebarInset className="flex flex-col bg-transparent overflow-hidden">
+						<div className="flex bg-background text-foreground font-sans overflow-hidden bg-dot-grid">
+							{/* Sidebar */}
+							{/* Main Content */}
+							<main className="flex-1 relative max-h-screen overflow-hidden flex flex-col">
+								{viewMode === "network" ? (
+									<NetworkGraph />
+								) : (
+									<>
+										{/* Header */}
+										<header className="w-full p-6 flex items-center justify-between z-15 shrink-0">
+											<div className="bg-background/40  backdrop-blur-sm  p-4 rounded-2xl">
+												<h2
+													style={{ fontFamily: "Geist Variable" }}
+													className="text-4xl font-bold tracking-tighter uppercase italic serif"
+												>
+													{selectedCharacter?.name || "Select a character"}
+												</h2>
+												<p className="text-sm opacity-50 max-w-md">
+													{selectedCharacter?.description}
+												</p>
+											</div>
 
-								{/* Graph Area */}
-								<div className="flex-1 relative overflow-y-visible">
-									{selectedCharacter ? (
-										<CharacterGraph />
-									) : (
-										<h1 className="p-4">Character not found</h1>
-									)}
-								</div>
+											<Button
+												onClick={(e) => {
+													e.preventDefault();
+													setOpenRelModal(true);
+												}}
+												className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
+											>
+												<Plus className="w-4 h-4" /> New Relation
+											</Button>
+											{selectedId && (
+												<RelationshipModal
+													fromId={selectedId}
+													onSave={addRelationship}
+													open={openRelModal}
+													onOpenChange={setOpenRelModal}
+												/>
+											)}
+										</header>
 
-								{/* Legend */}
-								<div className="h-full absolute! right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar pointer-events-none">
-									{types.map((type) => (
-										<Badge
-											variant={"secondary"}
-											key={type.id}
-											style={
-												{ "--badge-color": type.color } as React.CSSProperties
-											}
-											className="pr-1 bg-background/40 backdrop-blur-md"
-										>
-											<span className="text-[10px] uppercase font-bold tracking-widest">
-												{type.label}
-											</span>
-											<div
-												className="size-3 rounded-full"
-												style={{ backgroundColor: type.color }}
-											/>
-										</Badge>
-									))}
-								</div>
-							</>
-						)}
-						<SidebarTrigger
-							variant="secondary"
-							className="absolute bottom-0 m-2"
-						/>
-					</main>
-					{editingType && (
-						<TypeModal
-							type={editingType}
-							open={!!editingType}
-							onOpenChange={(open) => {
-								if (!open) setEditingType(null);
-							}}
-						/>
-					)}
-				</div>
-			</SidebarInset>
-		</SidebarProvider>
+										{/* Graph Area */}
+										<div className="flex-1 relative overflow-y-visible">
+											{selectedCharacter ? (
+												<CharacterGraph />
+											) : (
+												<h1 className="p-4">Character not found</h1>
+											)}
+										</div>
+
+										{/* Legend */}
+										<div className="h-full absolute! right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar pointer-events-none">
+											{types.map((type) => (
+												<Badge
+													variant={"secondary"}
+													key={type.id}
+													style={
+														{
+															"--badge-color": type.color,
+														} as React.CSSProperties
+													}
+													className="pr-1 bg-background/40 backdrop-blur-md"
+												>
+													<span className="text-[10px] uppercase font-bold tracking-widest">
+														{type.label}
+													</span>
+													<div
+														className="size-3 rounded-full"
+														style={{ backgroundColor: type.color }}
+													/>
+												</Badge>
+											))}
+										</div>
+									</>
+								)}
+								<SidebarTrigger
+									variant="secondary"
+									className="absolute bottom-0 m-2"
+								/>
+							</main>
+							{editingType && (
+								<TypeModal
+									type={editingType}
+									open={!!editingType}
+									onOpenChange={(open) => {
+										if (!open) setEditingType(null);
+									}}
+								/>
+							)}
+						</div>
+					</SidebarInset>
+				</SidebarProvider>{" "}
+			</motion.div>
+		</>
 	);
 }
 
