@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import NetworkGraph from "@/components/NetworkGraph";
 import RelationshipModal from "@/components/RelationshipModal";
-import Sidebar from "@/components/Sidebar/Sidebar";
+import AppSidebar from "@/components/Sidebar/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship, RelationshipType } from "@/types/types";
@@ -269,9 +269,9 @@ function App() {
 		);
 	}
 	return (
-		<div className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden">
+		<div className="flex h-screen w-screen bg-background text-white font-sans overflow-hidden bg-dot-grid">
 			{/* Sidebar */}
-			<Sidebar />
+			<AppSidebar />
 			{/* Main Content */}
 			<main className="flex-1 relative overflow-hidden flex flex-col">
 				{viewMode === "network" ? (
@@ -279,9 +279,12 @@ function App() {
 				) : (
 					<>
 						{/* Header */}
-						<header className="absolute w-full backdrop-blur-sm p-6 flex items-center justify-between z-15">
-							<div className="flex-1">
-								<h2 className="text-4xl font-bold tracking-tighter uppercase italic serif">
+						<header className="absolute w-full p-6 flex items-center justify-between z-15">
+							<div className="bg-background/40  backdrop-blur-sm  p-4 rounded-2xl">
+								<h2
+									style={{ fontFamily: "Geist Variable" }}
+									className="text-4xl font-bold tracking-tighter uppercase italic serif"
+								>
 									{selectedCharacter?.name || "Select a character"}
 								</h2>
 								<p className="text-sm opacity-50 max-w-md">
@@ -324,7 +327,7 @@ function App() {
 									variant={"secondary"}
 									key={type.id}
 									style={{ "--badge-color": type.color } as React.CSSProperties}
-									className="pr-1"
+									className="pr-1 bg-background/40 backdrop-blur-md"
 								>
 									<span className="text-[10px] uppercase font-bold tracking-widest">
 										{type.label}

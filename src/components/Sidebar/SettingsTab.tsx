@@ -19,7 +19,7 @@ export default function SettingsTab({ session }: SettingsTabProps) {
 
 	return (
 		<div className="h-full">
-			<div className="px-4 min-h-9 flex items-center justify-between">
+			<div className="p-2 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
 				<div>
 					<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 						Data Management
@@ -97,7 +97,7 @@ export default function SettingsTab({ session }: SettingsTabProps) {
 					</Button>
 				</div>
 			</div>
-			<div className="p-4 h-9/12 relative group">
+			<div className="p-4 max-h-9/12 relative group">
 				<Textarea
 					value={JSON.stringify(
 						{
@@ -118,9 +118,9 @@ export default function SettingsTab({ session }: SettingsTabProps) {
 						2,
 					)}
 					disabled
-					className="size-full p-3 resize-none! font-mono text-[10px] focus:outline-none! no-scrollbar"
+					className="size-full max-h-96 p-3 resize-none! font-mono text-[10px] focus:outline-none! no-scrollbar"
 				/>
-				<p className="text-[10px] opacity-40 italic">
+				<p className="text-[10px] opacity-40 italic my-2">
 					Displayed text is shortened, use export button to get full json file.
 				</p>
 			</div>

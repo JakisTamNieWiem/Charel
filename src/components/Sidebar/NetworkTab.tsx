@@ -5,7 +5,7 @@ export default function NetworkTab() {
 
 	return (
 		<div className="h-full">
-			<div className="px-4 min-h-9 flex items-center">
+			<div className="p-2 min-h-12 flex items-center  sticky top-0 bg-sidebar z-50">
 				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 					Network View
 				</h2>

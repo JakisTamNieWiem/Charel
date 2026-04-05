@@ -331,9 +331,9 @@ export default function CharacterGraph() {
 					const textX = textRadius * cos;
 					const textY = textRadius * sin;
 					const textAnchor =
-						cos > 0.1 ? "start" : cos < -0.1 ? "end" : "middle";
+						cos > 0.5 ? "start" : cos < -0.5 ? "end" : "middle";
 					const dominantBaseline =
-						sin > 0.8 ? "hanging" : sin < -0.8 ? "auto" : "middle";
+						sin > 0.5 ? "hanging" : sin < -0.5 ? "auto" : "middle";
 
 					return (
 						<g

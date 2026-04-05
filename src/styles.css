@@ -434,4 +434,24 @@ a {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  .bg-dot-grid {
+    /* 
+       LIGHT THEME:
+       Transparent is 10% (meaning the dots are 90% opaque)
+    */
+    --grid-transparency: 20%;
+    /* 
+       Using 'foreground' with low opacity (0.07) ensures 
+       it works on both light and dark backgrounds.
+    */
+    background-image: radial-gradient(
+      color-mix(in oklch, var(--foreground), transparent var(--grid-transparency)) 1px, 
+      transparent 0
+    );
+    background-size: 40px 40px;
+    background-position: center;
+  }
+  :is(.dark) .bg-dot-grid {
+    --grid-transparency: 80%;
+  }
 }
