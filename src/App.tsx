@@ -1,21 +1,17 @@
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import NetworkGraph from "@/components/NetworkGraph";
-import RelationshipModal from "@/components/RelationshipModal";
 import AppSidebar from "@/components/Sidebar/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship, RelationshipType } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
-import { Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Button } from "@/components/ui/button";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
 import LoadingScreen from "./components/LoadingScreen";
-import { Badge } from "./components/ui/badge";
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -32,16 +28,9 @@ function App() {
 
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
-	const types = useGraphStore((state) => state.relationshipTypes);
-	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const viewMode = useGraphStore((state) => state.viewMode);
 
-	// Handlers
-
-	const addRelationship = useGraphStore((state) => state.addRelationship);
-
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
-	const [openRelModal, setOpenRelModal] = useState(false);
 
 	// Derived state
 	const selectedCharacter = useGraphStore((state) =>
@@ -297,97 +286,31 @@ function App() {
 					className="max-h-screen! max-w-screen! pt-6"
 				>
 					<AppSidebar />
-					<SidebarInset className="flex flex-col bg-transparent overflow-hidden">
-						<div className="flex bg-background text-foreground font-sans overflow-hidden bg-dot-grid">
-							{/* Sidebar */}
-							{/* Main Content */}
-							<main className="flex-1 relative max-h-screen overflow-hidden flex flex-col">
-								{viewMode === "network" ? (
-									<NetworkGraph />
-								) : (
-									<>
-										{/* Header */}
-										<header className="w-full p-6 flex items-center justify-between z-15 shrink-0">
-											<div className="bg-background/40  backdrop-blur-sm  p-4 rounded-2xl">
-												<h2
-													style={{ fontFamily: "Geist Variable" }}
-													className="text-4xl font-bold tracking-tighter uppercase italic serif"
-												>
-													{selectedCharacter?.name || "Select a character"}
-												</h2>
-												<p className="text-sm opacity-50 max-w-md">
-													{selectedCharacter?.description}
-												</p>
-											</div>
-
-											<Button
-												onClick={(e) => {
-													e.preventDefault();
-													setOpenRelModal(true);
-												}}
-												className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
-											>
-												<Plus className="w-4 h-4" /> New Relation
-											</Button>
-											{selectedId && (
-												<RelationshipModal
-													fromId={selectedId}
-													onSave={addRelationship}
-													open={openRelModal}
-													onOpenChange={setOpenRelModal}
-												/>
-											)}
-										</header>
-
-										{/* Graph Area */}
-										<div className="flex-1 relative overflow-y-visible">
-											{selectedCharacter ? (
-												<CharacterGraph />
-											) : (
-												<h1 className="p-4">Character not found</h1>
-											)}
-										</div>
-
-										{/* Legend */}
-										<div className="h-full absolute! right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar pointer-events-none">
-											{types.map((type) => (
-												<Badge
-													variant={"secondary"}
-													key={type.id}
-													style={
-														{
-															"--badge-color": type.color,
-														} as React.CSSProperties
-													}
-													className="pr-1 bg-background/40 backdrop-blur-md"
-												>
-													<span className="text-[10px] uppercase font-bold tracking-widest">
-														{type.label}
-													</span>
-													<div
-														className="size-3 rounded-full"
-														style={{ backgroundColor: type.color }}
-													/>
-												</Badge>
-											))}
-										</div>
-									</>
-								)}
-								<SidebarTrigger
-									variant="secondary"
-									className="absolute bottom-0 m-2"
-								/>
-							</main>
-							{editingType && (
-								<TypeModal
-									type={editingType}
-									open={!!editingType}
-									onOpenChange={(open) => {
-										if (!open) setEditingType(null);
-									}}
-								/>
+					<SidebarInset className="flex flex-col bg-transparent overflow-hidden relative">
+						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
+							{viewMode === "network" ? (
+								<NetworkGraph />
+							) : selectedCharacter ? (
+								<CharacterGraph />
+							) : (
+								<h1 className="p-4 z-10 pointer-events-none">
+									Character not found
+								</h1>
 							)}
-						</div>
+							<SidebarTrigger
+								variant="secondary"
+								className="absolute bottom-0 m-2 pointer-events-auto z-50"
+							/>
+						</main>
+						{editingType && (
+							<TypeModal
+								type={editingType}
+								open={!!editingType}
+								onOpenChange={(open) => {
+									if (!open) setEditingType(null);
+								}}
+							/>
+						)}
 					</SidebarInset>
 				</SidebarProvider>{" "}
 			</motion.div>

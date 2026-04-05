@@ -75,9 +75,7 @@ export default function AppSidebar() {
 			);
 		} else
 			return (
-				<span
-					className="font-mono tracking-normal mt-1 text-sm text-muted-foreground"
-				>
+				<span className="font-mono tracking-normal mt-1 text-sm text-muted-foreground">
 					Anon
 				</span>
 			);
@@ -90,7 +88,7 @@ export default function AppSidebar() {
 				orientation="vertical"
 				className="h-full flex-row gap-0"
 			>
-				<div className="flex flex-col justify-center h-full border-r border-sidebar-border bg-sidebar shrink-0 w-[var(--sidebar-width-icon)]">
+				<div className="flex flex-col justify-center h-full border-r border-sidebar-border bg-sidebar shrink-0 w-(--sidebar-width-icon)">
 					<TabsList className="flex flex-col justify-center bg-transparent border-none gap-4 py-2">
 						<TabsTrigger
 							title="Characters"
@@ -155,7 +153,9 @@ export default function AppSidebar() {
 									disabled={isSyncing}
 									className={cn(
 										"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest transition-all ",
-										session ? "text-emerald-400 dark:text-emerald-600" : "text-red-500 dark:text-red-400",
+										session
+											? "text-emerald-400 dark:text-emerald-600"
+											: "text-red-500 dark:text-red-400",
 									)}
 									onClick={() =>
 										session ? supabase.auth.signOut() : setLoginModalOpen(true)

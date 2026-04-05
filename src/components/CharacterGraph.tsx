@@ -1,8 +1,11 @@
+import { Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Relationship } from "@/types/types";
 import RelationshipModal from "./RelationshipModal";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 export default function CharacterGraph() {
@@ -12,9 +15,10 @@ export default function CharacterGraph() {
 	const allChars = useGraphStore((state) => state.characters);
 	const relationships = useGraphStore((state) => state.relationships);
 	const types = useGraphStore((state) => state.relationshipTypes);
+	const addRelationship = useGraphStore((state) => state.addRelationship); // Added for New Relation
+	const updateRelationship = useGraphStore((state) => state.updateRelationship);
 	const deleteRelationship = useGraphStore((state) => state.deleteRelationship);
 
-	const updateRelationship = useGraphStore((state) => state.updateRelationship);
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
 	);
@@ -30,8 +34,10 @@ export default function CharacterGraph() {
 			.filter((c) => ids.has(c.id))
 			.sort((a, b) => a.name.localeCompare(b.name));
 	}, [allChars, relationships, selectedId]);
-	const [openRelModal, setOpenRelModal] = useState(false);
+
+	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingRel, setEditingRel] = useState<Relationship | null>(null);
+
 	const [hoveredRel, setHoveredRel] = useState<Relationship | null>(null);
 
 	const gRef = useRef<SVGGElement>(null);
@@ -52,6 +58,7 @@ export default function CharacterGraph() {
 			if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
 		};
 	}, []);
+
 	const getMousePositionInSVG = (e: React.PointerEvent) => {
 		if (!svgRef.current) return { x: 0, y: 0 };
 		const svg = svgRef.current;
@@ -301,7 +308,7 @@ export default function CharacterGraph() {
 										e.preventDefault();
 										e.stopPropagation();
 										setEditingRel(rel);
-										setOpenRelModal(true);
+										setIsModalOpen(true);
 									}}
 									onContextMenu={(e) => {
 										e.preventDefault();
@@ -431,70 +438,127 @@ export default function CharacterGraph() {
 		centerRadius,
 	]);
 	return (
-		<div
-			className={cn(
-				"w-screen h-screen touch-none select-none",
-				isDragging ? "cursor-grabbing" : "cursor-grab",
-			)}
-			onWheel={handleWheel}
-			onPointerDown={(e) => {
-				if (openRelModal) return;
-				setIsDragging(true);
-				isDraggingRef.current = true;
-				setHoveredRel(null);
-				e.currentTarget.setPointerCapture(e.pointerId);
-				const svgPt = getMousePositionInSVG(e);
-				dragStartRef.current = {
-					x: svgPt.x - panRef.current.x,
-					y: svgPt.y - panRef.current.y,
-				};
-			}}
-			onPointerMove={(e) => {
-				if (!isDraggingRef.current) return;
-				// 2. Calculate the exact new position
-				const svgPt = getMousePositionInSVG(e);
-				panRef.current.x = svgPt.x - dragStartRef.current.x;
-				panRef.current.y = svgPt.y - dragStartRef.current.y;
-
-				// 3. 60 FPS Optimization (Debounce DOM updates to screen refresh rate)
-				if (!rafRef.current) {
-					rafRef.current = requestAnimationFrame(() => {
-						applyTransform();
-						rafRef.current = null;
-					});
-				}
-			}}
-			onPointerUp={() => {
-				setIsDragging(false);
-				isDraggingRef.current = false;
-				if (rafRef.current) cancelAnimationFrame(rafRef.current);
-				rafRef.current = null;
-			}}
-			onPointerCancel={() => {
-				setIsDragging(false);
-				isDraggingRef.current = false;
-			}}
-		>
-			<svg
-				ref={svgRef}
-				className="h-full w-full overflow-visible"
-				// By setting viewBox to start at -half, 0,0 is exactly in the center!
-				viewBox={`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`}
-			>
-				{graphSvgContent}
-			</svg>
-			{editingRel && (
-				<RelationshipModal
-					fromId={editingRel.fromId}
-					initialData={editingRel ?? undefined}
-					onSave={(newRel) => updateRelationship(editingRel, newRel)}
-					open={openRelModal}
-					onOpenChange={(open) => {
-						setOpenRelModal(open);
-						setEditingRel(null);
+		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-background bg-dot-grid">
+			{/* LAYER 1: THE GRAPH (Anchored to Right edge of Screen) */}
+			<div className="col-start-1 row-start-1 w-full h-full pointer-events-auto z-0">
+				<div
+					className={cn(
+						"absolute top-0 right-0 h-full w-screen touch-none select-none z-0",
+						isDragging ? "cursor-grabbing" : "cursor-grab",
+					)}
+					onWheel={handleWheel}
+					onPointerDown={(e) => {
+						if (isModalOpen) return;
+						setIsDragging(true);
+						isDraggingRef.current = true;
+						setHoveredRel(null);
+						e.currentTarget.setPointerCapture(e.pointerId);
+						const svgPt = getMousePositionInSVG(e);
+						dragStartRef.current = {
+							x: svgPt.x - panRef.current.x,
+							y: svgPt.y - panRef.current.y,
+						};
 					}}
-				/>
-			)}
+					onPointerMove={(e) => {
+						if (!isDraggingRef.current) return;
+						// 2. Calculate the exact new position
+						const svgPt = getMousePositionInSVG(e);
+						panRef.current.x = svgPt.x - dragStartRef.current.x;
+						panRef.current.y = svgPt.y - dragStartRef.current.y;
+
+						// 3. 60 FPS Optimization (Debounce DOM updates to screen refresh rate)
+						if (!rafRef.current) {
+							rafRef.current = requestAnimationFrame(() => {
+								applyTransform();
+								rafRef.current = null;
+							});
+						}
+					}}
+					onPointerUp={() => {
+						setIsDragging(false);
+						isDraggingRef.current = false;
+						if (rafRef.current) cancelAnimationFrame(rafRef.current);
+						rafRef.current = null;
+					}}
+					onPointerCancel={() => {
+						setIsDragging(false);
+						isDraggingRef.current = false;
+					}}
+				>
+					<svg
+						ref={svgRef}
+						className="h-full w-full overflow-visible"
+						// By setting viewBox to start at -half, 0,0 is exactly in the center!
+						viewBox={`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`}
+					>
+						{graphSvgContent}
+					</svg>
+				</div>
+				{/* LAYER 2: THE FOREGROUND UI (Stays strictly within SidebarInset bounds) */}
+				<div className="col-start-1 row-start-1 z-10 w-full h-full flex flex-col justify-between pointer-events-none">
+					{/* Header */}
+					<header className="w-full p-6 flex items-center justify-between shrink-0 pointer-events-none">
+						<div className="bg-background/40 backdrop-blur-sm p-4 rounded-2xl pointer-events-auto">
+							<h2
+								style={{ fontFamily: "Geist Variable" }}
+								className="text-4xl font-bold tracking-tighter uppercase italic serif"
+							>
+								{selectedCharacter?.name || "Select a character"}
+							</h2>
+							<p className="text-sm opacity-50 max-w-md">
+								{selectedCharacter?.description}
+							</p>
+						</div>
+
+						<Button
+							onClick={(e) => {
+								e.stopPropagation();
+								setEditingRel(null); // Null means it's a NEW relation
+								setIsModalOpen(true);
+							}}
+							className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2 pointer-events-auto z-40"
+						>
+							<Plus className="w-4 h-4" /> New Relation
+						</Button>
+					</header>
+
+					{/* Legend Container */}
+					<div className="h-full w-min p-6 flex flex-col flex-wrap justify-start items-end gap-3 pointer-events-none self-end">
+						{types.map((type) => (
+							<Badge
+								variant={"secondary"}
+								key={type.id}
+								style={{ "--badge-color": type.color } as React.CSSProperties}
+								className="pr-1 bg-background/40 backdrop-blur-md pointer-events-auto"
+							>
+								<span className="text-[10px] uppercase font-bold tracking-widest">
+									{type.label}
+								</span>
+								<div
+									className="size-3 rounded-full ml-2"
+									style={{ backgroundColor: type.color }}
+								/>
+							</Badge>
+						))}
+					</div>
+				</div>
+				{/* Modals */}
+				{selectedId && (
+					<RelationshipModal
+						fromId={editingRel ? editingRel.fromId : selectedId}
+						initialData={editingRel ?? undefined}
+						onSave={(newRel) => {
+							if (editingRel) updateRelationship(editingRel, newRel);
+							else addRelationship(newRel);
+						}}
+						open={isModalOpen}
+						onOpenChange={(open) => {
+							setIsModalOpen(open);
+							if (!open) setEditingRel(null);
+						}}
+					/>
+				)}
+			</div>
 		</div>
 	);
 }
