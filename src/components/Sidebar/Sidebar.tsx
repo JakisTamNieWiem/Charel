@@ -11,7 +11,6 @@ import {
 	Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Sidebar,
@@ -64,139 +63,152 @@ export default function AppSidebar() {
 	const roleBadge = (() => {
 		if (profile?.role === "dm") {
 			return (
-				<Badge className="font-mono tracking-normal mt-1" variant={"default"}>
+				<span className="font-mono tracking-normal mt-1 text-sm text-muted-foreground">
 					DM
-				</Badge>
+				</span>
 			);
 		} else if (profile?.role === "player") {
 			return (
-				<Badge className="font-mono tracking-normal mt-1" variant={"outline"}>
+				<span className="font-mono tracking-normal mt-1 text-sm text-muted-foreground">
 					Player
-				</Badge>
+				</span>
 			);
 		} else
 			return (
-				<Badge
-					className="font-mono tracking-normal mt-1"
-					variant={"destructive"}
+				<span
+					className="font-mono tracking-normal mt-1 text-sm text-muted-foreground"
 				>
 					Anon
-				</Badge>
+				</span>
 			);
 	})();
 	//w-80 h-full *:bg-background border-r border-white/10 relative flex flex-col items-center border-bottom
 	return (
-		<Sidebar variant="inset" className="pt-0 z-150">
-			<Tabs defaultValue="characters" className="h-full">
-				<SidebarHeader className="p-2 py-4 gap-4">
-					<div className="w-full flex justify-between items-center">
-						<div className="flex gap-2 items-center">
-							<ThemeToggle />
-							<h1
-								title={version}
-								className="text-3xl font-bold leading-none tracking-tighter serif self-end"
-							>
-								{displayName}
-							</h1>
-							{roleBadge}
-						</div>
-						<Button
-							variant="ghost"
-							disabled={isSyncing}
-							className={cn(
-								"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest transition-all ",
-								session ? "text-emerald-400" : "text-red-500",
-							)}
-							onClick={() =>
-								session ? supabase.auth.signOut() : setLoginModalOpen(true)
-							}
+		<Sidebar variant="inset" collapsible="icon" className="pt-0 z-150">
+			<Tabs
+				defaultValue="characters"
+				orientation="vertical"
+				className="h-full flex-row gap-0"
+			>
+				<div className="flex flex-col justify-center h-full border-r border-sidebar-border bg-sidebar shrink-0 w-[var(--sidebar-width-icon)]">
+					<TabsList className="flex flex-col justify-center bg-transparent border-none gap-4 py-2">
+						<TabsTrigger
+							title="Characters"
+							value="characters"
+							onClick={() => setViewMode("character")}
+							className="justify-center"
 						>
-							{isSyncing ? (
-								<Loader2 className="w-3 h-3 animate-spin" />
-							) : session ? (
-								<Cloud className="w-3 h-3" />
-							) : (
-								<CloudOff className="w-3 h-3" />
-							)}
-
-							{isSyncing ? "Syncing..." : session ? "Online" : "Offline"}
-						</Button>
-						<LoginModal
-							open={loginModalOpen}
-							onOpenChange={setLoginModalOpen}
-						/>
-					</div>
-
-					<div className="flex w-full justify-between">
-						<TabsList className="w-full shrink-0">
-							<TabsTrigger
-								title="Characters"
-								value="characters"
-								onClick={() => setViewMode("character")}
-							>
-								<Users className="w-4 h-4" />
-							</TabsTrigger>
-							<TabsTrigger
-								title="Network Graph"
-								value="network"
-								onClick={() => setViewMode("network")}
-							>
-								<Network className="w-4 h-4" />
-							</TabsTrigger>
-							<TabsTrigger
-								title="Groups"
-								value="groups"
-								onClick={() => setViewMode("network")}
-							>
-								<Layers className="w-4 h-4" />
-							</TabsTrigger>
-							<TabsTrigger
-								title="Relationship Types"
-								value="types"
-								onClick={() => setViewMode("character")}
-							>
-								<Link className="w-4 h-4" />
-							</TabsTrigger>
-							<TabsTrigger
-								title="Settings"
-								value="settings"
-								onClick={() => setViewMode("character")}
-							>
-								<Settings className="w-4 h-4" />
-							</TabsTrigger>
-						</TabsList>
-					</div>
-				</SidebarHeader>
-				<div className="px-3">
-					<Separator />
+							<Users className="w-4 h-4" />
+						</TabsTrigger>
+						<TabsTrigger
+							title="Network Graph"
+							value="network"
+							onClick={() => setViewMode("network")}
+							className="justify-center"
+						>
+							<Network className="w-4 h-4" />
+						</TabsTrigger>
+						<TabsTrigger
+							title="Groups"
+							value="groups"
+							onClick={() => setViewMode("network")}
+							className="justify-center"
+						>
+							<Layers className="w-4 h-4" />
+						</TabsTrigger>
+						<TabsTrigger
+							title="Relationship Types"
+							value="types"
+							onClick={() => setViewMode("character")}
+							className="justify-center"
+						>
+							<Link className="w-4 h-4" />
+						</TabsTrigger>
+						<TabsTrigger
+							title="Settings"
+							value="settings"
+							onClick={() => setViewMode("character")}
+							className="justify-center"
+						>
+							<Settings className="w-4 h-4" />
+						</TabsTrigger>
+					</TabsList>
 				</div>
-				<SidebarContent>
-					<SidebarGroup className="pt-0">
-						<TabsContent value="characters">
-							<CharacterTab />
-						</TabsContent>
 
-						<TabsContent value="network">
-							<NetworkTab />
-						</TabsContent>
+				<div className="flex flex-col flex-1 min-w-0 overflow-hidden group-data-[state=collapsed]:hidden">
+					<SidebarHeader className="p-2 py-4 gap-4">
+						<div className="w-full flex justify-between items-center">
+							<div className="flex gap-2 items-center px-2">
+								<div className="flex flex-col">
+									<h1
+										title={version}
+										className="text-3xl font-black leading-none tracking-tighter serif self-end"
+									>
+										{displayName}
+									</h1>
+									{roleBadge}
+								</div>
+							</div>
+							<div className="flex flex-col">
+								<Button
+									variant="ghost"
+									disabled={isSyncing}
+									className={cn(
+										"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest transition-all ",
+										session ? "text-emerald-400" : "text-red-500",
+									)}
+									onClick={() =>
+										session ? supabase.auth.signOut() : setLoginModalOpen(true)
+									}
+								>
+									{isSyncing ? (
+										<Loader2 className="w-3 h-3 animate-spin" />
+									) : session ? (
+										<Cloud className="w-3 h-3" />
+									) : (
+										<CloudOff className="w-3 h-3" />
+									)}
 
-						<TabsContent value="groups">
-							<GroupsTab />
-						</TabsContent>
+									{isSyncing ? "Syncing..." : session ? "Online" : "Offline"}
+								</Button>
+								<ThemeToggle />
+							</div>
+						</div>
+					</SidebarHeader>
+					<div className="px-3">
+						<Separator />
+					</div>
+					<SidebarContent>
+						<SidebarGroup className="pt-0 pr-0">
+							<TabsContent value="characters">
+								<CharacterTab />
+							</TabsContent>
 
-						<TabsContent value="types">
-							<RelationshipTypesTab />
-						</TabsContent>
+							<TabsContent value="network">
+								<NetworkTab />
+							</TabsContent>
 
-						<TabsContent className="h-full" value="settings">
-							<SettingsTab session={session} />
-						</TabsContent>
-					</SidebarGroup>
-				</SidebarContent>
+							<TabsContent value="groups">
+								<GroupsTab />
+							</TabsContent>
+
+							<TabsContent value="types">
+								<RelationshipTypesTab />
+							</TabsContent>
+
+							<TabsContent className="h-full" value="settings">
+								<SettingsTab session={session} />
+							</TabsContent>
+						</SidebarGroup>
+					</SidebarContent>
+				</div>
+
+				<LoginModal open={loginModalOpen} onOpenChange={setLoginModalOpen} />
+
 				<div
 					onClick={toggleSidebar}
 					className={cn(
-						"absolute inset-y-0 -right-2 w-4 z-50 cursor-pointer group/trigger",
+						"absolute inset-y-0 right-0 w-2 z-99 cursor-pointer group/trigger",
 						"flex items-center justify-center transition-all",
 					)}
 				>

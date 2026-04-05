@@ -56,7 +56,7 @@ export default function CharacterTab() {
 
 	return (
 		<div>
-			<div className="p-2 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
+			<div className="p-2 pr-0 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
 				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 					Characters
 				</h2>
@@ -81,18 +81,18 @@ export default function CharacterTab() {
 							}}
 							onClick={() => setSelectedCharId(char.id)}
 							className={cn(
-								"group/character px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-3 relative  scroll-mt-16",
+								"group/character px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center relative scroll-mt-16",
 								selectedId === char.id
 									? "bg-(--foreground)/10 border-(--foreground)/20"
 									: "bg-transparent border-transparent hover:bg-(--foreground)/5",
 							)}
 						>
-							<Avatar className="size-14">
+							<Avatar className="size-14 mr-3">
 								<AvatarImage src={char.avatar ?? undefined} />
 								<AvatarFallback>{char.name}</AvatarFallback>
 							</Avatar>
 
-							<div className="flex-1 min-w-0">
+							<div className="flex-1 min-w-0 w-full">
 								<h3 className="font-medium truncate">{char.name}</h3>
 								<p className="text-xs opacity-50 truncate">
 									{char.description}
