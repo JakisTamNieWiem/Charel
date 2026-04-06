@@ -81,7 +81,7 @@ export default function CharacterTab() {
 							}}
 							onClick={() => setSelectedCharId(char.id)}
 							className={cn(
-								"group/character px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative scroll-mt-16",
+								"group/character px-3 py-2 rounded-lg border transition-[background-color,border-color,transform,shadow] duration-150 cursor-pointer flex items-center relative scroll-mt-16",
 
 								// 1. ACTIVE STATE (When physically clicking the mouse down)
 								// Applies a deep inner shadow, darkens the background, and slightly shrinks the element
