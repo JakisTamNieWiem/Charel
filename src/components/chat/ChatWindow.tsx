@@ -4,6 +4,7 @@ import { formatDateHeader } from "@/lib/chat-utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Message } from "@/types/chat";
+import type { IGif } from "@giphy/js-types";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
 import { AddMembersDialog, MembersDialog, RenameDialog } from "./GroupDialogs";
@@ -111,6 +112,11 @@ export default function ChatWindow() {
 	const handleSendImage = async (dataUrl: string) => {
 		if (!activeSpeakerId) return;
 		await sendMessage(`[img]${dataUrl}[/img]`);
+	};
+
+	const handleSendGif = async (gif: IGif) => {
+		if (!activeSpeakerId) return;
+		await sendMessage(`[img]${gif.images.original.url}[/img]`);
 	};
 
 	const handleConfirmEdit = async () => {
@@ -241,6 +247,7 @@ export default function ChatWindow() {
 					onDraftChange={setDraft}
 					onSend={handleSend}
 					onSendImage={handleSendImage}
+					onSendGif={handleSendGif}
 					disabled={!activeSpeakerId}
 					placeholder={
 						activeSpeakerId

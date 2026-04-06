@@ -717,4 +717,29 @@
   :is(.dark) .bg-dot-grid {
     --grid-transparency: 80%;
   }
+
+  /* Emoji Picker Custom Scrollbar */
+  .EmojiPickerReact .epr-body::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .EmojiPickerReact .epr-body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .EmojiPickerReact .epr-body::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+    transition: background 0.2s;
+  }
+
+  .EmojiPickerReact .epr-body::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+
+  /* Firefox support */
+  .EmojiPickerReact .epr-body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
 }
