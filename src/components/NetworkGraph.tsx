@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import { useGraphStore } from "@/store/useGraphStore";
-
+import { Badge } from "./ui/badge";
 
 interface GraphNode {
 	id: string;
@@ -114,7 +114,8 @@ export default function NetworkGraph() {
 	}, [themeKey]);
 
 	useEffect(() => {
-		const update = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
+		const update = () =>
+			setDimensions({ width: window.innerWidth, height: window.innerHeight });
 		update();
 		window.addEventListener("resize", update);
 		return () => window.removeEventListener("resize", update);
@@ -145,15 +146,17 @@ export default function NetworkGraph() {
 		const bounds: GroupBound[] = [];
 
 		if (networkMode === "global") {
-			const sortedChars = [...allChars].sort((a, b) => a.name.localeCompare(b.name));
+			const sortedChars = [...allChars].sort((a, b) =>
+				a.name.localeCompare(b.name),
+			);
 			const radius = Math.max(400, sortedChars.length * 20);
-			
+
 			sortedChars.forEach((c, i) => {
 				const group = groupInfoMap.get(c.groupId || "");
 				const angle = (i / sortedChars.length) * 2 * Math.PI - Math.PI / 2;
 				const x = Math.cos(angle) * radius;
 				const y = Math.sin(angle) * radius;
-				
+
 				nodes.push({
 					...c,
 					color: group?.color || "#ffffff",
@@ -200,9 +203,13 @@ export default function NetworkGraph() {
 				groupNodes.forEach((node, nIdx) => {
 					const nAngle = (nIdx / groupNodes.length) * 2 * Math.PI;
 					const x =
-						groupNodes.length === 1 ? gCx : gCx + Math.cos(nAngle) * innerRadius;
+						groupNodes.length === 1
+							? gCx
+							: gCx + Math.cos(nAngle) * innerRadius;
 					const y =
-						groupNodes.length === 1 ? gCy : gCy + Math.sin(nAngle) * innerRadius;
+						groupNodes.length === 1
+							? gCy
+							: gCy + Math.sin(nAngle) * innerRadius;
 					node.fx = x;
 					node.fy = y;
 					node.x = x;
@@ -227,7 +234,7 @@ export default function NetworkGraph() {
 		}
 
 		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-		
+
 		// Links logic... (same as before but simplified arc selection)
 		let maxDist2 = 0;
 		for (let i = 0; i < nodes.length; i++) {
@@ -249,23 +256,31 @@ export default function NetworkGraph() {
 				let arcCx: number | undefined;
 				let arcCy: number | undefined;
 
-				// Circular layout doesn't need cross-group logic necessarily, 
+				// Circular layout doesn't need cross-group logic necessarily,
 				// but arcs look better if we use the same principle.
-				const isCrossGroup = networkMode === "group" ? fromNode.groupId !== toNode.groupId : true;
+				const isCrossGroup =
+					networkMode === "group" ? fromNode.groupId !== toNode.groupId : true;
 
 				if (isCrossGroup) {
-					const x1 = fromNode.x!, y1 = fromNode.y!;
-					const x2 = toNode.x!, y2 = toNode.y!;
-					const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-					const dx = x2 - x1, dy = y2 - y1;
+					const x1 = fromNode.x!,
+						y1 = fromNode.y!;
+					const x2 = toNode.x!,
+						y2 = toNode.y!;
+					const mx = (x1 + x2) / 2,
+						my = (y1 + y2) / 2;
+					const dx = x2 - x1,
+						dy = y2 - y1;
 					const dist = Math.sqrt(dx * dx + dy * dy);
 					const halfD = dist / 2;
 
 					if (halfD < arcR && dist > 0) {
 						const h = Math.sqrt(arcR * arcR - halfD * halfD);
-						const px = -dy / dist, py = dx / dist;
-						const c1x = mx + h * px, c1y = my + h * py;
-						const c2x = mx - h * px, c2y = my - h * py;
+						const px = -dy / dist,
+							py = dx / dist;
+						const c1x = mx + h * px,
+							c1y = my + h * py;
+						const c2x = mx - h * px,
+							c2y = my - h * py;
 						const d1 = c1x * c1x + c1y * c1y;
 						const d2 = c2x * c2x + c2y * c2y;
 
@@ -546,9 +561,12 @@ export default function NetworkGraph() {
 	);
 
 	return (
-		<div className="relative flex-1 h-full w-full bg-background bg-dot-grid">
+		<div className="relative flex-1 h-full w-full flex justify-end items-center overflow-hidden">
 			{/* Canvas: fixed to viewport so sidebar changes don't move it */}
-			<div ref={containerRef} className="fixed inset-0 pointer-events-auto">
+			<div
+				ref={containerRef}
+				className="fixed inset-0 pointer-events-auto overflow-hidden"
+			>
 				{dimensions.width > 0 && (
 					<ForceGraph2D
 						// @ts-expect-error typings
@@ -597,21 +615,23 @@ export default function NetworkGraph() {
 				</div>
 			)}
 
-			{/* Legend */}
-			<div className="h-full absolute right-0 top-0 p-6 flex flex-col flex-wrap justify-center items-end gap-3 z-10 overflow-x-auto no-scrollbar pointer-events-none">
+			{/* Legend Container */}
+			<div className=" w-min p-6 flex flex-col flex-wrap-reverse justify-start items-start gap-3 pointer-events-none">
 				{types.map((type) => (
-					<div
+					<Badge
+						variant={"secondary"}
 						key={type.id}
-						className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-background/40 backdrop-blur-md border border-foreground/5"
+						style={{ "--badge-color": type.color } as React.CSSProperties}
+						className="selft-endp-2.5 pr-1 bg-card/40 backdrop-blur-md pointer-events-auto border border-foreground/5 transition-all hover:bg-foreground/10"
 					>
-						<span className="text-[10px] uppercase font-bold tracking-widest text-foreground/70">
+						<span className="text-[10px] uppercase font-bold tracking-widest">
 							{type.label}
 						</span>
 						<div
-							className="size-3 rounded-full"
+							className="size-3 rounded-full ml-2"
 							style={{ backgroundColor: type.color }}
 						/>
-					</div>
+					</Badge>
 				))}
 			</div>
 		</div>
