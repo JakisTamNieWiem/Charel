@@ -15,6 +15,7 @@ export default function CharacterTab() {
 	const deleteCharacter = useGraphStore((state) => state.deleteCharacter);
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
+	const [hoveredId, setHoveredId] = useState<string | null>(null);
 
 	const [editingCharacter, setEditingCharacter] = useState<
 		Character | "new" | null
@@ -75,6 +76,8 @@ export default function CharacterTab() {
 					.map((char) => (
 						<div
 							key={char.id}
+							onMouseEnter={() => setHoveredId(char.id)}
+							onMouseLeave={() => setHoveredId(null)}
 							ref={(el) => {
 								if (el) itemRefs.current.set(char.id, el);
 								else itemRefs.current.delete(char.id);
@@ -103,10 +106,20 @@ export default function CharacterTab() {
 										],
 							)}
 						>
-							<Avatar className="size-14 mr-3">
-								<AvatarImage src={char.avatar ?? undefined} />
-								<AvatarFallback>{char.name}</AvatarFallback>
-							</Avatar>
+							<div className="size-14 mr-3 shrink-0 rounded-full overflow-hidden border border-white/10 bg-muted relative">
+								{char.avatar ? (
+									<img
+										src={char.avatar}
+										loading="lazy"
+										className="h-full w-full object-cover pointer-events-none"
+										alt=""
+									/>
+								) : (
+									<div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase opacity-40">
+										{char.name.substring(0, 2)}
+									</div>
+								)}
+							</div>
 
 							<div className="flex-1 min-w-0 w-full">
 								<h3 className="font-medium truncate">{char.name}</h3>
@@ -115,30 +128,32 @@ export default function CharacterTab() {
 								</p>
 							</div>
 
-							<div className="opacity-0 group-hover/character:opacity-100 flex flex-col">
-								<Button
-									size="icon-sm"
-									variant="ghost"
-									className="p-1 hover:text-blue-400 hover:bg-transparent!"
-									onClick={(e) => {
-										e.stopPropagation();
-										setEditingCharacter(char);
-									}}
-								>
-									<Edit2 size="16px" />
-								</Button>
-								<Button
-									size="icon-sm"
-									variant="ghost"
-									onClick={(e) => {
-										e.stopPropagation();
-										setDeletingCharacter(char);
-									}}
-									className="p-1 hover:text-red-400 hover:bg-transparent!"
-								>
-									<Trash2 className="w-3 h-3" />
-								</Button>
-							</div>
+							{hoveredId === char.id && (
+								<div className="opacity-0 group-hover/character:opacity-100 flex flex-col gap-1">
+									<Button
+										size="icon-xs"
+										variant="ghost"
+										className="p-0 hover:text-blue-400 hover:bg-transparent!"
+										onClick={(e) => {
+											e.stopPropagation();
+											setEditingCharacter(char);
+										}}
+									>
+										<Edit2 className="size-4" />
+									</Button>
+									<Button
+										size="icon-xs"
+										variant="ghost"
+										onClick={(e) => {
+											e.stopPropagation();
+											setDeletingCharacter(char);
+										}}
+										className="p-0 hover:text-red-400 hover:bg-transparent!"
+									>
+										<Trash2 className="size-4" />
+									</Button>
+								</div>
+							)}
 						</div>
 					))}
 			</div>
