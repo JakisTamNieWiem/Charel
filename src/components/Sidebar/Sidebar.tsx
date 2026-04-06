@@ -55,6 +55,29 @@ export default function AppSidebar() {
 
 	const [version, setVersion] = useState<string>("");
 	const profile = useChatStore((state) => state.profile);
+	const activeSpeakerId = useChatStore((state) => state.activeSpeakerId);
+	const chats = useChatStore((state) => state.chats);
+	const chatMembers = useChatStore((state) => state.chatMembers);
+	const allMessages = useChatStore((state) => state.messages);
+
+	const hasUnread = useMemo(() => {
+		if (!activeSpeakerId) return false;
+		return chats.some((chat) => {
+			const members = chatMembers[chat.id] || [];
+			const me = members.find((m) => m.characterId === activeSpeakerId);
+			if (!me) return false;
+
+			const msgs = allMessages[chat.id] || [];
+			if (msgs.length === 0) return false;
+
+			const lastMsg = msgs[msgs.length - 1];
+			if (lastMsg.characterId === activeSpeakerId) return false;
+
+			if (!me.lastReadAt) return true;
+			return new Date(lastMsg.created_at) > new Date(me.lastReadAt);
+		});
+	}, [activeSpeakerId, chats, chatMembers, allMessages]);
+
 	const contentRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -111,13 +134,19 @@ export default function AppSidebar() {
 									contentRef.current?.scrollTo(0, 0);
 								}}
 								className={cn(
-									"inline-flex items-center justify-center rounded-md px-2 py-1 transition-all [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+									"inline-flex items-center justify-center rounded-md px-2 py-1 transition-all [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 relative",
 									activeTab === value
 										? "text-foreground bg-background shadow-sm dark:bg-input/30"
 										: "text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground",
 								)}
 							>
 								<Icon className="w-4 h-4" />
+								{value === "chat" && hasUnread && (
+									<span className="absolute top-1 right-1 flex h-2 w-2">
+										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+										<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+									</span>
+								)}
 							</Button>
 						))}
 					</div>

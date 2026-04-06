@@ -37,6 +37,7 @@ interface ChatState {
 	fetchMessages: (chatId: string) => Promise<void>;
 	fetchOlderMessages: (chatId: string) => Promise<void>;
 	fetchChatMembers: (chatId: string) => Promise<void>;
+	markAsRead: (chatId: string) => Promise<void>;
 	sendMessage: (content: string) => Promise<void>;
 	editMessage: (
 		messageId: string,
@@ -67,8 +68,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 	activeSpeakerId: null,
 
 	setChats: (chats) => set({ chats }),
-	setActiveChatId: (chatId) =>
-		set({ activeChatId: chatId, pendingCharacterId: null }),
+	setActiveChatId: (chatId) => {
+		set({ activeChatId: chatId, pendingCharacterId: null });
+		if (chatId) {
+			get().markAsRead(chatId);
+		}
+	},
 	setPendingCharacterId: (id) =>
 		set({ pendingCharacterId: id, activeChatId: null }),
 	setActiveSpeakerId: (characterId) => set({ activeSpeakerId: characterId }),
@@ -86,6 +91,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 			const filtered = existing.filter(
 				(m) => !m._pending || m.content !== message.content,
 			);
+
+			// If this is the active chat, mark as read immediately
+			if (state.activeChatId === chatId) {
+				get().markAsRead(chatId);
+			}
+
 			return {
 				messages: { ...state.messages, [chatId]: [...filtered, message] },
 			};
@@ -125,18 +136,53 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
 	fetchLatestMessages: async () => {
 		const { chats } = get();
-		for (const chat of chats) {
-			if (get().messages[chat.id]?.length) continue; // already loaded
-			const { data } = await supabase
-				.from("Messages")
-				.select("*, character:Characters!characterId(name, avatar)")
-				.eq("chat", chat.id)
-				.order("created_at", { ascending: false })
-				.limit(1);
-			if (data && data.length > 0) {
-				get().setMessages(chat.id, data as Message[]);
+		const chatIds = chats.map((c) => c.id);
+		if (chatIds.length === 0) return;
+
+		// Fetch the latest message for each chat
+		// Using a limit of 1 per chat is best done via RPC or subquery. 
+		// Since we're in client-side, we'll fetch them and update the store.
+		const { data, error } = await supabase
+			.from("Messages")
+			.select("*, character:Characters!characterId(name, avatar)")
+			.in("chat", chatIds)
+			.order("created_at", { ascending: false });
+
+		if (error) {
+			console.error("Failed to fetch latest messages:", error);
+			return;
+		}
+
+		// Group by chat
+		const latestByChat: Record<string, Message> = {};
+		for (const msg of (data as Message[]) || []) {
+			if (!latestByChat[msg.chat]) {
+				latestByChat[msg.chat] = msg;
 			}
 		}
+
+		set((state) => {
+			const newMessages = { ...state.messages };
+			for (const [chatId, latestMsg] of Object.entries(latestByChat)) {
+				const existing = newMessages[chatId] || [];
+				// If we already have messages, only add if the latest is newer
+				const lastExisting = existing[existing.length - 1];
+				if (!lastExisting || new Date(latestMsg.created_at) > new Date(lastExisting.created_at)) {
+					// We only want to set the latest, not overwrite the whole list if we have history.
+					// However, if we don't have history, this is the whole list.
+					if (existing.length === 0) {
+						newMessages[chatId] = [latestMsg];
+					} else {
+						// Merge logic: ensure no duplicates
+						const exists = existing.some((m) => m.id === latestMsg.id);
+						if (!exists) {
+							newMessages[chatId] = [...existing, latestMsg];
+						}
+					}
+				}
+			}
+			return { messages: newMessages };
+		});
 	},
 
 	fetchMessages: async (chatId) => {
@@ -196,6 +242,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
 		get().setChatMembers(chatId, (data as ChatMember[]) || []);
 	},
 
+	markAsRead: async (chatId) => {
+		const { activeSpeakerId } = get();
+		if (!activeSpeakerId) return;
+
+		const now = new Date().toISOString();
+
+		// Optimistic update
+		set((state) => ({
+			chatMembers: {
+				...state.chatMembers,
+				[chatId]: (state.chatMembers[chatId] || []).map((m) =>
+					m.characterId === activeSpeakerId ? { ...m, lastReadAt: now } : m,
+				),
+			},
+		}));
+
+		const { error } = await supabase
+			.from("ChatsMembers")
+			.update({ lastReadAt: now })
+			.eq("chatId", chatId)
+			.eq("characterId", activeSpeakerId);
+
+		if (error) {
+			console.error("Failed to mark chat as read:", error);
+		}
+	},
+
 	sendMessage: async (content) => {
 		let { activeChatId, activeSpeakerId, pendingCharacterId } = get();
 		if (!activeSpeakerId) return;
@@ -205,10 +278,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 		if (!session) return;
 
 		if (!activeChatId && pendingCharacterId) {
-			const memberIds = [activeSpeakerId, pendingCharacterId].filter(
-				(id, i, arr) => arr.indexOf(id) === i,
-			);
-			const chatId = await get().createChat(null, false, memberIds);
+			const memberIds = [activeSpeakerId, pendingCharacterId];
+			// Unique IDs to handle self-chat case (sets remove duplicates)
+			const uniqueMemberIds = Array.from(new Set(memberIds));
+			const chatId = await get().createChat(null, false, uniqueMemberIds);
 			if (!chatId) return;
 			activeChatId = chatId;
 			set({ activeChatId: chatId, pendingCharacterId: null });

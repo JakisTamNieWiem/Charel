@@ -3,7 +3,7 @@ export interface Chat {
 	name: string | null;
 	cover: string | null;
 	ownerId: string;
-	isGroup: boolean;
+	isGroup: boolean | null;
 	created_at: string;
 	lastMessageAt: string | null;
 }
