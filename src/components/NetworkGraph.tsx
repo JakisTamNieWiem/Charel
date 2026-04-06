@@ -113,12 +113,26 @@ export default function NetworkGraph() {
 		return { bg: v("--background"), fg: v("--foreground"), card: v("--card") };
 	}, [themeKey]);
 
+	const outerRef = useRef<HTMLDivElement>(null);
+	const [clipPath, setClipPath] = useState("inset(0)");
+
 	useEffect(() => {
+		const el = outerRef.current;
+		if (!el) return;
+		const updateClip = () => {
+			const r = el.getBoundingClientRect();
+			const b = window.innerHeight - r.bottom;
+			const right = window.innerWidth - r.right;
+			setClipPath(`inset(${r.top}px ${right}px ${b}px ${r.left}px)`);
+		};
+		updateClip();
 		const update = () =>
 			setDimensions({ width: window.innerWidth, height: window.innerHeight });
 		update();
-		window.addEventListener("resize", update);
-		return () => window.removeEventListener("resize", update);
+		const ro = new ResizeObserver(updateClip);
+		ro.observe(el);
+		window.addEventListener("resize", () => { update(); updateClip(); });
+		return () => ro.disconnect();
 	}, []);
 
 	const [animTick, setAnimTick] = useState(0);
@@ -360,6 +374,7 @@ export default function NetworkGraph() {
 
 	const nodeCanvasObject = useCallback(
 		(nodeObj: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
+			void animTick;
 			const node = nodeObj as GraphNode;
 			const isHovered = node.id === hoveredNode;
 			const isGroupHovered = node.groupId === hoveredGroup;
@@ -422,10 +437,9 @@ export default function NetworkGraph() {
 			}
 			ctx.globalAlpha = 1;
 		},
-		[hoveredNode, hoveredGroup, connectedNodes, getAvatarCanvas, themeColors],
+		[hoveredNode, hoveredGroup, connectedNodes, getAvatarCanvas, themeColors, animTick],
 	);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Needed for animation to work
 	const linkCanvasObject = useCallback(
 		(linkObj: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
 			const link = linkObj as GraphLink;
@@ -513,11 +527,14 @@ export default function NetworkGraph() {
 
 			ctx.globalAlpha = 1;
 		},
-		[hoveredNode, hoveredGroup, animTick],
+		[hoveredNode, hoveredGroup],
 	);
+
+
 
 	const onRenderBg = useCallback(
 		(ctx: CanvasRenderingContext2D, globalScale: number) => {
+			ctx.save();
 			for (const b of groupBounds) {
 				const isHovered = hoveredGroup === b.id;
 				if (globalScale < 0.03 && !isHovered) continue;
@@ -544,7 +561,7 @@ export default function NetworkGraph() {
 					);
 				}
 			}
-			ctx.globalAlpha = 1;
+			ctx.restore();
 		},
 		[groupBounds, hoveredGroup],
 	);
@@ -561,11 +578,12 @@ export default function NetworkGraph() {
 	);
 
 	return (
-		<div className="relative flex-1 h-full w-full flex justify-end items-center overflow-hidden">
-			{/* Canvas: fixed to viewport so sidebar changes don't move it */}
+		<div ref={outerRef} className="relative flex-1 h-full w-full flex justify-end items-center overflow-hidden">
+			{/* Canvas: fixed to viewport so sidebar changes don't move it; clipped to container bounds */}
 			<div
 				ref={containerRef}
 				className="fixed inset-0 pointer-events-auto overflow-hidden"
+				style={{ clipPath }}
 			>
 				{dimensions.width > 0 && (
 					<ForceGraph2D
@@ -585,6 +603,7 @@ export default function NetworkGraph() {
 						onNodeClick={(node) => setSelectedCharId((node as GraphNode).id)}
 						cooldownTicks={0}
 						warmupTicks={0}
+						d3AlphaDecay={0}
 						enableNodeDrag={false}
 						enablePointerInteraction={true}
 						enableZoomInteraction={true}

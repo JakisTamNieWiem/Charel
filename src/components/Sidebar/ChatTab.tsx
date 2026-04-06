@@ -57,12 +57,7 @@ export default function ChatTab() {
 	const isAnon =
 		!profile?.role || (profile.role !== "dm" && profile.role !== "player");
 
-	useEffect(() => {
-		if (!isAnon) {
-			fetchChats().then(() => fetchLatestMessages());
-		}
-	}, [isAnon, fetchChats, fetchLatestMessages]);
-
+	// Fetch members for chats that haven't loaded them yet
 	useEffect(() => {
 		for (const chat of chats) {
 			if (!chatMembers[chat.id]) {
@@ -78,7 +73,7 @@ export default function ChatTab() {
 		setPendingCharacterId(null);
 	}, [activeSpeakerId, setActiveChatId, setPendingCharacterId]);
 
-	// Build a map: characterId -> existing 1:1 chatId (only for chats where activeSpeakerId is a member)
+	// Build a map: characterId -> existing 1:1 chatId
 	const directChatMap = useMemo(() => {
 		const map = new Map<string, string>();
 		for (const chat of chats) {
@@ -87,8 +82,6 @@ export default function ChatTab() {
 			const isMember = members.some((m) => m.characterId === activeSpeakerId);
 			if (!isMember) continue;
 			for (const m of members) {
-				// Skip own character so we don't show a "chat with yourself"
-				if (m.characterId === activeSpeakerId) continue;
 				map.set(m.characterId, chat.id);
 			}
 		}
@@ -164,6 +157,22 @@ export default function ChatTab() {
 		return last.content.length > 30
 			? `${last.content.slice(0, 30)}...`
 			: last.content;
+	};
+
+	const isChatUnread = (chatId: string) => {
+		if (!activeSpeakerId) return false;
+		const members = chatMembers[chatId] || [];
+		const me = members.find((m) => m.characterId === activeSpeakerId);
+		if (!me) return false;
+
+		const msgs = allMessages[chatId] || [];
+		if (msgs.length === 0) return false;
+
+		const lastMsg = msgs[msgs.length - 1];
+		if (lastMsg.characterId === activeSpeakerId) return false;
+
+		if (!me.lastReadAt) return true;
+		return new Date(lastMsg.created_at) > new Date(me.lastReadAt);
 	};
 
 	const handleCharacterClick = (charId: string) => {
@@ -302,7 +311,7 @@ export default function ChatTab() {
 						key={chat.id}
 						onClick={() => setActiveChatId(chat.id)}
 						className={cn(
-							"group/chat px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center",
+							"group/chat px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative",
 							"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
 							activeChatId === chat.id
 								? [
@@ -326,6 +335,12 @@ export default function ChatTab() {
 										: "No messages yet")}
 							</p>
 						</div>
+						{isChatUnread(chat.id) && (
+							<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
+								<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+								<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+							</span>
+						)}
 					</div>
 				))}
 			</div>
@@ -346,7 +361,7 @@ export default function ChatTab() {
 							key={char.id}
 							onClick={() => handleCharacterClick(char.id)}
 							className={cn(
-								"px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center",
+								"px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative",
 								"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
 								isActive
 									? [
@@ -369,6 +384,12 @@ export default function ChatTab() {
 										: "No messages yet"}
 								</p>
 							</div>
+							{existingChatId && isChatUnread(existingChatId) && (
+								<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
+									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+									<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+								</span>
+							)}
 						</div>
 					);
 				})}

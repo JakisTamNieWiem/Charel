@@ -11,6 +11,7 @@ import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Circle, LayoutGrid } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
@@ -97,9 +98,11 @@ function App() {
 							.single(),
 						supabase.from("Chats").select("*"),
 					]);
-				console.log(chatsRes.data);
-				useGraphStore.getState().importData({
-					characters: charsRes.data || [],
+
+				useChatStore.getState().setChats(chatsRes.data || []);
+				await useChatStore.getState().fetchLatestMessages();
+
+				useGraphStore.getState().importData({					characters: charsRes.data || [],
 					groups: groupsRes.data || [],
 					relationships: relsRes.data || [],
 					relationshipTypes: typesRes.data || [],
@@ -262,6 +265,26 @@ function App() {
 									.single();
 								if (data) {
 									chatStore.addMessage(chatId, data as Message);
+
+									// Show toast if not active chat
+									if (chatStore.activeChatId !== chatId) {
+										const charName = (data as Message).character?.name || "Someone";
+										const content = (data as Message).content;
+										const preview = content.startsWith("[img]") ? "sent an image" : content.length > 50 ? `${content.slice(0, 50)}...` : content;
+										
+										toast(
+											<div 
+												className="cursor-pointer select-none w-full h-full"
+												onClick={() => {
+													chatStore.setActiveChatId(chatId);
+													useGraphStore.getState().setViewMode("chat");
+												}}
+											>
+												<div className="font-semibold">{charName}</div>
+												<div className="text-sm opacity-80">{preview}</div>
+											</div>
+										);
+									}
 								}
 							}
 						}
