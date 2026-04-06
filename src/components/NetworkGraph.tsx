@@ -79,6 +79,7 @@ function sampleQuadratic(
 }
 
 export default function NetworkGraph() {
+	"use no memo";
 	const allChars = useGraphStore((s) => s.characters);
 	const relationships = useGraphStore((s) => s.relationships);
 	const types = useGraphStore((s) => s.relationshipTypes);
