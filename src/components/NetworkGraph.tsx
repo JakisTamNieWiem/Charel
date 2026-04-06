@@ -88,7 +88,6 @@ export default function NetworkGraph() {
 	const setSelectedCharId = useGraphStore((s) => s.setSelectedCharId);
 
 	const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
-	const animTime = useRef(0);
 	const avatarCache = useRef<Map<string, HTMLCanvasElement>>(new Map());
 	const avatarLoading = useRef<Set<string>>(new Set());
 
@@ -121,23 +120,6 @@ export default function NetworkGraph() {
 		window.addEventListener("resize", update);
 		return () => window.removeEventListener("resize", update);
 	}, []);
-
-	const [animTick, setAnimTick] = useState(0);
-	useEffect(() => {
-		if (!hoveredNode && !hoveredGroup) return;
-		let raf: number;
-		let last = 0;
-		const tick = (now: number) => {
-			if (now - last > 33) {
-				animTime.current = now * 0.001;
-				setAnimTick((t) => t + 1);
-				last = now;
-			}
-			raf = requestAnimationFrame(tick);
-		};
-		raf = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(raf);
-	}, [hoveredNode, hoveredGroup]);
 
 	const { gData, groupBounds } = useMemo(() => {
 		const typeMap = new Map(types.map((t) => [t.id, t]));
@@ -236,7 +218,6 @@ export default function NetworkGraph() {
 
 		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-		// Links logic... (same as before but simplified arc selection)
 		let maxDist2 = 0;
 		for (let i = 0; i < nodes.length; i++) {
 			for (let j = i + 1; j < nodes.length; j++) {
@@ -257,8 +238,6 @@ export default function NetworkGraph() {
 				let arcCx: number | undefined;
 				let arcCy: number | undefined;
 
-				// Circular layout doesn't need cross-group logic necessarily,
-				// but arcs look better if we use the same principle.
 				const isCrossGroup =
 					networkMode === "group" ? fromNode.groupId !== toNode.groupId : true;
 
@@ -352,6 +331,8 @@ export default function NetworkGraph() {
 					avatarCache.current.set(avatar, canvas);
 				}
 				avatarLoading.current.delete(avatar);
+				// Force a single repaint when an image finally loads so it doesn't pop in late
+				fgRef.current?.d3Reheat();
 			};
 			img.onerror = () => avatarLoading.current.delete(avatar);
 			return null;
@@ -426,7 +407,20 @@ export default function NetworkGraph() {
 		[hoveredNode, hoveredGroup, connectedNodes, getAvatarCanvas, themeColors],
 	);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Needed for animation to work
+	// Helper to check if a link should be highlighted (used for drawing and particles)
+	const isLinkActive = useCallback(
+		(link: GraphLink) => {
+			const start = link.source as GraphNode;
+			const end = link.target as GraphNode;
+			return (
+				(hoveredNode && (start.id === hoveredNode || end.id === hoveredNode)) ||
+				(hoveredGroup &&
+					(start.groupId === hoveredGroup || end.groupId === hoveredGroup))
+			);
+		},
+		[hoveredNode, hoveredGroup],
+	);
+
 	const linkCanvasObject = useCallback(
 		(linkObj: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
 			const link = linkObj as GraphLink;
@@ -435,10 +429,7 @@ export default function NetworkGraph() {
 			if (!start.x || !end.x) return;
 
 			const isCrossGroup = start.groupId !== end.groupId;
-			const isActive =
-				(hoveredNode && (start.id === hoveredNode || end.id === hoveredNode)) ||
-				(hoveredGroup &&
-					(start.groupId === hoveredGroup || end.groupId === hoveredGroup));
+			const isActive = isLinkActive(link);
 
 			const opacity =
 				!hoveredNode && !hoveredGroup ? 0.25 : isActive ? 0.8 : 0.02;
@@ -472,7 +463,10 @@ export default function NetworkGraph() {
 			ctx.stroke();
 
 			if (isActive) {
-				const center = (animTime.current * GLOW_SPEED) % 1;
+				// Calculate dynamic time directly in the draw call
+				// avoiding React state updates entirely!
+				const timeSeconds = performance.now() * 0.001;
+				const center = (timeSeconds * GLOW_SPEED) % 1;
 
 				for (let i = 0; i < GLOW_STEPS - 1; i++) {
 					const t0 = i / (GLOW_STEPS - 1);
@@ -514,7 +508,7 @@ export default function NetworkGraph() {
 
 			ctx.globalAlpha = 1;
 		},
-		[hoveredNode, hoveredGroup, animTick],
+		[hoveredNode, hoveredGroup, isLinkActive],
 	);
 
 	const onRenderBg = useCallback(
@@ -579,6 +573,13 @@ export default function NetworkGraph() {
 						nodePointerAreaPaint={nodePointerAreaPaint}
 						linkCanvasObject={linkCanvasObject}
 						onRenderFramePre={onRenderBg}
+						// THE INVISIBLE PARTICLE HACK
+						// This forces react-force-graph to run its internal 60FPS render loop
+						// natively ONLY when a link is highlighted, saving React from re-rendering
+						linkDirectionalParticles={(link) =>
+							isLinkActive(link as GraphLink) ? 1 : 0
+						}
+						linkDirectionalParticleWidth={0} // Keep it invisible, rely on custom canvas drawing
 						nodeLabel={() => ""}
 						onNodeHover={(node) =>
 							setHoveredNode((node as GraphNode)?.id || null)
