@@ -7,7 +7,7 @@ export default function Titlebar() {
 	return (
 		<div
 			data-tauri-drag-region
-			className="h-8 px-2 fixed top-0 left-0 right-0 flex justify-end select-none z-50 bg-sidebar"
+			className="h-8 px-2 fixed top-0 left-0 right-0 flex justify-end select-none z-10000 bg-sidebar"
 		>
 			<div className="flex justify-center items-center gap-1">
 				<Button

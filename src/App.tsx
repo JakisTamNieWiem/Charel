@@ -102,7 +102,8 @@ function App() {
 				useChatStore.getState().setChats(chatsRes.data || []);
 				await useChatStore.getState().fetchLatestMessages();
 
-				useGraphStore.getState().importData({					characters: charsRes.data || [],
+				useGraphStore.getState().importData({
+					characters: charsRes.data || [],
 					groups: groupsRes.data || [],
 					relationships: relsRes.data || [],
 					relationshipTypes: typesRes.data || [],
@@ -268,12 +269,16 @@ function App() {
 
 									// Show toast if not active chat
 									if (chatStore.activeChatId !== chatId) {
-										const charName = (data as Message).character?.name || "Someone";
+										const charName = data.character?.name || "Someone";
 										const content = (data as Message).content;
-										const preview = content.startsWith("[img]") ? "sent an image" : content.length > 50 ? `${content.slice(0, 50)}...` : content;
-										
+										const preview = content.startsWith("[img]")
+											? "sent an image"
+											: content.length > 50
+												? `${content.slice(0, 50)}...`
+												: content;
+
 										toast(
-											<div 
+											<div
 												className="cursor-pointer select-none w-full h-full"
 												onClick={() => {
 													chatStore.setActiveChatId(chatId);
@@ -282,7 +287,7 @@ function App() {
 											>
 												<div className="font-semibold">{charName}</div>
 												<div className="text-sm opacity-80">{preview}</div>
-											</div>
+											</div>,
 										);
 									}
 								}

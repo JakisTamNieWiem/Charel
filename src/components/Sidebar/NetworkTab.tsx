@@ -26,9 +26,7 @@ export default function NetworkTab() {
 		const sorted = [...allValues].sort((a, b) => a - b);
 
 		const charStats: CharStat[] = characters.map((c) => {
-			const rels = relationships.filter(
-				(r) => r.toId === c.id,
-			);
+			const rels = relationships.filter((r) => r.toId === c.id);
 			const values = rels.map(relValue);
 			const avg =
 				values.length > 0
@@ -213,11 +211,20 @@ export default function NetworkTab() {
 				<div className="p-4 pt-0 space-y-6">
 					{/* Overview Grid */}
 					<div className="grid grid-cols-2 gap-2">
-						<StatCard label="Characters" value={stats.totalCharacters.toString()} />
-						<StatCard label="Relations" value={stats.totalRelationships.toString()} />
+						<StatCard
+							label="Characters"
+							value={stats.totalCharacters.toString()}
+						/>
+						<StatCard
+							label="Relations"
+							value={stats.totalRelationships.toString()}
+						/>
 						<StatCard
 							label="Avg Sentiment"
-							value={(stats.avgRelValue > 0 ? "+" : "") + stats.avgRelValue.toFixed(2)}
+							value={
+								(stats.avgRelValue > 0 ? "+" : "") +
+								stats.avgRelValue.toFixed(2)
+							}
 							color={sentimentColor(stats.avgRelValue)}
 						/>
 						<StatCard
@@ -242,7 +249,10 @@ export default function NetworkTab() {
 							label="Connectivity"
 							value={
 								stats.totalCharacters > 0
-									? ((stats.totalRelationships * 2) / stats.totalCharacters).toFixed(1)
+									? (
+											(stats.totalRelationships * 2) /
+											stats.totalCharacters
+										).toFixed(1)
 									: "0"
 							}
 							sub="avg links/char"
@@ -263,7 +273,7 @@ export default function NetworkTab() {
 									)}
 								/>
 							</div>
-							
+
 							<div className="space-y-2">
 								<h3 className="text-[10px] font-mono uppercase tracking-widest opacity-40">
 									Connections per Character
@@ -271,7 +281,9 @@ export default function NetworkTab() {
 								<Histogram
 									bins={stats.connHistogram}
 									labels={stats.connHistogram.map((_, i) =>
-										Math.round((i / stats.connHistogram.length) * (stats.maxConn + 1)).toString(),
+										Math.round(
+											(i / stats.connHistogram.length) * (stats.maxConn + 1),
+										).toString(),
 									)}
 									color="#60a5fa"
 								/>
@@ -286,9 +298,24 @@ export default function NetworkTab() {
 								Polarity Breakdown
 							</h3>
 							<div className="h-3 rounded-full overflow-hidden flex">
-								<div className="h-full bg-[#4ade80]" style={{ width: `${(stats.positiveCount / stats.totalRelationships) * 100}%` }} />
-								<div className="h-full bg-[#808080]" style={{ width: `${(stats.neutralCount / stats.totalRelationships) * 100}%` }} />
-								<div className="h-full bg-[#f87171]" style={{ width: `${(stats.negativeCount / stats.totalRelationships) * 100}%` }} />
+								<div
+									className="h-full bg-[#4ade80]"
+									style={{
+										width: `${(stats.positiveCount / stats.totalRelationships) * 100}%`,
+									}}
+								/>
+								<div
+									className="h-full bg-[#808080]"
+									style={{
+										width: `${(stats.neutralCount / stats.totalRelationships) * 100}%`,
+									}}
+								/>
+								<div
+									className="h-full bg-[#f87171]"
+									style={{
+										width: `${(stats.negativeCount / stats.totalRelationships) * 100}%`,
+									}}
+								/>
 							</div>
 							<div className="flex justify-between text-[9px] opacity-50">
 								<span>{stats.positiveCount} pos</span>
@@ -304,16 +331,34 @@ export default function NetworkTab() {
 							Highlights
 						</h3>
 						{stats.mostLikeable && (
-							<CharacterStatRow title="Most Likeable" char={stats.mostLikeable} detailColor="#4ade80" />
+							<CharacterStatRow
+								title="Most Likeable"
+								char={stats.mostLikeable}
+								detailColor="#4ade80"
+							/>
 						)}
 						{stats.mostDisliked && (
-							<CharacterStatRow title="Most Disliked" char={stats.mostDisliked} detailColor="#f87171" />
+							<CharacterStatRow
+								title="Most Disliked"
+								char={stats.mostDisliked}
+								detailColor="#f87171"
+							/>
 						)}
 						{stats.mostConnected && (
-							<CharacterStatRow title="Most Connected" char={stats.mostConnected} detailColor="#60a5fa" detail={`${stats.mostConnected.connectionCount} links`} />
+							<CharacterStatRow
+								title="Most Connected"
+								char={stats.mostConnected}
+								detailColor="#60a5fa"
+								detail={`${stats.mostConnected.connectionCount} links`}
+							/>
 						)}
 						{stats.leastConnected && (
-							<CharacterStatRow title="Least Connected" char={stats.leastConnected} detailColor="#fbbf24" detail={`${stats.leastConnected.connectionCount} links`} />
+							<CharacterStatRow
+								title="Least Connected"
+								char={stats.leastConnected}
+								detailColor="#fbbf24"
+								detail={`${stats.leastConnected.connectionCount} links`}
+							/>
 						)}
 						{stats.bestRel && (
 							<RelationStatRow title="Best Relation" rel={stats.bestRel} />
@@ -330,14 +375,26 @@ export default function NetworkTab() {
 								Groups
 							</h3>
 							{stats.groupStats.map((g) => (
-								<div key={g.name} className="p-2.5 rounded-lg bg-white/5 border border-white/10 flex items-center gap-2">
-									<div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
+								<div
+									key={g.name}
+									className="p-2.5 rounded-lg bg-white/5 border border-white/10 flex items-center gap-2"
+								>
+									<div
+										className="w-2.5 h-2.5 rounded-full shrink-0"
+										style={{ backgroundColor: g.color }}
+									/>
 									<div className="flex-1 min-w-0">
 										<p className="text-xs font-medium truncate">{g.name}</p>
-										<p className="text-[9px] opacity-40">{g.memberCount} members, {g.internalRelations} internal</p>
+										<p className="text-[9px] opacity-40">
+											{g.memberCount} members, {g.internalRelations} internal
+										</p>
 									</div>
-									<span className="text-[10px] font-mono font-bold" style={{ color: sentimentColor(g.avgValue) }}>
-										{g.avgValue > 0 ? "+" : ""}{g.avgValue.toFixed(2)}
+									<span
+										className="text-[10px] font-mono font-bold"
+										style={{ color: sentimentColor(g.avgValue) }}
+									>
+										{g.avgValue > 0 ? "+" : ""}
+										{g.avgValue.toFixed(2)}
 									</span>
 								</div>
 							))}
@@ -346,7 +403,10 @@ export default function NetworkTab() {
 
 					{/* Leaderboard */}
 					<div className="space-y-4">
-						<RatingLeaderboard title="Character Ratings" data={stats.charStats} />
+						<RatingLeaderboard
+							title="Character Ratings"
+							data={stats.charStats}
+						/>
 					</div>
 				</div>
 			</div>
@@ -507,7 +567,10 @@ function RelationStatRow({
 function RatingLeaderboard({
 	title,
 	data,
-}: { title: string; data: CharStat[] }) {
+}: {
+	title: string;
+	data: CharStat[];
+}) {
 	const sorted = [...data]
 		.filter((c) => c.connectionCount > 0)
 		.sort((a, b) => b.avgValue - a.avgValue);
@@ -532,7 +595,9 @@ function RatingLeaderboard({
 								{c.name.slice(0, 2)}
 							</AvatarFallback>
 						</Avatar>
-						<span className="text-xs flex-1 truncate font-medium">{c.name}</span>
+						<span className="text-xs flex-1 truncate font-medium">
+							{c.name}
+						</span>
 						<div className="flex items-center gap-2">
 							<span
 								className="text-[10px] font-mono font-bold w-10 text-right"
@@ -545,7 +610,7 @@ function RatingLeaderboard({
 								<div
 									className="h-full rounded-full"
 									style={{
-										width: `${((c.avgValue + 1) / 2) * 100}%`,
+										width: `${Math.abs(c.avgValue * 100)}%`,
 										backgroundColor: sentimentColor(c.avgValue),
 									}}
 								/>
