@@ -29,8 +29,6 @@ export default function ChatTab() {
 	const pendingCharacterId = useChatStore((s) => s.pendingCharacterId);
 	const setActiveChatId = useChatStore((s) => s.setActiveChatId);
 	const setPendingCharacterId = useChatStore((s) => s.setPendingCharacterId);
-	const fetchChats = useChatStore((s) => s.fetchChats);
-	const fetchLatestMessages = useChatStore((s) => s.fetchLatestMessages);
 	const createChat = useChatStore((s) => s.createChat);
 	const chatMembers = useChatStore((s) => s.chatMembers);
 	const fetchChatMembers = useChatStore((s) => s.fetchChatMembers);

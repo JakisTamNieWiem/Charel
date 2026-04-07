@@ -1,7 +1,6 @@
 import { Edit2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import CharacterModal from "@/components/CharacterModal";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";

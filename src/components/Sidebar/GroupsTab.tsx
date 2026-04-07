@@ -71,7 +71,7 @@ export default function GroupsTab() {
 											};
 											if (debounceTimer.current)
 												clearTimeout(debounceTimer.current);
-											debounceTimer.current = setTimeout(() => {
+											debounceTimer.current = window.setTimeout(() => {
 												updateGroup(editedGroup as Group);
 											}, 500);
 										}}
