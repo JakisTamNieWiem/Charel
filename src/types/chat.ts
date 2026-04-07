@@ -12,6 +12,7 @@ export interface ChatMember {
 	chatId: string;
 	characterId: string;
 	userId: string;
+	lastReadAt: string;
 }
 
 export interface Message {

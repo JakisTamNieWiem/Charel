@@ -11,7 +11,7 @@ import {
 	Settings,
 	Users,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Sidebar,
@@ -34,15 +34,46 @@ import RelationshipTypesTab from "./RelationshipTypesTab";
 import SettingsTab from "./SettingsTab";
 import ThemeToggle from "./ThemeToggle";
 
-type SidebarTab = "characters" | "network" | "groups" | "types" | "settings" | "chat";
+type SidebarTab =
+	| "characters"
+	| "network"
+	| "groups"
+	| "types"
+	| "settings"
+	| "chat";
 
-const navItems: { value: SidebarTab; icon: React.ElementType; title: string; viewMode: "character" | "network" | "chat" }[] = [
-	{ value: "characters", icon: Users, title: "Characters", viewMode: "character" },
-	{ value: "network", icon: Network, title: "Network Graph", viewMode: "network" },
+const navItems: {
+	value: SidebarTab;
+	icon: React.ElementType;
+	title: string;
+	viewMode: "character" | "network" | "chat";
+}[] = [
+	{
+		value: "characters",
+		icon: Users,
+		title: "Characters",
+		viewMode: "character",
+	},
+	{
+		value: "network",
+		icon: Network,
+		title: "Network Graph",
+		viewMode: "network",
+	},
 	{ value: "groups", icon: Layers, title: "Groups", viewMode: "network" },
-	{ value: "types", icon: Link, title: "Relationship Types", viewMode: "character" },
+	{
+		value: "types",
+		icon: Link,
+		title: "Relationship Types",
+		viewMode: "character",
+	},
 	{ value: "chat", icon: MessageCircle, title: "Chat", viewMode: "chat" },
-	{ value: "settings", icon: Settings, title: "Settings", viewMode: "character" },
+	{
+		value: "settings",
+		icon: Settings,
+		title: "Settings",
+		viewMode: "character",
+	},
 ];
 
 export default function AppSidebar() {
