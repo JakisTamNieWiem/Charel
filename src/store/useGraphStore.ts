@@ -85,15 +85,17 @@ export const useGraphStore = create<GraphState>()(
 				const prevCharacters = get().characters;
 				const id = crypto.randomUUID();
 
+				const { data: sessionData } = await supabase.auth.getSession();
+				const ownerId = sessionData.session?.user.id;
+
 				set((state) => ({
-					characters: [...state.characters, { ...char, id }],
+					characters: [...state.characters, { ...char, id, ownerId }],
 				}));
 
-				const { data } = await supabase.auth.getSession();
-				if (data.session) {
+				if (sessionData.session) {
 					const { error } = await supabase
 						.from("Characters")
-						.insert({ ...char, id })
+						.insert({ ...char, id, ownerId: sessionData.session.user.id })
 						.select()
 						.single();
 					if (error) {

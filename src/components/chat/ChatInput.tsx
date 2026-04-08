@@ -1,16 +1,16 @@
-import { ImagePlus, Send, Sticker, Smile } from "lucide-react";
+import type { IGif } from "@giphy/js-types";
+import { ImagePlus, Send, Smile, Sticker } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { readFileAsDataURL, resizeImage } from "@/lib/chat-utils";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import GiphyPicker from "./GiphyPicker";
+import { Textarea } from "@/components/ui/textarea";
+import { readFileAsDataURL, resizeImage } from "@/lib/chat-utils";
 import EmojiPicker from "./EmojiPicker";
-import type { IGif } from "@giphy/js-types";
+import GiphyPicker from "./GiphyPicker";
 
 interface ChatInputProps {
 	draft: string;

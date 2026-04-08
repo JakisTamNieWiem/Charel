@@ -1,45 +1,68 @@
+import type { IGif } from "@giphy/js-types";
 import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+	useAddChatMembers,
+	useChatMembers,
+	useChats,
+	useDeleteChat,
+	useRemoveChatMember,
+	useRenameChat,
+} from "@/hooks/use-chats";
+import {
+	useDeleteMessage,
+	useEditMessage,
+	useMessages,
+} from "@/hooks/use-messages";
+import { useSendMessage } from "@/hooks/use-sendMessage";
 import { formatDateHeader } from "@/lib/chat-utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Message } from "@/types/chat";
-import type { IGif } from "@giphy/js-types";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
 import { AddMembersDialog, MembersDialog, RenameDialog } from "./GroupDialogs";
 import MessageBubble from "./MessageBubble";
 
-const EMPTY_MESSAGES: Message[] = [];
-
 export default function ChatWindow() {
 	const activeChatId = useChatStore((s) => s.activeChatId);
-	const allMessages = useChatStore((s) => s.messages);
-	const messages = useMemo(
-		() => allMessages[activeChatId ?? ""] ?? EMPTY_MESSAGES,
-		[allMessages, activeChatId],
-	);
-	const fetchMessages = useChatStore((s) => s.fetchMessages);
-	const fetchOlderMessages = useChatStore((s) => s.fetchOlderMessages);
-	const sendMessage = useChatStore((s) => s.sendMessage);
-	const editMessage = useChatStore((s) => s.editMessage);
-	const deleteMessage = useChatStore((s) => s.deleteMessage);
 	const activeSpeakerId = useChatStore((s) => s.activeSpeakerId);
 	const pendingCharacterId = useChatStore((s) => s.pendingCharacterId);
-	const chats = useChatStore((s) => s.chats);
-	const chatMembers = useChatStore((s) => s.chatMembers);
-	const fetchChatMembers = useChatStore((s) => s.fetchChatMembers);
-	const renameChat = useChatStore((s) => s.renameChat);
-	const addChatMembers = useChatStore((s) => s.addChatMembers);
-	const removeChatMember = useChatStore((s) => s.removeChatMember);
-	const deleteChat = useChatStore((s) => s.deleteChat);
-	const hasMore = useChatStore((s) => s.hasMore);
-	const loadingMap = useChatStore((s) => s.loading);
+
+	const {
+		data: messagesData,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = useMessages(activeChatId ?? "");
+	const { data: chats = [] } = useChats();
+	const { data: members = [] } = useChatMembers(activeChatId ?? "");
+
+	const { mutateAsync: sendMessage } = useSendMessage();
+	const { mutateAsync: editMessage } = useEditMessage();
+	const { mutateAsync: deleteMessage } = useDeleteMessage();
+	const { mutateAsync: renameChat } = useRenameChat();
+	const { mutateAsync: addChatMembers } = useAddChatMembers();
+	const { mutateAsync: removeChatMember } = useRemoveChatMember();
+	const { mutateAsync: deleteChat } = useDeleteChat();
+
+	const messages = useMemo(
+		() => messagesData?.pages.flat() ?? [],
+		[messagesData],
+	);
+	const activeChat = useMemo(
+		() => chats.find((c) => c.id === activeChatId),
+		[chats, activeChatId],
+	);
 
 	const characters = useGraphStore((s) => s.characters);
-
-	const isLoading = activeChatId ? (loadingMap[activeChatId] ?? false) : false;
-	const canLoadMore = activeChatId ? (hasMore[activeChatId] ?? false) : false;
+	const pendingCharacter = useMemo(
+		() =>
+			pendingCharacterId
+				? characters.find((c) => c.id === pendingCharacterId)
+				: null,
+		[characters, pendingCharacterId],
+	);
 
 	const [draft, setDraft] = useState("");
 	const [editingId, setEditingId] = useState<string | null>(null);
@@ -53,20 +76,6 @@ export default function ChatWindow() {
 	const [showAddMembers, setShowAddMembers] = useState(false);
 	const [renameInitial, setRenameInitial] = useState("");
 
-	const activeChat = chats.find((c) => c.id === activeChatId);
-	const pendingCharacter = pendingCharacterId
-		? characters.find((c) => c.id === pendingCharacterId)
-		: null;
-	const members = activeChatId ? chatMembers[activeChatId] || [] : [];
-
-	// Fetch messages and members on chat change
-	useEffect(() => {
-		if (activeChatId) {
-			fetchMessages(activeChatId);
-			fetchChatMembers(activeChatId);
-		}
-	}, [activeChatId, fetchMessages, fetchChatMembers]);
-
 	// Auto-scroll to bottom on new messages
 	const prevCount = useRef(0);
 	useEffect(() => {
@@ -77,17 +86,17 @@ export default function ChatWindow() {
 			);
 		}
 		prevCount.current = messages.length;
-	});
+	}, [messages]);
 
 	// Load older messages on scroll to top
 	useEffect(() => {
 		const el = scrollRef.current;
 		if (!el) return;
 		const onScroll = () => {
-			if (!activeChatId || !canLoadMore || isLoading) return;
+			if (!activeChatId || !hasNextPage || isFetchingNextPage) return;
 			if (el.scrollTop < 100) {
 				const prevHeight = el.scrollHeight;
-				fetchOlderMessages(activeChatId).then(() => {
+				fetchNextPage().then(() => {
 					requestAnimationFrame(() => {
 						if (scrollRef.current) {
 							scrollRef.current.scrollTop =
@@ -99,29 +108,35 @@ export default function ChatWindow() {
 		};
 		el.addEventListener("scroll", onScroll);
 		return () => el.removeEventListener("scroll", onScroll);
-	}, [activeChatId, canLoadMore, isLoading, fetchOlderMessages]);
+	}, [activeChatId, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
 	// Handlers
 	const handleSend = async () => {
 		const content = draft.trim();
 		if (!content || !activeSpeakerId) return;
 		setDraft("");
-		await sendMessage(content);
+		await sendMessage({ content, characterId: activeSpeakerId });
 	};
 
 	const handleSendImage = async (dataUrl: string) => {
 		if (!activeSpeakerId) return;
-		await sendMessage(`[img]${dataUrl}[/img]`);
+		await sendMessage({
+			content: `[img]${dataUrl}[/img]`,
+			characterId: activeSpeakerId,
+		});
 	};
 
 	const handleSendGif = async (gif: IGif) => {
 		if (!activeSpeakerId) return;
-		await sendMessage(`[img]${gif.images.original.url}[/img]`);
+		await sendMessage({
+			content: `[img]${gif.images.original.url}[/img]`,
+			characterId: activeSpeakerId,
+		});
 	};
 
 	const handleConfirmEdit = async () => {
 		if (!editingId || !activeChatId) return;
-		await editMessage(editingId, activeChatId, editContent);
+		await editMessage({ messageId: editingId, content: editContent });
 		setEditingId(null);
 		setEditContent("");
 	};
@@ -188,15 +203,15 @@ export default function ChatWindow() {
 			{/* Messages */}
 			<div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar">
 				<div className="px-6 py-4 space-y-1">
-					{isLoading && (
+					{isFetchingNextPage && (
 						<div className="flex justify-center py-4">
 							<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
 						</div>
 					)}
-					{canLoadMore && !isLoading && (
+					{hasNextPage && !isFetchingNextPage && (
 						<div className="flex justify-center py-2">
 							<button
-								onClick={() => activeChatId && fetchOlderMessages(activeChatId)}
+								onClick={() => fetchNextPage()}
 								className="text-xs text-muted-foreground hover:text-foreground transition-colors"
 							>
 								Load older messages
@@ -229,9 +244,7 @@ export default function ChatWindow() {
 										setEditingId(null);
 										setEditContent("");
 									}}
-									onDelete={() =>
-										activeChatId && deleteMessage(msg.id, activeChatId)
-									}
+									onDelete={() => deleteMessage(msg.id)}
 								/>
 							))}
 						</div>
@@ -265,14 +278,17 @@ export default function ChatWindow() {
 				characters={characters}
 				activeSpeakerId={activeSpeakerId}
 				onRemoveMember={(charId) =>
-					activeChatId && removeChatMember(activeChatId, charId)
+					activeChatId &&
+					removeChatMember({ chatId: activeChatId, characterId: charId })
 				}
 			/>
 			<RenameDialog
 				open={showRename}
 				onOpenChange={setShowRename}
 				initialName={renameInitial}
-				onRename={(name) => activeChatId && renameChat(activeChatId, name)}
+				onRename={(name) =>
+					activeChatId && renameChat({ chatId: activeChatId, name })
+				}
 			/>
 			<AddMembersDialog
 				open={showAddMembers}
@@ -280,7 +296,10 @@ export default function ChatWindow() {
 				characters={characters}
 				existingMemberIds={members.map((m) => m.characterId)}
 				excludeId={activeSpeakerId}
-				onAdd={(ids) => activeChatId && addChatMembers(activeChatId, ids)}
+				onAdd={(ids) =>
+					activeChatId &&
+					addChatMembers({ chatId: activeChatId, characterIds: ids })
+				}
 			/>
 		</div>
 	);

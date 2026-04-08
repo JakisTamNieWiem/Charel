@@ -1,9 +1,9 @@
-import { Grid } from "@giphy/react-components";
 import type { IGif } from "@giphy/js-types";
-import { useState } from "react";
-import { gf } from "@/lib/giphy";
-import { Input } from "@/components/ui/input";
+import { Grid } from "@giphy/react-components";
 import { Search } from "lucide-react";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { gf } from "@/lib/giphy";
 
 interface GiphyPickerProps {
 	onGifSelect: (gif: IGif) => void;

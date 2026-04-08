@@ -19,6 +19,9 @@ import {
 	SidebarGroup,
 	SidebarHeader,
 } from "@/components/ui/sidebar";
+import { useChats } from "@/hooks/use-chats";
+import { useLatestMessages } from "@/hooks/use-messages";
+import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
@@ -77,7 +80,6 @@ const navItems: {
 ];
 
 export default function AppSidebar() {
-	// const { state, toggleSidebar } = useSidebar();
 	const setViewMode = useGraphStore((state) => state.setViewMode);
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
 	const isSyncing = useGraphStore((state) => state.isSyncing);
@@ -85,29 +87,28 @@ export default function AppSidebar() {
 	const [activeTab, setActiveTab] = useState<SidebarTab>("characters");
 
 	const [version, setVersion] = useState<string>("");
-	const profile = useChatStore((state) => state.profile);
+
+	const { data: profile } = useProfile();
+	const { data: chats = [] } = useChats();
+	const chatIds = useMemo(() => chats.map((c) => c.id), [chats]);
+	const { data: latestMessages = {} } = useLatestMessages(chatIds);
 	const activeSpeakerId = useChatStore((state) => state.activeSpeakerId);
-	const chats = useChatStore((state) => state.chats);
-	const chatMembers = useChatStore((state) => state.chatMembers);
-	const allMessages = useChatStore((state) => state.messages);
 
 	const hasUnread = useMemo(() => {
-		if (!activeSpeakerId) return false;
+		if (!activeSpeakerId || chats.length === 0) return false;
 		return chats.some((chat) => {
-			const members = chatMembers[chat.id] || [];
+			const members = chat.members || [];
 			const me = members.find((m) => m.characterId === activeSpeakerId);
 			if (!me) return false;
 
-			const msgs = allMessages[chat.id] || [];
-			if (msgs.length === 0) return false;
-
-			const lastMsg = msgs[msgs.length - 1];
+			const lastMsg = latestMessages[chat.id];
+			if (!lastMsg) return false;
 			if (lastMsg.characterId === activeSpeakerId) return false;
 
 			if (!me.lastReadAt) return true;
 			return new Date(lastMsg.created_at) > new Date(me.lastReadAt);
 		});
-	}, [activeSpeakerId, chats, chatMembers, allMessages]);
+	}, [activeSpeakerId, chats, latestMessages]);
 
 	const contentRef = useRef<HTMLDivElement>(null);
 
@@ -148,7 +149,7 @@ export default function AppSidebar() {
 				</span>
 			);
 	})();
-	//w-80 h-full *:bg-background border-r border-white/10 relative flex flex-col items-center border-bottom
+
 	return (
 		<Sidebar variant="inset" collapsible="icon" className="pt-0 z-45 pl-0">
 			<div className="h-full flex flex-row gap-0">

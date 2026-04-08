@@ -17,34 +17,41 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useChats, useCreateChat } from "@/hooks/use-chats";
+import { useLatestMessages } from "@/hooks/use-messages";
+import { useProfile } from "@/hooks/use-profile";
 import { cn } from "@/lib/utils";
-import type { Chat } from "@/store/useChatStore";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
+import type { Chat, ChatMember } from "@/types/chat";
 
 export default function ChatTab() {
-	const profile = useChatStore((s) => s.profile);
-	const chats = useChatStore((s) => s.chats);
+	const { data: profile } = useProfile();
+	const { data: chats = [] } = useChats();
+	const chatIds = useMemo(() => chats.map((c) => c.id), [chats]);
+	const { data: latestMessages = {} } = useLatestMessages(chatIds);
+
 	const activeChatId = useChatStore((s) => s.activeChatId);
 	const pendingCharacterId = useChatStore((s) => s.pendingCharacterId);
 	const setActiveChatId = useChatStore((s) => s.setActiveChatId);
 	const setPendingCharacterId = useChatStore((s) => s.setPendingCharacterId);
-	const createChat = useChatStore((s) => s.createChat);
-	const chatMembers = useChatStore((s) => s.chatMembers);
-	const fetchChatMembers = useChatStore((s) => s.fetchChatMembers);
 	const activeSpeakerId = useChatStore((s) => s.activeSpeakerId);
 	const setActiveSpeakerId = useChatStore((s) => s.setActiveSpeakerId);
-	const allMessages = useChatStore((s) => s.messages);
+
+	const { mutateAsync: createChat } = useCreateChat();
 
 	const characters = useGraphStore((s) => s.characters);
 	const activeChar = characters.find((c) => c.id === activeSpeakerId);
 
 	// Default speaker to first character if not set
 	useEffect(() => {
-		if (!activeSpeakerId && characters.length > 0) {
-			setActiveSpeakerId(characters[0].id);
+		if (!activeSpeakerId && characters.length > 0 && profile) {
+			const mine = characters.filter((c) => c.ownerId === profile.userId);
+			if (mine.length > 0) {
+				setActiveSpeakerId(mine[0].id);
+			}
 		}
-	}, [activeSpeakerId, characters, setActiveSpeakerId]);
+	}, [activeSpeakerId, characters, setActiveSpeakerId, profile]);
 
 	const [search, setSearch] = useState("");
 	const [showNewGroup, setShowNewGroup] = useState(false);
@@ -54,15 +61,6 @@ export default function ChatTab() {
 
 	const isAnon =
 		!profile?.role || (profile.role !== "dm" && profile.role !== "player");
-
-	// Fetch members for chats that haven't loaded them yet
-	useEffect(() => {
-		for (const chat of chats) {
-			if (!chatMembers[chat.id]) {
-				fetchChatMembers(chat.id);
-			}
-		}
-	}, [chats, chatMembers, fetchChatMembers]);
 
 	// Clear active chat when switching speakers to avoid showing another character's messages
 	useEffect(() => {
@@ -76,36 +74,30 @@ export default function ChatTab() {
 		const map = new Map<string, string>();
 		for (const chat of chats) {
 			if (chat.isGroup) continue;
-			const members = chatMembers[chat.id] || [];
+			const members = chat.members || [];
 			const isMember = members.some((m) => m.characterId === activeSpeakerId);
 			if (!isMember) continue;
 			for (const m of members) {
-				map.set(m.characterId, chat.id);
+				if (m.characterId !== activeSpeakerId) {
+					map.set(m.characterId, chat.id);
+				}
 			}
 		}
 		return map;
-	}, [chats, chatMembers, activeSpeakerId]);
+	}, [chats, activeSpeakerId]);
 
 	const groupChats = useMemo(() => chats.filter((c) => c.isGroup), [chats]);
 
 	const filteredCharacters = useMemo(() => {
-		// Build a map of characterId -> lastMessageAt from their direct chat
-		const lastMessageMap = new Map<string, string>();
-		for (const chat of chats) {
-			if (chat.isGroup || !chat.lastMessageAt) continue;
-			const members = chatMembers[chat.id] || [];
-			for (const m of members) {
-				if (m.characterId === activeSpeakerId) continue;
-				const existing = lastMessageMap.get(m.characterId);
-				if (!existing || chat.lastMessageAt > existing) {
-					lastMessageMap.set(m.characterId, chat.lastMessageAt);
-				}
-			}
-		}
-
 		const sorted = [...characters].sort((a, b) => {
-			const aTime = lastMessageMap.get(a.id);
-			const bTime = lastMessageMap.get(b.id);
+			const aChatId = directChatMap.get(a.id);
+			const bChatId = directChatMap.get(b.id);
+			const aChat = chats.find((c) => c.id === aChatId);
+			const bChat = chats.find((c) => c.id === bChatId);
+
+			const aTime = aChat?.lastMessageAt;
+			const bTime = bChat?.lastMessageAt;
+
 			// Characters with messages come first, sorted by newest
 			if (aTime && bTime) return bTime.localeCompare(aTime);
 			if (aTime) return -1;
@@ -117,24 +109,24 @@ export default function ChatTab() {
 		if (!search) return sorted;
 		const q = search.toLowerCase();
 		return sorted.filter((c) => c.name.toLowerCase().includes(q));
-	}, [characters, search, chats, chatMembers, activeSpeakerId]);
+	}, [characters, search, chats, directChatMap]);
 
 	const filteredGroups = useMemo(() => {
 		if (!search) return groupChats;
 		const q = search.toLowerCase();
 		return groupChats.filter((c) => {
 			if (c.name?.toLowerCase().includes(q)) return true;
-			const members = chatMembers[c.id] || [];
+			const members = c.members || [];
 			return members.some((m) => {
 				const char = characters.find((ch) => ch.id === m.characterId);
 				return char?.name.toLowerCase().includes(q);
 			});
 		});
-	}, [groupChats, search, chatMembers, characters]);
+	}, [groupChats, search, characters]);
 
-	const getGroupDisplayName = (chat: Chat) => {
+	const getGroupDisplayName = (chat: Chat & { members?: ChatMember[] }) => {
 		if (chat.name) return chat.name;
-		const members = chatMembers[chat.id] || [];
+		const members = chat.members || [];
 		const names = members
 			.map((m) => characters.find((c) => c.id === m.characterId)?.name)
 			.filter(Boolean);
@@ -142,9 +134,8 @@ export default function ChatTab() {
 	};
 
 	const getLastMessagePreview = (chatId: string) => {
-		const msgs = allMessages[chatId];
-		if (!msgs || msgs.length === 0) return null;
-		const last = msgs[msgs.length - 1];
+		const last = latestMessages[chatId];
+		if (!last) return null;
 		if (last.content.startsWith("[img]")) return "📷 Image";
 		if (
 			/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|svg|bmp)(?:\?\S*)?/i.test(
@@ -159,14 +150,15 @@ export default function ChatTab() {
 
 	const isChatUnread = (chatId: string) => {
 		if (!activeSpeakerId) return false;
-		const members = chatMembers[chatId] || [];
+		const chat = chats.find((c) => c.id === chatId);
+		if (!chat) return false;
+
+		const members = chat.members || [];
 		const me = members.find((m) => m.characterId === activeSpeakerId);
 		if (!me) return false;
 
-		const msgs = allMessages[chatId] || [];
-		if (msgs.length === 0) return false;
-
-		const lastMsg = msgs[msgs.length - 1];
+		const lastMsg = latestMessages[chatId];
+		if (!lastMsg) return false;
 		if (lastMsg.characterId === activeSpeakerId) return false;
 
 		if (!me.lastReadAt) return true;
@@ -178,18 +170,17 @@ export default function ChatTab() {
 		if (existingChatId) {
 			setActiveChatId(existingChatId);
 		} else {
-			// No chat yet — set pending, chat will be created on first message
 			setPendingCharacterId(charId);
 		}
 	};
 
 	const handleCreateGroup = async () => {
 		if (selectedCharIds.length < 2) return;
-		const chatId = await createChat(
-			newGroupName || null,
-			true,
-			selectedCharIds,
-		);
+		const chatId = await createChat({
+			name: newGroupName || null,
+			isGroup: true,
+			characterIds: selectedCharIds,
+		});
 		if (chatId) {
 			setActiveChatId(chatId);
 		}
@@ -260,7 +251,7 @@ export default function ChatTab() {
 							if (char) setActiveSpeakerId(char.id);
 						}
 					}}
-					items={characters.filter((c) => c.ownerId === profile.userId)}
+					items={characters.filter((c) => c.ownerId === profile?.userId)}
 				>
 					<ComboboxInput
 						placeholder="Select character..."
@@ -299,7 +290,6 @@ export default function ChatTab() {
 			</div>
 
 			{/* Group chats section */}
-
 			<div className="mb-2">
 				<p className="text-[10px] font-mono uppercase tracking-widest opacity-30 px-1 mb-1">
 					Group Chats ({groupChats.length})

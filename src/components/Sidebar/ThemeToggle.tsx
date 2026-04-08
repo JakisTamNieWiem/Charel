@@ -34,18 +34,20 @@ export default function ThemeToggle() {
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger render={
-				<Button
-					variant="ghost"
-					className={cn(
-						"flex items-center justify-start gap-2 text-[10px] uppercase font-mono tracking-widest transition-all",
-						className
-					)}
-				>
-					<Icon className="w-3 h-3" />
-					<span>{label}</span>
-				</Button>
-			} />
+			<DropdownMenuTrigger
+				render={
+					<Button
+						variant="ghost"
+						className={cn(
+							"flex items-center justify-start gap-2 text-[10px] uppercase font-mono tracking-widest transition-all",
+							className,
+						)}
+					>
+						<Icon className="w-3 h-3" />
+						<span>{label}</span>
+					</Button>
+				}
+			/>
 			<DropdownMenuContent align="start">
 				<DropdownMenuItem onClick={() => setTheme("light")}>
 					<Sun className="mr-2 h-4 w-4" />

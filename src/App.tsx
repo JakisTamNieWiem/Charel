@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import ChatWindow from "@/components/chat/ChatWindow";
@@ -15,13 +16,8 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
-import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
-import type {
-	Message,
-	Profile,
-	RealtimeMessageDeletePayload,
-	RealtimeMessagePayload,
-} from "@/types/chat";
+import { checkForUpdates } from "@/lib/updater";
+import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
 import { useChatStore } from "./store/useChatStore";
@@ -32,6 +28,7 @@ function App() {
 	const [isAuthResolved, setIsAuthResolved] = useState(false);
 	const [isDataLoaded, setIsDataLoaded] = useState(false);
 	const setSyncing = useGraphStore((s) => s.setSyncing);
+	const queryClient = useQueryClient();
 
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
@@ -59,11 +56,14 @@ function App() {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((_event, session) => {
 			setSession(session);
+			if (session) {
+				queryClient.invalidateQueries();
+			}
 			setIsLoaded(false); // Force a reload of data when login state changes
 		});
 
 		return () => subscription.unsubscribe();
-	}, []);
+	}, [queryClient]);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -85,7 +85,7 @@ function App() {
 		const initData = async () => {
 			setSyncing(true);
 			if (session) {
-				const [charsRes, groupsRes, relsRes, typesRes, profileRes, chatsRes] =
+				const [charsRes, groupsRes, relsRes, typesRes, profileRes] =
 					await Promise.all([
 						supabase.from("Characters").select("*"),
 						supabase.from("Groups").select("id, name, color"),
@@ -96,11 +96,7 @@ function App() {
 							.select("*")
 							.eq("userId", session.user.id)
 							.single(),
-						supabase.from("Chats").select("*"),
 					]);
-
-				useChatStore.getState().setChats(chatsRes.data || []);
-				await useChatStore.getState().fetchLatestMessages();
 
 				useGraphStore.getState().importData({
 					characters: charsRes.data || [],
@@ -108,14 +104,16 @@ function App() {
 					relationships: relsRes.data || [],
 					relationshipTypes: typesRes.data || [],
 				});
+
 				if (profileRes.data) {
-					useChatStore.getState().setProfile(profileRes.data as Profile);
-					// Auto-set speaker for players
-					const fisrtChar = charsRes.data?.filter(
-						(c) => c.ownerId === profileRes.data.userId,
-					)[0];
-					if (fisrtChar) {
-						useChatStore.getState().setActiveSpeakerId(fisrtChar.id);
+					// Auto-set speaker for players if not set
+					if (!useChatStore.getState().activeSpeakerId) {
+						const firstChar = charsRes.data?.filter(
+							(c) => c.ownerId === profileRes.data.userId,
+						)[0];
+						if (firstChar) {
+							useChatStore.getState().setActiveSpeakerId(firstChar.id);
+						}
 					}
 				}
 			} else {
@@ -183,7 +181,7 @@ function App() {
 						}
 					},
 				)
-				// Listen for Relationship changes (Composite Keys are tricky, so we just reload relationships on change)
+				// Listen for Relationship changes
 				.on(
 					"postgres_changes",
 					{ event: "*", schema: "public", table: "Relationships" },
@@ -191,7 +189,6 @@ function App() {
 						const state = useGraphStore.getState();
 
 						if (payload.eventType === "INSERT") {
-							// 1. Check if we already have this character (from our own Optimistic UI)
 							const exists = state.relationships.some(
 								(r) =>
 									r.fromId === payload.new.fromId &&
@@ -199,7 +196,6 @@ function App() {
 									r.typeId === payload.new.typeId,
 							);
 							if (!exists) {
-								// 2. Update local state DIRECTLY using setState (DO NOT call addCharacter!)
 								useGraphStore.setState({
 									relationships: [
 										...state.relationships,
@@ -251,46 +247,43 @@ function App() {
 					"postgres_changes",
 					{ event: "INSERT", schema: "public", table: "Messages" },
 					async (payload) => {
-						const chatStore = useChatStore.getState();
 						const msg = payload.new as RealtimeMessagePayload;
 						const chatId = msg.chat;
-						if (chatStore.messages[chatId]) {
-							const exists = chatStore.messages[chatId].some(
-								(m) => m.id === msg.id,
-							);
-							if (!exists) {
-								const { data } = await supabase
-									.from("Messages")
-									.select("*, character:Characters!characterId(name, avatar)")
-									.eq("id", msg.id)
-									.single();
-								if (data) {
-									chatStore.addMessage(chatId, data as Message);
 
-									// Show toast if not active chat
-									if (chatStore.activeChatId !== chatId) {
-										const charName = data.character?.name || "Someone";
-										const content = (data as Message).content;
-										const preview = content.startsWith("[img]")
-											? "sent an image"
-											: content.length > 50
-												? `${content.slice(0, 50)}...`
-												: content;
+						// Invalidate messages for this chat
+						queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
+						queryClient.invalidateQueries({ queryKey: ["chats"] });
 
-										toast(
-											<div
-												className="cursor-pointer select-none w-full h-full"
-												onClick={() => {
-													chatStore.setActiveChatId(chatId);
-													useGraphStore.getState().setViewMode("chat");
-												}}
-											>
-												<div className="font-semibold">{charName}</div>
-												<div className="text-sm opacity-80">{preview}</div>
-											</div>,
-										);
-									}
-								}
+						// Fetch full message with character info for toast
+						const { data } = await supabase
+							.from("Messages")
+							.select("*, character:Characters!characterId(name, avatar)")
+							.eq("id", msg.id)
+							.single();
+
+						if (data) {
+							// Show toast if not active chat
+							if (useChatStore.getState().activeChatId !== chatId) {
+								const charName = data.character?.name || "Someone";
+								const content = (data as Message).content;
+								const preview = content.startsWith("[img]")
+									? "sent an image"
+									: content.length > 50
+										? `${content.slice(0, 50)}...`
+										: content;
+
+								toast(
+									<div
+										className="cursor-pointer select-none w-full h-full"
+										onClick={() => {
+											useChatStore.getState().setActiveChatId(chatId);
+											useGraphStore.getState().setViewMode("chat");
+										}}
+									>
+										<div className="font-semibold">{charName}</div>
+										<div className="text-sm opacity-80">{preview}</div>
+									</div>,
+								);
 							}
 						}
 					},
@@ -299,21 +292,15 @@ function App() {
 					"postgres_changes",
 					{ event: "UPDATE", schema: "public", table: "Messages" },
 					(payload) => {
-						const chatStore = useChatStore.getState();
 						const msg = payload.new as RealtimeMessagePayload;
-						chatStore.updateMessageLocal(msg.chat, msg.id, msg.content);
+						queryClient.invalidateQueries({ queryKey: ["messages", msg.chat] });
 					},
 				)
 				.on(
 					"postgres_changes",
 					{ event: "DELETE", schema: "public", table: "Messages" },
-					(payload) => {
-						const chatStore = useChatStore.getState();
-						const msg = payload.old as RealtimeMessageDeletePayload;
-						// Try to remove from all loaded chats
-						for (const chatId of Object.keys(chatStore.messages)) {
-							chatStore.removeMessageLocal(chatId, msg.id);
-						}
+					() => {
+						queryClient.invalidateQueries({ queryKey: ["messages"] });
 					},
 				)
 				// Listen for Chat changes
@@ -321,7 +308,7 @@ function App() {
 					"postgres_changes",
 					{ event: "*", schema: "public", table: "Chats" },
 					() => {
-						useChatStore.getState().fetchChats();
+						queryClient.invalidateQueries({ queryKey: ["chats"] });
 					},
 				)
 				.subscribe();
@@ -330,7 +317,7 @@ function App() {
 		return () => {
 			if (channel) supabase.removeChannel(channel);
 		};
-	}, [session, isAuthResolved, setSyncing]);
+	}, [session, isAuthResolved, setSyncing, queryClient]);
 
 	useEffect(() => {
 		const unsubscribe = useGraphStore.subscribe((state, prevState) => {
