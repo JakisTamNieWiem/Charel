@@ -39,14 +39,6 @@ interface GroupBound {
 	angle: number;
 }
 
-interface ForceGraphMethods {
-	zoom(): number;
-	zoom(level: number, duration?: number): void;
-	centerAt(): { x: number; y: number };
-	centerAt(x: number, y: number, duration?: number): void;
-	d3Reheat: () => void;
-}
-
 const NODE_SIZE = 20;
 const AVATAR_CACHE_SIZE = 256;
 const GLOW_SPEED = 0.25;
@@ -87,7 +79,6 @@ export default function NetworkGraph() {
 	const networkMode = useGraphStore((s) => s.networkMode);
 	const setSelectedCharId = useGraphStore((s) => s.setSelectedCharId);
 
-	const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
 	const avatarCache = useRef<Map<string, HTMLCanvasElement>>(new Map());
 	const avatarLoading = useRef<Set<string>>(new Set());
 
@@ -348,8 +339,6 @@ export default function NetworkGraph() {
 					avatarCache.current.set(avatar, canvas);
 				}
 				avatarLoading.current.delete(avatar);
-				// Force a single repaint when an image finally loads so it doesn't pop in late
-				fgRef.current?.d3Reheat();
 			};
 			img.onerror = () => avatarLoading.current.delete(avatar);
 			return null;
@@ -586,8 +575,6 @@ export default function NetworkGraph() {
 			>
 				{dimensions.width > 0 && (
 					<ForceGraph2D
-						// @ts-expect-error typings
-						ref={fgRef}
 						width={dimensions.width}
 						height={dimensions.height}
 						graphData={gData}

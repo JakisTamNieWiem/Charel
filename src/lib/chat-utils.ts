@@ -36,10 +36,31 @@ export function readFileAsDataURL(file: File): Promise<string> {
 export function formatDateHeader(dateStr: string): string {
 	const d = new Date(dateStr);
 	const now = new Date();
-	const diff = now.getTime() - d.getTime();
-	const days = Math.floor(diff / 86400000);
-	if (days === 0) return "Today";
-	if (days === 1) return "Yesterday";
+
+	// Helper to check if two Dates represent the same calendar day in the local timezone
+	const isSameDay = (date1: Date, date2: Date) => {
+		return (
+			date1.getFullYear() === date2.getFullYear() &&
+			date1.getMonth() === date2.getMonth() &&
+			date1.getDate() === date2.getDate()
+		);
+	};
+
+	// Check if it's Today
+	if (isSameDay(d, now)) {
+		return "Today";
+	}
+
+	// Calculate yesterday's date in the local timezone
+	const yesterday = new Date(now);
+	yesterday.setDate(now.getDate() - 1);
+
+	// Check if it's Yesterday
+	if (isSameDay(d, yesterday)) {
+		return "Yesterday";
+	}
+
+	// Fallback to formatted string
 	return d.toLocaleDateString(undefined, {
 		weekday: "long",
 		month: "short",

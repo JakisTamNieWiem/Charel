@@ -1,4 +1,4 @@
-import { Plus, Search, Users, X } from "lucide-react";
+import { Plus, Search, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,12 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useChats, useCreateChat } from "@/hooks/use-chats";
+import {
+	useAddContacts,
+	useChats,
+	useContacts,
+	useCreateChat,
+} from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
 import { useProfile } from "@/hooks/use-profile";
 import { cn } from "@/lib/utils";
@@ -38,10 +43,16 @@ export default function ChatTab() {
 	const activeSpeakerId = useChatStore((s) => s.activeSpeakerId);
 	const setActiveSpeakerId = useChatStore((s) => s.setActiveSpeakerId);
 
-	const { mutateAsync: createChat } = useCreateChat();
+	const { createChat } = useCreateChat();
+	const { addContacts, isPending: isAddingContacts } = useAddContacts();
+	const { data: contacts = [] } = useContacts(activeSpeakerId ?? "");
 
 	const characters = useGraphStore((s) => s.characters);
 	const activeChar = characters.find((c) => c.id === activeSpeakerId);
+	const contactIds = useMemo(
+		() => new Set(contacts.map((contact) => contact.toId)),
+		[contacts],
+	);
 
 	// Default speaker to first character if not set
 	useEffect(() => {
@@ -55,9 +66,12 @@ export default function ChatTab() {
 
 	const [search, setSearch] = useState("");
 	const [showNewGroup, setShowNewGroup] = useState(false);
+	const [showAddContact, setShowAddContact] = useState(false);
 	const [newGroupName, setNewGroupName] = useState("");
 	const [selectedCharIds, setSelectedCharIds] = useState<string[]>([]);
+	const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
 	const [charSearch, setCharSearch] = useState("");
+	const [contactSearch, setContactSearch] = useState("");
 
 	const isAnon =
 		!profile?.role || (profile.role !== "dm" && profile.role !== "player");
@@ -86,10 +100,29 @@ export default function ChatTab() {
 		return map;
 	}, [chats, activeSpeakerId]);
 
-	const groupChats = useMemo(() => chats.filter((c) => c.isGroup), [chats]);
+	const contactCharacters = useMemo(
+		() =>
+			characters.filter(
+				(char) =>
+					char.id !== activeSpeakerId &&
+					!!char.phoneNumber?.trim() &&
+					contactIds.has(char.id),
+			),
+		[characters, activeSpeakerId, contactIds],
+	);
+
+	const groupChats = useMemo(
+		() =>
+			chats.filter(
+				(chat) =>
+					chat.isGroup &&
+					(chat.members || []).some((m) => m.characterId === activeSpeakerId),
+			),
+		[chats, activeSpeakerId],
+	);
 
 	const filteredCharacters = useMemo(() => {
-		const sorted = [...characters].sort((a, b) => {
+		const sorted = [...contactCharacters].sort((a, b) => {
 			const aChatId = directChatMap.get(a.id);
 			const bChatId = directChatMap.get(b.id);
 			const aChat = chats.find((c) => c.id === aChatId);
@@ -109,7 +142,7 @@ export default function ChatTab() {
 		if (!search) return sorted;
 		const q = search.toLowerCase();
 		return sorted.filter((c) => c.name.toLowerCase().includes(q));
-	}, [characters, search, chats, directChatMap]);
+	}, [contactCharacters, search, chats, directChatMap]);
 
 	const filteredGroups = useMemo(() => {
 		if (!search) return groupChats;
@@ -175,11 +208,11 @@ export default function ChatTab() {
 	};
 
 	const handleCreateGroup = async () => {
-		if (selectedCharIds.length < 2) return;
+		if (!activeSpeakerId || selectedCharIds.length < 2) return;
 		const chatId = await createChat({
 			name: newGroupName || null,
 			isGroup: true,
-			characterIds: selectedCharIds,
+			characterIds: [activeSpeakerId, ...selectedCharIds],
 		});
 		if (chatId) {
 			setActiveChatId(chatId);
@@ -190,11 +223,41 @@ export default function ChatTab() {
 		setCharSearch("");
 	};
 
+	const handleAddContacts = async () => {
+		if (!activeSpeakerId || selectedContactIds.length === 0) return;
+		await addContacts({
+			fromId: activeSpeakerId,
+			toIds: selectedContactIds,
+		});
+		setShowAddContact(false);
+		setSelectedContactIds([]);
+		setContactSearch("");
+	};
+
 	const newGroupCharacters = useMemo(() => {
-		if (!charSearch) return characters;
+		if (!charSearch) return contactCharacters;
 		const q = charSearch.toLowerCase();
-		return characters.filter((c) => c.name.toLowerCase().includes(q));
-	}, [characters, charSearch]);
+		return contactCharacters.filter((c) => c.name.toLowerCase().includes(q));
+	}, [contactCharacters, charSearch]);
+
+	const availableContacts = useMemo(() => {
+		const sorted = characters
+			.filter(
+				(char) =>
+					char.id !== activeSpeakerId &&
+					!!char.phoneNumber?.trim() &&
+					!contactIds.has(char.id),
+			)
+			.sort((a, b) => a.name.localeCompare(b.name));
+
+		if (!contactSearch) return sorted;
+		const q = contactSearch.toLowerCase();
+		return sorted.filter(
+			(char) =>
+				char.name.toLowerCase().includes(q) ||
+				char.phoneNumber?.toLowerCase().includes(q),
+		);
+	}, [characters, activeSpeakerId, contactIds, contactSearch]);
 
 	if (isAnon) {
 		return (
@@ -229,13 +292,24 @@ export default function ChatTab() {
 				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
 					Chats
 				</h2>
-				<Button
-					onClick={() => setShowNewGroup(true)}
-					variant="ghost"
-					title="New group chat"
-				>
-					<Plus className="w-4 h-4" />
-				</Button>
+				<div className="flex items-center gap-1">
+					<Button
+						onClick={() => setShowAddContact(true)}
+						variant="ghost"
+						title="Add contact"
+						disabled={!activeSpeakerId}
+					>
+						<UserPlus className="w-4 h-4" />
+					</Button>
+					<Button
+						onClick={() => setShowNewGroup(true)}
+						variant="ghost"
+						title="New group chat"
+						disabled={!activeSpeakerId}
+					>
+						<Plus className="w-4 h-4" />
+					</Button>
+				</div>
 			</div>
 
 			{/* Character selector */}
@@ -338,6 +412,11 @@ export default function ChatTab() {
 				<p className="text-[10px] font-mono uppercase tracking-widest opacity-30 px-1 mb-1">
 					Friends ({filteredCharacters.length})
 				</p>
+				{filteredCharacters.length === 0 && (
+					<p className="px-3 py-2 text-xs text-muted-foreground">
+						No contacts for this character yet.
+					</p>
+				)}
 				{filteredCharacters.map((char) => {
 					const existingChatId = directChatMap.get(char.id);
 					const isActive = existingChatId
@@ -382,6 +461,98 @@ export default function ChatTab() {
 					);
 				})}
 			</div>
+
+			{/* Add Contact Dialog */}
+			<Dialog
+				open={showAddContact}
+				onOpenChange={(open) => {
+					setShowAddContact(open);
+					if (!open) {
+						setSelectedContactIds([]);
+						setContactSearch("");
+					}
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Add Contacts</DialogTitle>
+					</DialogHeader>
+					<div className="space-y-4">
+						<Input
+							placeholder="Search characters or phone numbers..."
+							value={contactSearch}
+							onChange={(e) => setContactSearch(e.target.value)}
+							className="h-7 text-xs"
+						/>
+						{selectedContactIds.length > 0 && (
+							<div className="flex flex-wrap gap-1">
+								{selectedContactIds.map((id) => {
+									const char = characters.find((c) => c.id === id);
+									if (!char) return null;
+									return (
+										<span
+											key={id}
+											className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-xs"
+										>
+											{char.name}
+											<X
+												className="w-3 h-3 cursor-pointer hover:text-red-400"
+												onClick={() =>
+													setSelectedContactIds((prev) =>
+														prev.filter((cid) => cid !== id),
+													)
+												}
+											/>
+										</span>
+									);
+								})}
+							</div>
+						)}
+						<div className="max-h-48 overflow-y-auto space-y-1">
+							{availableContacts
+								.filter((char) => !selectedContactIds.includes(char.id))
+								.map((char) => (
+									<div
+										key={char.id}
+										onClick={() =>
+											setSelectedContactIds((prev) => [...prev, char.id])
+										}
+										className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
+									>
+										<Avatar className="size-6">
+											<AvatarImage src={char.avatar ?? undefined} />
+											<AvatarFallback className="text-[8px]">
+												{char.name[0]}
+											</AvatarFallback>
+										</Avatar>
+										<div className="min-w-0">
+											<p className="text-sm truncate">{char.name}</p>
+											<p className="text-[10px] text-muted-foreground truncate">
+												{char.phoneNumber}
+											</p>
+										</div>
+									</div>
+								))}
+							{availableContacts.length === 0 && (
+								<p className="text-sm text-muted-foreground text-center py-4">
+									No characters with phone numbers available.
+								</p>
+							)}
+						</div>
+						<Button
+							onClick={handleAddContacts}
+							disabled={
+								!activeSpeakerId ||
+								selectedContactIds.length === 0 ||
+								isAddingContacts
+							}
+							className="w-full"
+						>
+							Add Contacts
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			{/* New Group Chat Dialog */}
 			<Dialog open={showNewGroup} onOpenChange={setShowNewGroup}>

@@ -12,7 +12,13 @@ export interface ChatMember {
 	chatId: string;
 	characterId: string;
 	userId: string;
-	lastReadAt: string;
+	lastReadAt: string | null;
+}
+
+export interface Contact {
+	created_at: string;
+	fromId: string;
+	toId: string;
 }
 
 export interface Message {

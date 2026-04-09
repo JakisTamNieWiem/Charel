@@ -4,6 +4,7 @@ export interface Character {
 	description: string;
 	avatar: string | null;
 	groupId: string | null;
+	phoneNumber?: string;
 	ownerId?: string;
 }
 

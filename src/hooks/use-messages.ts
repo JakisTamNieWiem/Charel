@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Message } from "@/types/chat";
+import { withNamedMutation } from "./mutation-utils";
 
 const PAGE_SIZE = 50;
 
@@ -27,6 +28,7 @@ export function useLatestMessages(chatIds: string[]) {
 			return latestByChat;
 		},
 		enabled: chatIds.length > 0,
+		placeholderData: (previousData) => previousData,
 	});
 }
 
@@ -60,7 +62,7 @@ export function useMessages(chatId: string) {
 }
 
 export function useEditMessage() {
-	return useMutation({
+	const mutation = useMutation({
 		mutationFn: async ({
 			messageId,
 			content,
@@ -75,10 +77,12 @@ export function useEditMessage() {
 			if (error) throw error;
 		},
 	});
+
+	return withNamedMutation(mutation, "editMessage", mutation.mutateAsync);
 }
 
 export function useDeleteMessage() {
-	return useMutation({
+	const mutation = useMutation({
 		mutationFn: async (messageId: string) => {
 			const { error } = await supabase
 				.from("Messages")
@@ -87,4 +91,6 @@ export function useDeleteMessage() {
 			if (error) throw error;
 		},
 	});
+
+	return withNamedMutation(mutation, "deleteMessage", mutation.mutateAsync);
 }

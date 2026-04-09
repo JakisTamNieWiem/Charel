@@ -252,6 +252,7 @@ function App() {
 
 						// Invalidate messages for this chat
 						queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
+						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
 						queryClient.invalidateQueries({ queryKey: ["chats"] });
 
 						// Fetch full message with character info for toast
@@ -294,6 +295,7 @@ function App() {
 					(payload) => {
 						const msg = payload.new as RealtimeMessagePayload;
 						queryClient.invalidateQueries({ queryKey: ["messages", msg.chat] });
+						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
 					},
 				)
 				.on(
@@ -301,6 +303,7 @@ function App() {
 					{ event: "DELETE", schema: "public", table: "Messages" },
 					() => {
 						queryClient.invalidateQueries({ queryKey: ["messages"] });
+						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
 					},
 				)
 				// Listen for Chat changes
