@@ -61,7 +61,17 @@ export default function ChatInput({
 
 	return (
 		<div className="flex items-end gap-2">
-			<div className="flex items-center gap-1 mb-0.5">
+			<div className="flex items-center gap-1 mb-0.5 flex-1">
+				<Textarea
+					ref={textareaRef}
+					value={draft}
+					onChange={(e) => onDraftChange(e.target.value)}
+					onKeyDown={handleKeyDown}
+					placeholder={placeholder}
+					disabled={disabled}
+					className="min-h-[36px] max-h-[120px] resize-none text-sm bg-white/5 border-white/10"
+					rows={1}
+				/>
 				<Button
 					variant="ghost"
 					size="icon-sm"
@@ -131,25 +141,6 @@ export default function ChatInput({
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>
-
-			<Textarea
-				ref={textareaRef}
-				value={draft}
-				onChange={(e) => onDraftChange(e.target.value)}
-				onKeyDown={handleKeyDown}
-				placeholder={placeholder}
-				disabled={disabled}
-				className="min-h-[36px] max-h-[120px] resize-none text-sm bg-white/5 border-white/10"
-				rows={1}
-			/>
-			<Button
-				onClick={onSend}
-				disabled={!draft.trim() || disabled}
-				size="icon-sm"
-				className="shrink-0 mb-0.5"
-			>
-				<Send className="w-4 h-4" />
-			</Button>
 		</div>
 	);
 }

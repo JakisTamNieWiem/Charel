@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import ChatWindow from "@/components/chat/ChatWindow";
@@ -17,6 +17,7 @@ import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater";
 import { sendChatNotification } from "@/hooks/use-notifications";
+import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
@@ -250,13 +251,26 @@ function App() {
 						const msg = payload.new as RealtimeMessagePayload;
 						const chatId = msg.chat;
 
-						// Invalidate messages for this chat
+						// Directly inject into the cache so the message appears immediately
+						// without waiting for the invalidation refetch round-trip.
+						queryClient.setQueryData<InfiniteData<Message[], unknown>>(
+							["messages", chatId],
+							(current) => {
+								if (!current || current.pages.length === 0) return current;
+								if (current.pages.flat().some((m) => m.id === msg.id)) return current;
+								const pages = [...current.pages];
+								pages[pages.length - 1] = [...pages[pages.length - 1], msg as Message];
+								return { ...current, pages };
+							},
+						);
+
+						// Invalidate for eventual consistency (fetches character join etc.)
 						queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
 						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
 						queryClient.invalidateQueries({ queryKey: ["chats"] });
 
-						// Send native notification if not active chat
-						if (useChatStore.getState().activeChatId !== chatId) {
+						// Send native notification if not active chat or app is not focused
+						if (useChatStore.getState().activeChatId !== chatId || !document.hasFocus()) {
 							const { data } = await supabase
 								.from("Messages")
 								.select("*, character:Characters!characterId(name, avatar)")
@@ -266,16 +280,33 @@ function App() {
 							if (data) {
 								const charName = data.character?.name || "Someone";
 								const content = (data as Message).content;
+
+								// Skip system messages — they don't need notifications
+								if (content.startsWith("[system]")) return;
+
 								const preview = content.startsWith("[img]")
 									? "sent an image"
 									: content.length > 50
 										? `${content.slice(0, 50)}...`
 										: content;
 
+								// Use group cover if available, otherwise fall back to sender avatar
+								const { data: chatData } = await supabase
+									.from("Chats")
+									.select("isGroup, cover")
+									.eq("id", chatId)
+									.single();
+
+								const avatarUrl =
+									chatData?.isGroup && chatData.cover
+										? chatData.cover
+										: data.character?.avatar;
+
+								const localAvatar = await getLocalAvatarPath(avatarUrl);
 								sendChatNotification({
 									charName,
 									body: preview,
-									avatar: data.character?.avatar,
+									avatar: localAvatar,
 								});
 							}
 						}

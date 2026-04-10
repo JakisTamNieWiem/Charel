@@ -10,6 +10,7 @@ import {
 	useMarkAsRead,
 	useRemoveChatMember,
 	useRenameChat,
+	useUpdateChatCover,
 } from "@/hooks/use-chats";
 import {
 	useDeleteMessage,
@@ -23,7 +24,12 @@ import { useGraphStore } from "@/store/useGraphStore";
 import type { Message } from "@/types/chat";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
-import { AddMembersDialog, MembersDialog, RenameDialog } from "./GroupDialogs";
+import {
+	AddMembersDialog,
+	ChangeCoverDialog,
+	MembersDialog,
+	RenameDialog,
+} from "./GroupDialogs";
 import MessageBubble from "./MessageBubble";
 
 function scrollToBottom(el: HTMLDivElement) {
@@ -58,11 +64,18 @@ export default function ChatWindow() {
 	const { markAsRead, isPending: isMarkingAsRead } = useMarkAsRead();
 	const { removeChatMember } = useRemoveChatMember();
 	const { deleteChat } = useDeleteChat();
+	const { updateChatCover } = useUpdateChatCover();
 
-	const messages = useMemo(
-		() => messagesData?.pages.flat() ?? [],
-		[messagesData],
-	);
+	const pendingMessages = useChatStore((s) => s.pendingMessages);
+
+	const messages = useMemo(() => {
+		const serverMessages = messagesData?.pages.flat() ?? [];
+		const serverIds = new Set(serverMessages.map((m) => m.id));
+		const optimistic = pendingMessages.filter(
+			(m) => m.chat === activeChatId && !serverIds.has(m.id),
+		);
+		return [...serverMessages, ...optimistic];
+	}, [messagesData, pendingMessages, activeChatId]);
 	const activeChat = useMemo(
 		() => chats.find((c) => c.id === activeChatId),
 		[chats, activeChatId],
@@ -71,6 +84,17 @@ export default function ChatWindow() {
 	const characters = useGraphStore((s) => s.characters);
 	const contactIds = useMemo(
 		() => new Set(contacts.map((contact) => contact.toId)),
+		[contacts],
+	);
+
+	// Map toId → nickname for the active speaker's contacts
+	const nicknameMap = useMemo(
+		() =>
+			new Map(
+				contacts
+					.filter((c) => c.nickname)
+					.map((c) => [c.toId, c.nickname as string]),
+			),
 		[contacts],
 	);
 	const pendingCharacter = useMemo(
@@ -98,20 +122,19 @@ export default function ChatWindow() {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const messagesContentRef = useRef<HTMLDivElement>(null);
 	const shouldStickToBottomRef = useRef(true);
-	const pendingInitialScrollRef = useRef(false);
 	const lastActiveChatIdRef = useRef<string | null>(null);
 
 	// Group management dialog state
 	const [showMembers, setShowMembers] = useState(false);
 	const [showRename, setShowRename] = useState(false);
 	const [showAddMembers, setShowAddMembers] = useState(false);
+	const [showChangeCover, setShowChangeCover] = useState(false);
 	const [renameInitial, setRenameInitial] = useState("");
 
 	useLayoutEffect(() => {
 		if (activeChatId !== lastActiveChatIdRef.current) {
 			lastActiveChatIdRef.current = activeChatId;
 			shouldStickToBottomRef.current = true;
-			pendingInitialScrollRef.current = !!activeChatId;
 			setIsAtBottom(true);
 		}
 	}, [activeChatId]);
@@ -153,18 +176,11 @@ export default function ChatWindow() {
 		markAsRead,
 	]);
 
+	// Scroll to bottom on chat switch and when messages first load
 	useLayoutEffect(() => {
 		const el = scrollRef.current;
-		if (!activeChatId || !el) return;
-		if (!pendingInitialScrollRef.current && !shouldStickToBottomRef.current) {
-			return;
-		}
-
+		if (!activeChatId || !el || !hasFetchedMessages) return;
 		scrollToBottom(el);
-
-		if (hasFetchedMessages) {
-			pendingInitialScrollRef.current = false;
-		}
 	}, [activeChatId, hasFetchedMessages]);
 
 	useEffect(() => {
@@ -177,15 +193,12 @@ export default function ChatWindow() {
 			const el = scrollRef.current;
 			if (el && shouldStickToBottomRef.current) {
 				scrollToBottom(el);
-				if (hasFetchedMessages) {
-					pendingInitialScrollRef.current = false;
-				}
 			}
 		});
 
 		resizeObserver.observe(contentEl);
 		return () => resizeObserver.disconnect();
-	}, [activeChatId, hasFetchedMessages]);
+	}, [activeChatId]);
 
 	// Load older messages on scroll to top
 	useEffect(() => {
@@ -259,15 +272,16 @@ export default function ChatWindow() {
 		);
 	}
 
-	// Compute header name
+	// Compute header name (use nickname for 1:1 chats if set)
 	const headerName = (() => {
-		if (pendingCharacter) return pendingCharacter.name;
+		if (pendingCharacter)
+			return nicknameMap.get(pendingCharacter.id) ?? pendingCharacter.name;
 		if (!activeChat) return "Chat";
 		if (!activeChat.isGroup) {
 			const other = members.find((m) => m.characterId !== activeSpeakerId);
 			if (other) {
 				const char = characters.find((c) => c.id === other.characterId);
-				if (char) return char.name;
+				if (char) return nicknameMap.get(char.id) ?? char.name;
 			}
 		}
 		return activeChat.name || "Chat";
@@ -301,6 +315,7 @@ export default function ChatWindow() {
 					setRenameInitial(name);
 					setShowRename(true);
 				}}
+				onShowChangeCover={() => setShowChangeCover(true)}
 				onDelete={() => activeChatId && deleteChat(activeChatId)}
 			/>
 
@@ -341,6 +356,8 @@ export default function ChatWindow() {
 									key={msg.id}
 									msg={msg}
 									characters={characters}
+									activeSpeakerId={activeSpeakerId}
+									displayName={nicknameMap.get(msg.characterId)}
 									isEditing={editingId === msg.id}
 									editContent={editContent}
 									onEditContentChange={setEditContent}
@@ -407,6 +424,16 @@ export default function ChatWindow() {
 				onAdd={(ids) =>
 					activeChatId &&
 					addChatMembers({ chatId: activeChatId, characterIds: ids })
+				}
+			/>
+			<ChangeCoverDialog
+				open={showChangeCover}
+				onOpenChange={setShowChangeCover}
+				currentCover={activeChat?.cover ?? null}
+				onSave={(cover) =>
+					activeChatId &&
+					activeSpeakerId &&
+					updateChatCover({ chatId: activeChatId, cover, characterId: activeSpeakerId })
 				}
 			/>
 		</div>

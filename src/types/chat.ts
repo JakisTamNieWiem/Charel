@@ -19,6 +19,7 @@ export interface Contact {
 	created_at: string;
 	fromId: string;
 	toId: string;
+	nickname: string | null;
 }
 
 export interface Message {

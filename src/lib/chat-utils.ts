@@ -69,6 +69,10 @@ export function formatDateHeader(dateStr: string): string {
 	});
 }
 
+export function isSystemContent(content: string): boolean {
+	return content.startsWith("[system]");
+}
+
 export function isImageContent(content: string): boolean {
 	return content.startsWith("[img]") || IMAGE_URL_RE.test(content);
 }

@@ -1,5 +1,6 @@
 import {
 	EllipsisVertical,
+	ImagePlus,
 	Pencil,
 	Trash2,
 	UserPlus,
@@ -21,6 +22,7 @@ interface ChatHeaderProps {
 	onShowMembers: () => void;
 	onShowAddMembers: () => void;
 	onShowRename: (currentName: string) => void;
+	onShowChangeCover: () => void;
 	onDelete: () => void;
 }
 
@@ -32,6 +34,7 @@ export default function ChatHeader({
 	onShowMembers,
 	onShowAddMembers,
 	onShowRename,
+	onShowChangeCover,
 	onDelete,
 }: ChatHeaderProps) {
 	return (
@@ -52,6 +55,9 @@ export default function ChatHeader({
 						</DropdownMenuItem>
 						<DropdownMenuItem onClick={() => onShowRename(headerName)}>
 							<Pencil className="w-3.5 h-3.5 mr-2" /> Rename Chat
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={onShowChangeCover}>
+							<ImagePlus className="w-3.5 h-3.5 mr-2" /> Change Cover
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							className="text-red-400 focus:text-red-400"

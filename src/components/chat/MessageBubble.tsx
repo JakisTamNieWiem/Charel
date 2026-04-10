@@ -9,7 +9,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { isImageContent } from "@/lib/chat-utils";
+import { isImageContent, isSystemContent } from "@/lib/chat-utils";
 import type { Message } from "@/types/chat";
 import type { Character } from "@/types/types";
 import MessageContent from "./MessageContent";
@@ -18,6 +18,8 @@ interface MessageBubbleProps {
 	msg: Message;
 	characters: Character[];
 	isEditing: boolean;
+	activeSpeakerId: string | null;
+	displayName?: string;
 	editContent: string;
 	onEditContentChange: (content: string) => void;
 	onStartEdit: () => void;
@@ -30,6 +32,8 @@ export default function MessageBubble({
 	msg,
 	characters,
 	isEditing,
+	activeSpeakerId,
+	displayName,
 	editContent,
 	onEditContentChange,
 	onStartEdit,
@@ -40,13 +44,24 @@ export default function MessageBubble({
 	const editRef = useRef<HTMLDivElement>(null);
 	const char =
 		msg.character || characters.find((c) => c.id === msg.characterId);
-	const charName = char && "name" in char ? char.name : "Unknown";
+	const charName =
+		displayName ?? (char && "name" in char ? char.name : "Unknown");
 	const charAvatar = char && "avatar" in char ? char.avatar : null;
 	const isPending = msg._pending;
 
+	if (isSystemContent(msg.content)) {
+		return (
+			<div className="flex items-center gap-3 my-2 px-2">
+				<div className="flex-1 h-px bg-white/10" />
+				<MessageContent content={msg.content} />
+				<div className="flex-1 h-px bg-white/10" />
+			</div>
+		);
+	}
+
 	return (
 		<div
-			className={`group/msg flex gap-3 py-1.5 ${isPending ? "opacity-50" : ""}`}
+			className={`group/msg flex px-2 gap-3 py-1.5 ${isPending ? "opacity-50" : ""} hover:bg-white/5 rounded-md mb-2`}
 		>
 			<Avatar className="size-11 shrink-0 mt-0.5">
 				<AvatarImage src={charAvatar ?? undefined} />
@@ -103,7 +118,7 @@ export default function MessageBubble({
 					</div>
 				)}
 			</div>
-			{!isEditing && !isPending && msg.userId && (
+			{!isEditing && !isPending && msg.characterId === activeSpeakerId && (
 				<div className="opacity-0 group-hover/msg:opacity-100 shrink-0">
 					<DropdownMenu>
 						<DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md p-1 text-foreground/60 hover:text-foreground hover:bg-white/10 transition-colors">

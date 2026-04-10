@@ -36,6 +36,13 @@ function renderWithEmojis(text: string): ReactNode[] {
 }
 
 export default function MessageContent({ content }: { content: string }) {
+	const systemMatch = content.match(/^\[system\](.*)\[\/system\]$/s);
+	if (systemMatch) {
+		return (
+			<p className="text-xs text-muted-foreground italic">{systemMatch[1]}</p>
+		);
+	}
+
 	const imgMatch = content.match(/^\[img\](.*)\[\/img\]$/s);
 	if (imgMatch) {
 		return (
@@ -53,7 +60,9 @@ export default function MessageContent({ content }: { content: string }) {
 		return (
 			<div>
 				{text && (
-					<p className="text-sm whitespace-pre-wrap wrap-break-word">{renderWithEmojis(text)}</p>
+					<p className="text-sm whitespace-pre-wrap wrap-break-word">
+						{renderWithEmojis(text)}
+					</p>
 				)}
 				{imageUrls.map((url) => (
 					<img
@@ -76,5 +85,9 @@ export default function MessageContent({ content }: { content: string }) {
 		);
 	}
 
-	return <p className="text-sm whitespace-pre-wrap wrap-break-word flex justify-start!">{renderWithEmojis(content)}</p>;
+	return (
+		<p className="text-sm whitespace-pre-wrap wrap-break-word flex justify-start!">
+			{renderWithEmojis(content)}
+		</p>
+	);
 }

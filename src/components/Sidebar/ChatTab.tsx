@@ -1,4 +1,12 @@
-import { Plus, PlusIcon, Search, UserPlus, Users, X } from "lucide-react";
+import {
+	Pencil,
+	Plus,
+	PlusIcon,
+	Search,
+	UserPlus,
+	Users,
+	X,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,6 +31,7 @@ import {
 	useChats,
 	useContacts,
 	useCreateChat,
+	useUpdateContactNickname,
 } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
 import { useUnreadChats } from "@/hooks/use-notifications";
@@ -48,6 +57,7 @@ export default function ChatTab() {
 
 	const { createChat } = useCreateChat();
 	const { addContacts } = useAddContacts();
+	const { updateContactNickname } = useUpdateContactNickname();
 	const { data: contacts = [] } = useContacts(activeSpeakerId ?? "");
 
 	const characters = useGraphStore((s) => s.characters);
@@ -56,6 +66,39 @@ export default function ChatTab() {
 		() => new Set(contacts.map((contact) => contact.toId)),
 		[contacts],
 	);
+
+	// toId → nickname (only entries that have one)
+	const nicknameMap = useMemo(
+		() =>
+			new Map(
+				contacts
+					.filter((c) => c.nickname)
+					.map((c) => [c.toId, c.nickname as string]),
+			),
+		[contacts],
+	);
+
+	// toId → full Contact record (for the dialog)
+	const contactMap = useMemo(
+		() => new Map(contacts.map((c) => [c.toId, c])),
+		[contacts],
+	);
+
+	const [editingNicknameId, setEditingNicknameId] = useState<string | null>(
+		null,
+	);
+	const [editingNicknameValue, setEditingNicknameValue] = useState("");
+
+	const saveNickname = async (toId: string) => {
+		if (!activeSpeakerId) return;
+		await updateContactNickname({
+			fromId: activeSpeakerId,
+			toId,
+			nickname: editingNicknameValue.trim() || null,
+		});
+		setEditingNicknameId(null);
+		setEditingNicknameValue("");
+	};
 
 	// Default speaker to first character if not set
 	useEffect(() => {
@@ -109,11 +152,14 @@ export default function ChatTab() {
 				(char) =>
 					char.id !== activeSpeakerId &&
 					!!char.phoneNumber?.trim() &&
-					chats.some((c) =>
-						c.members.every(
-							(m) =>
-								m.characterId === char.id || m.characterId === activeSpeakerId,
-						),
+					chats.some(
+						(c) =>
+							c.members.length > 0 &&
+							c.members.every(
+								(m) =>
+									m.characterId === char.id ||
+									m.characterId === activeSpeakerId,
+							),
 					),
 			),
 		[characters, activeSpeakerId, chats],
@@ -177,6 +223,11 @@ export default function ChatTab() {
 	const getLastMessagePreview = (chatId: string) => {
 		const last = latestMessages[chatId];
 		if (!last) return null;
+		if (last.content.startsWith("[system]")) {
+			const inner =
+				last.content.match(/^\[system\](.*)\[\/system\]$/s)?.[1] ?? "";
+			return inner;
+		}
 		if (last.content.startsWith("[img]")) return "📷 Image";
 		if (
 			/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|svg|bmp)(?:\?\S*)?/i.test(
@@ -187,6 +238,20 @@ export default function ChatTab() {
 		return last.content.length > 30
 			? `${last.content.slice(0, 30)}...`
 			: last.content;
+	};
+
+	const getGroupLastMessagePreview = (chatId: string) => {
+		const last = latestMessages[chatId];
+		if (!last) return null;
+		const preview = getLastMessagePreview(chatId);
+		if (!preview) return null;
+		// System messages have no sender
+		if (last.content.startsWith("[system]")) return preview;
+		const senderName =
+			nicknameMap.get(last.characterId) ??
+			characters.find((c) => c.id === last.characterId)?.name ??
+			"Unknown";
+		return `${senderName}: ${preview}`;
 	};
 
 	const { isChatUnread } = useUnreadChats(
@@ -369,18 +434,19 @@ export default function ChatTab() {
 								: "bg-transparent border-transparent hover:bg-(--sidebar-foreground)/5",
 						)}
 					>
-						<div className="size-8 mr-3 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-							<Users className="w-3.5 h-3.5 text-muted-foreground" />
+						<div className="size-8 mr-3 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+							{chat.cover ? (
+								<img src={chat.cover} alt="" className="w-full h-full object-cover" />
+							) : (
+								<Users className="w-3.5 h-3.5 text-muted-foreground" />
+							)}
 						</div>
 						<div className="flex-1 min-w-0">
 							<h3 className="text-sm font-medium truncate">
 								{getGroupDisplayName(chat)}
 							</h3>
 							<p className="text-[10px] opacity-30 truncate">
-								{getLastMessagePreview(chat.id) ??
-									(chat.lastMessageAt
-										? new Date(chat.lastMessageAt).toLocaleDateString()
-										: "No messages yet")}
+								{getGroupLastMessagePreview(chat.id) ?? "No messages yet"}
 							</p>
 						</div>
 						{isChatUnread(chat.id) && (
@@ -429,7 +495,9 @@ export default function ChatTab() {
 								<AvatarFallback>{char.name[0]}</AvatarFallback>
 							</Avatar>
 							<div className="flex-1 min-w-0">
-								<h3 className="text-sm font-medium truncate">{char.name}</h3>
+								<h3 className="text-sm font-medium truncate">
+									{nicknameMap.get(char.id) ?? char.name}
+								</h3>
 								<p className="text-[10px] opacity-30 truncate">
 									{existingChatId
 										? (getLastMessagePreview(existingChatId) ??
@@ -499,26 +567,63 @@ export default function ChatTab() {
 										</div>
 									</div>
 								)}
-							{availableContacts.map((char) => (
-								<div
-									key={char.id}
-									onClick={() => console.log("chuj")}
-									className="flex items-center gap-4 px-4 py-3 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
-								>
-									<Avatar className="size-10">
-										<AvatarImage src={char.avatar ?? undefined} />
-										<AvatarFallback className="text-[8px]">
-											{char.name[0]}
-										</AvatarFallback>
-									</Avatar>
-									<div className="min-w-0">
-										<p className="text-md truncate">{char.name}</p>
-										<p className="text-sm text-muted-foreground truncate">
-											{char.phoneNumber}
-										</p>
+							{availableContacts.map((char) => {
+								const contact = contactMap.get(char.id);
+								const isEditingThis = editingNicknameId === char.id;
+								return (
+									<div
+										key={char.id}
+										className="flex items-center gap-4 px-4 py-3 rounded-md hover:bg-white/5 transition-colors"
+									>
+										<Avatar className="size-10 shrink-0">
+											<AvatarImage src={char.avatar ?? undefined} />
+											<AvatarFallback className="text-[8px]">
+												{char.name[0]}
+											</AvatarFallback>
+										</Avatar>
+										<div className="flex-1 min-w-0">
+											{isEditingThis ? (
+												<input
+													autoFocus
+													value={editingNicknameValue}
+													onChange={(e) =>
+														setEditingNicknameValue(e.target.value)
+													}
+													onKeyDown={(e) => {
+														if (e.key === "Enter") saveNickname(char.id);
+														if (e.key === "Escape") setEditingNicknameId(null);
+													}}
+													onBlur={() => saveNickname(char.id)}
+													placeholder={char.name}
+													className="w-full bg-transparent border-b border-white/20 text-md outline-none pb-0.5"
+												/>
+											) : (
+												<p className="text-md truncate">
+													{contact?.nickname ?? char.name}
+													{contact?.nickname && (
+														<span className="ml-1.5 text-xs text-muted-foreground">
+															({char.name})
+														</span>
+													)}
+												</p>
+											)}
+											<p className="text-sm text-muted-foreground truncate">
+												{char.phoneNumber}
+											</p>
+										</div>
+										<button
+											onClick={() => {
+												setEditingNicknameId(char.id);
+												setEditingNicknameValue(contact?.nickname ?? "");
+											}}
+											className="shrink-0 p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+											title="Edit nickname"
+										>
+											<Pencil className="w-3.5 h-3.5" />
+										</button>
 									</div>
-								</div>
-							))}
+								);
+							})}
 							{availableContacts.length === 0 && (
 								<div className="w-full text-sm text-muted-foreground text-center flex-1 absolute top-1/2 left-1/2 -translate-1/2">
 									No characters with phone numbers available.

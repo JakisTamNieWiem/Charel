@@ -219,6 +219,74 @@ export function useRemoveChatMember() {
 	return withNamedMutation(mutation, "removeChatMember", mutation.mutateAsync);
 }
 
+export function useUpdateChatCover() {
+	const queryClient = useQueryClient();
+
+	const mutation = useMutation({
+		mutationFn: async ({
+			chatId,
+			cover,
+			characterId,
+		}: {
+			chatId: string;
+			cover: string;
+			characterId: string;
+		}) => {
+			const { data: sessionData } = await supabase.auth.getSession();
+			if (!sessionData.session) throw new Error("No session");
+
+			const { error: coverError } = await supabase
+				.from("Chats")
+				.update({ cover })
+				.eq("id", chatId);
+			if (coverError) throw coverError;
+
+			const { error: msgError } = await supabase.from("Messages").insert({
+				id: crypto.randomUUID(),
+				chat: chatId,
+				content: "[system]Group photo was updated.[/system]",
+				characterId,
+				userId: sessionData.session.user.id,
+			});
+			if (msgError) throw msgError;
+		},
+		onSuccess: (_, { chatId }) => {
+			queryClient.invalidateQueries({ queryKey: ["chats"] });
+			queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
+		},
+	});
+
+	return withNamedMutation(mutation, "updateChatCover", mutation.mutateAsync);
+}
+
+export function useUpdateContactNickname() {
+	const queryClient = useQueryClient();
+
+	const mutation = useMutation({
+		mutationFn: async ({
+			fromId,
+			toId,
+			nickname,
+		}: {
+			fromId: string;
+			toId: string;
+			nickname: string | null;
+		}) => {
+			const { error } = await supabase
+				.from("Contacts")
+				.update({ nickname: nickname || null })
+				.eq("fromId", fromId)
+				.eq("toId", toId);
+			if (error) throw error;
+		},
+		onSuccess: (_, { fromId }) => {
+			queryClient.invalidateQueries({ queryKey: ["contacts", fromId] });
+		},
+	});
+
+	return withNamedMutation(mutation, "updateContactNickname", mutation.mutateAsync);
+}
+
 export function useMarkAsRead() {
 	const queryClient = useQueryClient();
 

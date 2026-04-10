@@ -1,4 +1,4 @@
-import { UserMinus, X } from "lucide-react";
+import { ImagePlus, UserMinus, X } from "lucide-react";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { readFileAsDataURL, resizeImage } from "@/lib/chat-utils";
 import type { ChatMember } from "@/types/chat";
 import type { Character } from "@/types/types";
 
@@ -231,6 +232,87 @@ export function AddMembersDialog({
 						className="w-full"
 					>
 						Add Members
+					</Button>
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+interface ChangeCoverDialogProps {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	currentCover: string | null;
+	onSave: (cover: string) => void;
+}
+
+export function ChangeCoverDialog({
+	open,
+	onOpenChange,
+	currentCover,
+	onSave,
+}: ChangeCoverDialogProps) {
+	const [preview, setPreview] = useState<string | null>(null);
+
+	const handleSelect = () => {
+		const input = document.createElement("input");
+		input.type = "file";
+		input.accept = "image/*";
+		input.onchange = async (e) => {
+			const file = (e.target as HTMLInputElement).files?.[0];
+			if (!file) return;
+			const dataUrl =
+				file.type === "image/gif"
+					? await readFileAsDataURL(file)
+					: await resizeImage(file);
+			setPreview(dataUrl);
+		};
+		input.click();
+	};
+
+	const displayed = preview ?? currentCover;
+
+	return (
+		<Dialog
+			open={open}
+			onOpenChange={(v) => {
+				onOpenChange(v);
+				if (!v) setPreview(null);
+			}}
+		>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Change Group Photo</DialogTitle>
+				</DialogHeader>
+				<div className="flex flex-col items-center gap-4 py-2">
+					<button
+						onClick={handleSelect}
+						className="relative w-28 h-28 rounded-full overflow-hidden bg-white/10 flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer"
+					>
+						{displayed ? (
+							<img
+								src={displayed}
+								alt="Cover"
+								className="w-full h-full object-cover"
+							/>
+						) : (
+							<ImagePlus className="w-8 h-8 text-muted-foreground" />
+						)}
+					</button>
+					<Button variant="outline" size="sm" onClick={handleSelect}>
+						Choose Photo
+					</Button>
+					<Button
+						className="w-full"
+						disabled={!preview}
+						onClick={() => {
+							if (preview) {
+								onSave(preview);
+								onOpenChange(false);
+							}
+						}}
+					>
+						Save
 					</Button>
 				</div>
 			</DialogContent>
