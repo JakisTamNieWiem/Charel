@@ -1,31 +1,43 @@
-import { AnimatePresence } from "motion/react";
+import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
+import ChatWindow from "@/components/chat/ChatWindow";
 import NetworkGraph from "@/components/NetworkGraph";
-import RelationshipModal from "@/components/RelationshipModal";
-import Sidebar from "@/components/Sidebar";
+import AppSidebar from "@/components/Sidebar/Sidebar";
 import TypeModal from "@/components/TypeModal";
+import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { RelationshipType } from "@/types";
+import type { Character, Relationship, RelationshipType } from "@/types/types";
 import "./styles.css";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { RealtimeChannel, Session } from "@supabase/supabase-js";
+import { Circle, LayoutGrid } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
-import { checkForUpdates } from "@/lib/updater"; // <--- Add this import
+import { supabase } from "@/lib/supabase";
+import { checkForUpdates } from "@/lib/updater";
+import { sendChatNotification } from "@/hooks/use-notifications";
+import { getLocalAvatarPath } from "@/lib/avatar-cache";
+import type { Message, RealtimeMessagePayload } from "@/types/chat";
+import LoadingScreen from "./components/LoadingScreen";
+import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
+import { useChatStore } from "./store/useChatStore";
 
 function App() {
+	// Supabase
+	const [session, setSession] = useState<Session | null>(null);
+	const [isAuthResolved, setIsAuthResolved] = useState(false);
+	const [isDataLoaded, setIsDataLoaded] = useState(false);
+	const setSyncing = useGraphStore((s) => s.setSyncing);
+	const queryClient = useQueryClient();
+
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
-	const selectedId = useGraphStore((state) => state.selectedCharId);
-	const types = useGraphStore((state) => state.relationshipTypes);
 	const viewMode = useGraphStore((state) => state.viewMode);
-
-	// Handlers
-
-	const addRelationship = useGraphStore((state) => state.addRelationship);
+	const networkMode = useGraphStore((state) => state.networkMode);
+	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
 
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
-	const [openRelModal, setOpenRelModal] = useState(false);
 
 	// Derived state
 	const selectedCharacter = useGraphStore((state) =>
@@ -36,7 +48,27 @@ function App() {
 	}, []);
 
 	useEffect(() => {
+		supabase.auth.getSession().then(({ data: { session } }) => {
+			setSession(session);
+			setIsAuthResolved(true);
+		});
+
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange((_event, session) => {
+			setSession(session);
+			if (session) {
+				queryClient.invalidateQueries();
+			}
+			setIsLoaded(false); // Force a reload of data when login state changes
+		});
+
+		return () => subscription.unsubscribe();
+	}, [queryClient]);
+
+	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
+			if (session) return;
 			if (e.ctrlKey && e.key === "z") {
 				useGraphStore.temporal.getState().undo();
 			}
@@ -47,39 +79,276 @@ function App() {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, []);
+	}, [session]);
 
 	useEffect(() => {
-		// 1. Load data on startup
-		const initStorage = async () => {
-			const savedData = await loadFromDisk();
-			if (savedData) {
-				// Assuming your store has an importData action
-				// that sets { characters, relationships, types }
-				useGraphStore.getState().importData(savedData);
-			} else {
-				// FIRST LAUNCH: No save file exists.
-				// The store is already using `defaultData`.
-				// Let's instantly save this default state to disk so the file is created.
-				const initialState = useGraphStore.getState();
-				await saveToDisk({
-					version: "1.0.0",
-					characters: initialState.characters,
-					relationships: initialState.relationships,
-					relationshipTypes: initialState.relationshipTypes,
-					groups: initialState.groups,
+		if (!isAuthResolved) return;
+		const initData = async () => {
+			setSyncing(true);
+			if (session) {
+				const [charsRes, groupsRes, relsRes, typesRes, profileRes] =
+					await Promise.all([
+						supabase.from("Characters").select("*"),
+						supabase.from("Groups").select("id, name, color"),
+						supabase.from("Relationships").select("*"),
+						supabase.from("RelationshipTypes").select("*"),
+						supabase
+							.from("Profiles")
+							.select("*")
+							.eq("userId", session.user.id)
+							.single(),
+					]);
+
+				useGraphStore.getState().importData({
+					characters: charsRes.data || [],
+					groups: groupsRes.data || [],
+					relationships: relsRes.data || [],
+					relationshipTypes: typesRes.data || [],
 				});
+
+				if (profileRes.data) {
+					// Auto-set speaker for players if not set
+					if (!useChatStore.getState().activeSpeakerId) {
+						const firstChar = charsRes.data?.filter(
+							(c) => c.ownerId === profileRes.data.userId,
+						)[0];
+						if (firstChar) {
+							useChatStore.getState().setActiveSpeakerId(firstChar.id);
+						}
+					}
+				}
+			} else {
+				// --- OFFLINE MODE: Load from disk ---
+				const localData = await loadFromDisk();
+				if (localData) {
+					useGraphStore.getState().importData(localData);
+				}
 			}
+			setIsDataLoaded(true); // Data is now in Zustand
+			setSyncing(false);
 			setIsLoaded(true);
 		};
 
-		initStorage();
+		initData();
 
-		// 2. Subscribe to Zustand changes to Auto-Save
-		// This runs every time ANY state in useGraphStore changes
+		// --- MULTIPLAYER LIVE SYNC ---
+		let channel: RealtimeChannel;
+		if (session) {
+			channel = supabase
+				.channel("db-sync")
+				// Listen for Character changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "Characters" },
+					(payload) => {
+						const state = useGraphStore.getState();
+
+						if (payload.eventType === "INSERT") {
+							// 1. Check if we already have this character (from our own Optimistic UI)
+							const exists = state.characters.some(
+								(c) => c.id === payload.new.id,
+							);
+							if (!exists) {
+								// 2. Update local state DIRECTLY using setState (DO NOT call addCharacter!)
+								useGraphStore.setState({
+									characters: [...state.characters, payload.new as Character],
+								});
+							}
+						}
+						if (payload.eventType === "UPDATE") {
+							useGraphStore.setState({
+								characters: state.characters.map((c) =>
+									c.id === payload.new.id ? (payload.new as Character) : c,
+								),
+							});
+						}
+						if (payload.eventType === "DELETE") {
+							useGraphStore.setState({
+								characters: state.characters.filter(
+									(c) => c.id !== payload.old.id,
+								),
+							});
+						}
+					},
+				)
+				// Listen for Group changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "Groups" },
+					async () => {
+						const { data } = await supabase.from("Groups").select("*");
+						if (data) {
+							useGraphStore.getState().importData({ groups: data });
+						}
+					},
+				)
+				// Listen for Relationship changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "Relationships" },
+					(payload) => {
+						const state = useGraphStore.getState();
+
+						if (payload.eventType === "INSERT") {
+							const exists = state.relationships.some(
+								(r) =>
+									r.fromId === payload.new.fromId &&
+									r.toId === payload.new.toId &&
+									r.typeId === payload.new.typeId,
+							);
+							if (!exists) {
+								useGraphStore.setState({
+									relationships: [
+										...state.relationships,
+										payload.new as Relationship,
+									],
+								});
+							}
+						}
+						if (payload.eventType === "UPDATE") {
+							useGraphStore.setState({
+								relationships: state.relationships.map((r) =>
+									r.fromId === payload.new.fromId &&
+									r.toId === payload.new.toId &&
+									r.typeId === payload.new.typeId
+										? (payload.new as Relationship)
+										: r,
+								),
+							});
+						}
+						if (payload.eventType === "DELETE") {
+							useGraphStore.setState({
+								relationships: state.relationships.filter(
+									(r) =>
+										!(
+											r.fromId === payload.old.fromId &&
+											r.toId === payload.old.toId &&
+											r.typeId === payload.old.typeId
+										),
+								),
+							});
+						}
+					},
+				)
+				// Listen for Type changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "RelationshipTypes" },
+					async () => {
+						const { data } = await supabase
+							.from("RelationshipTypes")
+							.select("*");
+						if (data) {
+							useGraphStore.getState().importData({ relationshipTypes: data });
+						}
+					},
+				)
+				// Listen for Message changes
+				.on(
+					"postgres_changes",
+					{ event: "INSERT", schema: "public", table: "Messages" },
+					async (payload) => {
+						const msg = payload.new as RealtimeMessagePayload;
+						const chatId = msg.chat;
+
+						// Directly inject into the cache so the message appears immediately
+						// without waiting for the invalidation refetch round-trip.
+						queryClient.setQueryData<InfiniteData<Message[], unknown>>(
+							["messages", chatId],
+							(current) => {
+								if (!current || current.pages.length === 0) return current;
+								if (current.pages.flat().some((m) => m.id === msg.id)) return current;
+								const pages = [...current.pages];
+								pages[pages.length - 1] = [...pages[pages.length - 1], msg as Message];
+								return { ...current, pages };
+							},
+						);
+
+						// Invalidate for eventual consistency (fetches character join etc.)
+						queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
+						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
+						queryClient.invalidateQueries({ queryKey: ["chats"] });
+
+						// Send native notification if not active chat or app is not focused
+						if (useChatStore.getState().activeChatId !== chatId || !document.hasFocus()) {
+							const { data } = await supabase
+								.from("Messages")
+								.select("*, character:Characters!characterId(name, avatar)")
+								.eq("id", msg.id)
+								.single();
+
+							if (data) {
+								const charName = data.character?.name || "Someone";
+								const content = (data as Message).content;
+
+								// Skip system messages — they don't need notifications
+								if (content.startsWith("[system]")) return;
+
+								const preview = content.startsWith("[img]")
+									? "sent an image"
+									: content.length > 50
+										? `${content.slice(0, 50)}...`
+										: content;
+
+								// Use group cover if available, otherwise fall back to sender avatar
+								const { data: chatData } = await supabase
+									.from("Chats")
+									.select("isGroup, cover")
+									.eq("id", chatId)
+									.single();
+
+								const avatarUrl =
+									chatData?.isGroup && chatData.cover
+										? chatData.cover
+										: data.character?.avatar;
+
+								const localAvatar = await getLocalAvatarPath(avatarUrl);
+								sendChatNotification({
+									charName,
+									body: preview,
+									avatar: localAvatar,
+								});
+							}
+						}
+					},
+				)
+				.on(
+					"postgres_changes",
+					{ event: "UPDATE", schema: "public", table: "Messages" },
+					(payload) => {
+						const msg = payload.new as RealtimeMessagePayload;
+						queryClient.invalidateQueries({ queryKey: ["messages", msg.chat] });
+						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
+					},
+				)
+				.on(
+					"postgres_changes",
+					{ event: "DELETE", schema: "public", table: "Messages" },
+					() => {
+						queryClient.invalidateQueries({ queryKey: ["messages"] });
+						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
+					},
+				)
+				// Listen for Chat changes
+				.on(
+					"postgres_changes",
+					{ event: "*", schema: "public", table: "Chats" },
+					() => {
+						queryClient.invalidateQueries({ queryKey: ["chats"] });
+					},
+				)
+				.subscribe();
+		}
+
+		return () => {
+			if (channel) supabase.removeChannel(channel);
+		};
+	}, [session, isAuthResolved, setSyncing, queryClient]);
+
+	useEffect(() => {
 		const unsubscribe = useGraphStore.subscribe((state, prevState) => {
 			// Don't save if we haven't finished the initial load yet
-			if (!isLoaded) return;
+			if (!isLoaded || session) return;
 
 			// Optional: Only save if the actual graph data changed (ignore UI state like selectedCharId)
 			if (
@@ -89,7 +358,7 @@ function App() {
 				state.groups !== prevState.groups
 			) {
 				saveToDisk({
-					version: "1.0.0",
+					version: "2",
 					characters: state.characters,
 					relationships: state.relationships,
 					relationshipTypes: state.relationshipTypes,
@@ -99,101 +368,85 @@ function App() {
 		});
 
 		return () => unsubscribe();
-	}, [isLoaded]);
+	}, [isLoaded, session]);
 
 	// Prevent rendering the app until data is loaded from disk to prevent flashing
-	if (!isLoaded) {
-		return (
-			<div className="w-screen h-screen bg-[#141414] flex items-center justify-center text-white/50 tracking-widest uppercase text-xs">
-				Initializing Secure Storage...
-			</div>
-		);
-	}
+	const appReady = isDataLoaded;
 	return (
-		<div className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
-			{/* Sidebar */}
-			<Sidebar />
-			{/* Main Content */}
-			<main className="flex-1 relative overflow-hidden flex flex-col">
-				{viewMode === "network" ? (
-					<NetworkGraph />
-				) : (
-					<>
-						{/* Header */}
-						<header className="p-6 flex items-center justify-between z-10">
-							<div>
-								<h2 className="text-4xl font-bold tracking-tighter uppercase italic serif">
-									{selectedCharacter?.name || "Select a character"}
-								</h2>
-								<p className="text-sm opacity-50 max-w-md">
-									{selectedCharacter?.description}
-								</p>
-							</div>
-							<Button
-								onClick={(e) => {
-									e.preventDefault();
-									setOpenRelModal(true);
-								}}
-								className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2"
-							>
-								<Plus className="w-4 h-4" /> New Relation
-							</Button>
-							{selectedId && (
-								<RelationshipModal
-									fromId={selectedId}
-									onSave={addRelationship}
-									open={openRelModal}
-									onOpenChange={setOpenRelModal}
-								/>
-							)}
-						</header>
+		<>
+			<AnimatePresence mode="wait">
+				{!appReady && <LoadingScreen key="loading" />}
+			</AnimatePresence>
 
-						{/* Graph Area */}
-						<div className="flex-1 relative overflow-hidden">
-							{selectedCharacter ? (
+			{/* Main App with a slight fade-in delay */}
+			<motion.div
+				initial={{ opacity: 0 }}
+				animate={{ opacity: appReady ? 1 : 0 }}
+				transition={{ duration: 0.8, delay: 0.2 }}
+				className="flex h-screen w-screen bg-sidebar text-foreground font-sans overflow-hidden"
+			>
+				<SidebarProvider
+					defaultOpen={true}
+					style={{ "--sidebar-width": "22rem" } as React.CSSProperties}
+					className="max-h-screen! max-w-screen! pt-6"
+				>
+					<AppSidebar />
+					<SidebarInset
+						className={cn(
+							"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80",
+							viewMode !== "chat" && "bg-dot-grid",
+						)}
+					>
+						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
+							{viewMode === "chat" ? (
+								<ChatWindow />
+							) : viewMode === "network" ? (
+								<>
+									<NetworkGraph />
+									<div className="absolute top-6 right-6 z-10">
+										<Tabs
+											value={networkMode}
+											onValueChange={(v) => setNetworkMode(v)}
+											orientation="vertical"
+										>
+											<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
+												<TabsTrigger
+													value="group"
+													className="h-7 px-3 text-[11px]"
+												>
+													<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
+												</TabsTrigger>
+												<TabsTrigger
+													value="global"
+													className="h-7 px-3 text-[11px]"
+												>
+													<Circle className="w-3 h-3 mr-1.5" /> Global
+												</TabsTrigger>
+											</TabsList>
+										</Tabs>
+									</div>
+								</>
+							) : selectedCharacter ? (
 								<CharacterGraph />
 							) : (
-								<h1 className="p-4">Character not found</h1>
+								<h1 className="p-4 z-10 pointer-events-none">
+									Character not found
+								</h1>
 							)}
-						</div>
-
-						{/* Legend */}
-						<div className="p-6 flex gap-6 z-10 overflow-x-auto no-scrollbar">
-							{types.map((type) => (
-								<div
-									key={type.id}
-									className="flex items-center gap-2 whitespace-nowrap group relative"
-								>
-									<div
-										className="w-2 h-2 rounded-full"
-										style={{ backgroundColor: type.color }}
-									/>
-									<span className="text-[10px] uppercase font-bold tracking-widest opacity-70">
-										{type.label}
-									</span>
-									<div className="absolute bottom-full left-0 mb-2 p-2 bg-white text-black rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 z-50">
-										{type.description}
-									</div>
-								</div>
-							))}
-						</div>
-					</>
-				)}
-			</main>
-
-			{/* Modals */}
-			<AnimatePresence>
-				{editingType && (
-					<TypeModal
-						type={editingType}
-						open={!!editingType}
-						onOpenChange={(open) => {
-							if (!open) setEditingType(null);
-						}}
-					/>
-				)}
-			</AnimatePresence>
-		</div>
+						</main>
+						{editingType && (
+							<TypeModal
+								type={editingType}
+								open={!!editingType}
+								onOpenChange={(open) => {
+									if (!open) setEditingType(null);
+								}}
+							/>
+						)}
+					</SidebarInset>
+				</SidebarProvider>{" "}
+			</motion.div>
+		</>
 	);
 }
 

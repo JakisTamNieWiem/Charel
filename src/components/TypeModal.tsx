@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { RelationshipType } from "@/types";
+import type { RelationshipType } from "@/types/types";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Slider } from "./ui/slider";
@@ -117,8 +117,8 @@ export default function TypeModal({
 							defaultValue={[0]}
 							step={1}
 							value={[Math.round((formData.value ?? 0) * 100)]}
-							onValueChange={([v]) =>
-								setFormData({ ...formData, value: v / 100 })
+							onValueChange={(v) =>
+								setFormData({ ...formData, value: (v as number) / 100 })
 							}
 						/>
 						<div className="flex justify-between text-[9px] opacity-30 font-mono">

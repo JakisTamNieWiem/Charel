@@ -1,8 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Plus } from "lucide-react";
+import {
+	Fragment,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Relationship } from "@/types";
+import type { Relationship } from "@/types/types";
 import RelationshipModal from "./RelationshipModal";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 export default function CharacterGraph() {
@@ -12,9 +22,10 @@ export default function CharacterGraph() {
 	const allChars = useGraphStore((state) => state.characters);
 	const relationships = useGraphStore((state) => state.relationships);
 	const types = useGraphStore((state) => state.relationshipTypes);
+	const addRelationship = useGraphStore((state) => state.addRelationship); // Added for New Relation
+	const updateRelationship = useGraphStore((state) => state.updateRelationship);
 	const deleteRelationship = useGraphStore((state) => state.deleteRelationship);
 
-	const updateRelationship = useGraphStore((state) => state.updateRelationship);
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
 	);
@@ -26,10 +37,14 @@ export default function CharacterGraph() {
 		);
 		const ids = new Set(rels.flatMap((r) => [r.fromId, r.toId]));
 		ids.delete(selectedId);
-		return allChars.filter((c) => ids.has(c.id));
+		return allChars
+			.filter((c) => ids.has(c.id))
+			.sort((a, b) => a.name.localeCompare(b.name));
 	}, [allChars, relationships, selectedId]);
-	const [openRelModal, setOpenRelModal] = useState(false);
+
+	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingRel, setEditingRel] = useState<Relationship | null>(null);
+
 	const [hoveredRel, setHoveredRel] = useState<Relationship | null>(null);
 
 	const gRef = useRef<SVGGElement>(null);
@@ -50,6 +65,7 @@ export default function CharacterGraph() {
 			if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
 		};
 	}, []);
+
 	const getMousePositionInSVG = (e: React.PointerEvent) => {
 		if (!svgRef.current) return { x: 0, y: 0 };
 		const svg = svgRef.current;
@@ -82,22 +98,40 @@ export default function CharacterGraph() {
 	};
 
 	// --- LAYOUT MATH ---
-	const centerRadius = 80;
 	const relatedRadius = 40;
+	const maxBundleSize = relatedCharacters.reduce((max, char) => {
+		const relCount = relationships.filter(
+			(r) =>
+				(r.fromId === selectedId && r.toId === char.id) ||
+				(r.fromId === char.id && r.toId === selectedId),
+		).length;
+		return Math.max(max, relCount);
+	}, 0);
+
+	const centerRadius = Math.max(
+		80,
+		60 + relatedCharacters.length * 1.5,
+		(maxBundleSize * 16) / 2 + 30,
+	);
 	const minRadiusForNoTouch =
 		(relatedCharacters.length * (relatedRadius * 2 + 7)) / (2 * Math.PI);
-	const radius = Math.max(220, Math.ceil(minRadiusForNoTouch));
+	const radius = Math.max(
+		220,
+		Math.ceil(minRadiusForNoTouch),
+		centerRadius + relatedRadius + 100, // At least 100px of breathing room for arrows
+	);
 	const margin = 150;
 	const svgSize = (radius + margin) * 2;
 	const relationshipData = useMemo(() => {
 		return relatedCharacters.flatMap((char, i: number) => {
-			const angleDeg = (i / relatedCharacters.length) * 360;
+			const angleDeg = (i / relatedCharacters.length) * 360 - 90;
 
 			const rels = relationships.filter(
 				(r) =>
 					(r.fromId === selectedId && r.toId === char.id) ||
 					(r.fromId === char.id && r.toId === selectedId),
 			);
+
 			return rels.map((rel, idx: number) => {
 				const isFromCenter = rel.fromId === selectedId;
 				const type = types.find((t) => t.id === rel.typeId);
@@ -105,67 +139,56 @@ export default function CharacterGraph() {
 				const typeValue = rel.value ?? type?.value ?? 0;
 				const absValue = Math.abs(typeValue);
 
-				// Arrow dimensions based on strength
-				const strokeW = 1 + absValue * 2.5;
-				const headW = strokeW * 3 + 4; // Width of arrowhead base
-				const headL = strokeW * 3.5 + 5; // Length of arrowhead
-				const edgeOpacity = 0.3 + absValue * 0.7;
+				// Line thickness based on strength
+				const strokeW = 1.5 + absValue * 2.5;
+				const edgeOpacity = 0.4 + absValue * 0.6;
 
-				// Gap between parallel lines
-				const gap = strokeW + 8;
-				const offset = (idx - (rels.length - 1) / 2) * gap;
+				// Curvature calculation
+				// If there is only 1 relationship, it's a straight line (gap = 0)
+				// If there are 2, they bow away from each other!
+				const gap = 20;
+				const bowOffset = (idx - (rels.length - 1) / 2) * gap;
 
-				// 1. THE OPTICAL ILLUSION FIX: Exact Circle Intersections
-				const R1 = centerRadius + 3;
-				const R2 = relatedRadius + 4;
+				// If bowOffset is 0, we set it to a tiny number (0.01) so it's not "zero"
+				const effectiveOffset = bowOffset === 0 ? 0.01 : bowOffset;
 
-				// Prevent NaN if offset is somehow larger than the circle (edge case)
-				const safeOffset1 = Math.min(Math.abs(offset), R1 - 0.1);
-				const safeOffset2 = Math.min(Math.abs(offset), R2 - 0.1);
+				// Add visual padding so arrows don't clip into the avatars
+				const startX = centerRadius + 8;
+				const endX = radius - relatedRadius - 8;
 
-				// Pythagoras: x = sqrt(r^2 - y^2)
-				const cxEdge = Math.sqrt(R1 * R1 - safeOffset1 * safeOffset1);
-				const oxEdge = radius - Math.sqrt(R2 * R2 - safeOffset2 * safeOffset2);
+				// The control point for the curve (Pulls the line up or down)
+				const cpX = (startX + endX) / 2;
+				const cpY = effectiveOffset * 2.5; // Multiply for a nicer, wider arc
 
-				const actualStartX = isFromCenter ? cxEdge : oxEdge;
-				const actualEndX = isFromCenter ? oxEdge : cxEdge;
-				const sign = isFromCenter ? 1 : -1;
+				// Draw all paths from Center to Outer. We will use marker direction to show flow.
+				const path = `M ${startX} 0 Q ${cpX} ${cpY} ${endX} 0`;
 
-				// 2. POLYGON ARROW MATH
-				const shaftTop = offset - strokeW / 2;
-				const shaftBot = offset + strokeW / 2;
-				const headTop = offset - headW / 2;
-				const headBot = offset + headW / 2;
-				const headBaseX = actualEndX - sign * headL;
-
-				// Draw the 7 points of the solid arrow shape
-				const path = `M ${actualStartX},${shaftTop} 
-				              L ${headBaseX},${shaftTop} 
-				              L ${headBaseX},${headTop} 
-				              L ${actualEndX},${offset} 
-				              L ${headBaseX},${headBot} 
-				              L ${headBaseX},${shaftBot} 
-				              L ${actualStartX},${shaftBot} Z`;
-
-				// We create a simple straight line just for the invisible hover hitbox
-				const hitboxPath = `M ${actualStartX} ${offset} L ${actualEndX} ${offset}`;
-
-				const curveMidX = (actualStartX + actualEndX) / 2;
-				const curveMidY = offset;
+				// Exact mathematical center of the quadratic curve (for the Tooltip anchor)
+				const curveMidX = (startX + endX) / 2;
+				const curveMidY = cpY / 2;
 
 				return {
 					rel,
 					type,
+					idx,
 					path,
-					hitboxPath,
+					isFromCenter,
 					angleDeg,
 					curveMidX,
 					curveMidY,
+					strokeW,
 					edgeOpacity,
 				};
 			});
 		});
-	}, [selectedId, relatedCharacters, relationships, types, radius]);
+	}, [
+		selectedId,
+		relatedCharacters,
+		relationships,
+		types,
+		radius,
+		centerRadius,
+	]);
 	const handleWheel = (e: React.WheelEvent) => {
 		const zoomSensitivity = 0.002;
 		scaleRef.current = Math.max(
@@ -181,17 +204,19 @@ export default function CharacterGraph() {
 					({
 						rel,
 						type,
+						idx,
 						path,
-						hitboxPath,
+						isFromCenter,
 						angleDeg,
 						curveMidX,
 						curveMidY,
+
 						edgeOpacity,
 					}) => {
-						const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}`;
+						const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}-${idx}`;
 						const isActive =
 							hoveredRel &&
-							`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}` ===
+							`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}-${idx}` ===
 								relId;
 						return (
 							<g
@@ -200,16 +225,18 @@ export default function CharacterGraph() {
 								transform={` rotate(${angleDeg})`}
 							>
 								{isActive && (
-									<Tooltip open={true} disableHoverableContent={true}>
-										<TooltipTrigger asChild>
-											<circle
-												cy={curveMidY}
-												cx={curveMidX}
-												r="1"
-												fill="white"
-												className="pointer-events-none!"
-											/>
-										</TooltipTrigger>
+									<Tooltip open={true}>
+										<TooltipTrigger
+											render={
+												<circle
+													cy={curveMidY}
+													cx={curveMidX}
+													r="1"
+													fill="transparent"
+													className="pointer-events-none!"
+												/>
+											}
+										></TooltipTrigger>
 										<TooltipContent
 											side={tooltipSide}
 											align="center"
@@ -239,11 +266,11 @@ export default function CharacterGraph() {
 								)}
 								{/* Invisible trigger path */}
 								<path
-									d={hitboxPath}
+									d={path}
 									fill="none"
 									stroke="transparent"
 									strokeWidth="16"
-									className="pointer-events-auto"
+									className="pointer-events-auto cursor-help"
 									onMouseMove={(e) => {
 										// We need to find the screen position of the midpoint of the line
 										// We can get this from the path itself or the parent G element
@@ -273,7 +300,14 @@ export default function CharacterGraph() {
 										e.preventDefault();
 										e.stopPropagation();
 										setEditingRel(rel);
-										setOpenRelModal(true);
+									}}
+									onPointerUp={(e) => {
+										// 2. OPEN THE MODAL HERE!
+										// The click cycle is finished, so the overlay won't misinterpret the mouse release.
+										if (e.pointerType === "mouse" && e.button === 2) return;
+										e.preventDefault();
+										e.stopPropagation();
+										setIsModalOpen(true);
 									}}
 									onContextMenu={(e) => {
 										e.preventDefault();
@@ -284,9 +318,24 @@ export default function CharacterGraph() {
 								{/* Visible path */}
 								<path
 									d={path}
-									fill={type?.color || "#fff"}
+									fill="none"
+									strokeLinecap="round"
+									strokeWidth="4"
+									// 1. Choose gradient based on direction
+									stroke={
+										isFromCenter
+											? `url(#grad-out-${type?.id})`
+											: `url(#grad-in-${type?.id})`
+									}
+									// 2. Put the arrowhead on the correct side
+									markerEnd={
+										isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
+									}
+									markerStart={
+										!isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
+									}
 									opacity={isActive ? 1 : edgeOpacity}
-									className="pointer-events-none transition-opacity"
+									className="pointer-events-none transition-opacity duration-300"
 								/>
 							</g>
 						);
@@ -294,7 +343,8 @@ export default function CharacterGraph() {
 				)}
 
 				{relatedCharacters.map((char, i: number) => {
-					const angle = (i / relatedCharacters.length) * 2 * Math.PI;
+					const angle =
+						(i / relatedCharacters.length) * 2 * Math.PI - Math.PI / 2;
 					const cos = Math.cos(angle);
 					const sin = Math.sin(angle);
 					const x = radius * cos;
@@ -305,9 +355,9 @@ export default function CharacterGraph() {
 					const textX = textRadius * cos;
 					const textY = textRadius * sin;
 					const textAnchor =
-						cos > 0.1 ? "start" : cos < -0.1 ? "end" : "middle";
+						cos > 0.5 ? "start" : cos < -0.5 ? "end" : "middle";
 					const dominantBaseline =
-						sin > 0.8 ? "hanging" : sin < -0.8 ? "auto" : "middle";
+						sin > 0.5 ? "hanging" : sin < -0.5 ? "auto" : "middle";
 
 					return (
 						<g
@@ -348,7 +398,7 @@ export default function CharacterGraph() {
 								y={textY}
 								textAnchor={textAnchor}
 								dominantBaseline={dominantBaseline}
-								className="fill-white text-[10px] font-bold uppercase tracking-widest opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none"
+								className="fill-foreground text-[10px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"
 							>
 								{char.name}
 							</text>
@@ -399,72 +449,176 @@ export default function CharacterGraph() {
 		setSelectedCharId,
 		tooltipSide,
 		types.find,
+		centerRadius,
 	]);
 	return (
-		<div
-			className={cn(
-				"w-full h-full overflow-hidden touch-none select-none",
-				isDragging ? "cursor-grabbing" : "cursor-grab",
-			)}
-			onWheel={handleWheel}
-			onPointerDown={(e) => {
-				if (openRelModal) return;
-				setIsDragging(true);
-				isDraggingRef.current = true;
-				setHoveredRel(null);
-				e.currentTarget.setPointerCapture(e.pointerId);
-				const svgPt = getMousePositionInSVG(e);
-				dragStartRef.current = {
-					x: svgPt.x - panRef.current.x,
-					y: svgPt.y - panRef.current.y,
-				};
-			}}
-			onPointerMove={(e) => {
-				if (!isDraggingRef.current) return;
-				// 2. Calculate the exact new position
-				const svgPt = getMousePositionInSVG(e);
-				panRef.current.x = svgPt.x - dragStartRef.current.x;
-				panRef.current.y = svgPt.y - dragStartRef.current.y;
-
-				// 3. 60 FPS Optimization (Debounce DOM updates to screen refresh rate)
-				if (!rafRef.current) {
-					rafRef.current = requestAnimationFrame(() => {
-						applyTransform();
-						rafRef.current = null;
-					});
-				}
-			}}
-			onPointerUp={() => {
-				setIsDragging(false);
-				isDraggingRef.current = false;
-				if (rafRef.current) cancelAnimationFrame(rafRef.current);
-				rafRef.current = null;
-			}}
-			onPointerCancel={() => {
-				setIsDragging(false);
-				isDraggingRef.current = false;
-			}}
-		>
-			<svg
-				ref={svgRef}
-				className="w-full h-full overflow-visible"
-				// By setting viewBox to start at -half, 0,0 is exactly in the center!
-				viewBox={`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`}
-			>
-				{graphSvgContent}
-			</svg>
-			{editingRel && (
-				<RelationshipModal
-					fromId={editingRel.fromId}
-					initialData={editingRel ?? undefined}
-					onSave={(newRel) => updateRelationship(editingRel, newRel)}
-					open={openRelModal}
-					onOpenChange={(open) => {
-						setOpenRelModal(open);
-						setEditingRel(null);
+		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-transparent">
+			{/* LAYER 1: THE GRAPH (Anchored to Right edge of Screen) */}
+			<div className="col-start-1 row-start-1 w-full h-full pointer-events-auto z-0">
+				<div
+					className={cn(
+						"absolute top-0 right-0 h-full w-screen touch-none select-none z-0",
+						isDragging ? "cursor-grabbing" : "cursor-grab",
+					)}
+					onWheel={handleWheel}
+					onPointerDown={(e) => {
+						if (isModalOpen) return;
+						setIsDragging(true);
+						isDraggingRef.current = true;
+						setHoveredRel(null);
+						e.currentTarget.setPointerCapture(e.pointerId);
+						const svgPt = getMousePositionInSVG(e);
+						dragStartRef.current = {
+							x: svgPt.x - panRef.current.x,
+							y: svgPt.y - panRef.current.y,
+						};
 					}}
-				/>
-			)}
+					onPointerMove={(e) => {
+						if (!isDraggingRef.current) return;
+						// 2. Calculate the exact new position
+						const svgPt = getMousePositionInSVG(e);
+						panRef.current.x = svgPt.x - dragStartRef.current.x;
+						panRef.current.y = svgPt.y - dragStartRef.current.y;
+
+						// 3. 60 FPS Optimization (Debounce DOM updates to screen refresh rate)
+						if (!rafRef.current) {
+							rafRef.current = requestAnimationFrame(() => {
+								applyTransform();
+								rafRef.current = null;
+							});
+						}
+					}}
+					onPointerUp={() => {
+						setIsDragging(false);
+						isDraggingRef.current = false;
+						if (rafRef.current) cancelAnimationFrame(rafRef.current);
+						rafRef.current = null;
+					}}
+					onPointerCancel={() => {
+						setIsDragging(false);
+						isDraggingRef.current = false;
+					}}
+				>
+					<svg
+						ref={svgRef}
+						className="h-full w-full overflow-visible"
+						// By setting viewBox to start at -half, 0,0 is exactly in the center!
+						viewBox={`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`}
+					>
+						<defs>
+							{types.map((t) => (
+								<Fragment key={t.id}>
+									{/* 1. Sleek Chevron Arrowhead */}
+									<marker
+										id={`arrowhead-${t.id}`}
+										viewBox="0 0 10 10"
+										refX="6"
+										refY="5"
+										markerWidth="6"
+										markerHeight="6"
+										orient="auto-start-reverse"
+									>
+										<path d="M 0 1 L 8 5 L 0 9 L 2.5 5 Z" fill={t.color} />
+									</marker>
+
+									{/* 2. Gradient: Fades from Center -> Outwards */}
+									<linearGradient
+										id={`grad-out-${t.id}`}
+										x1="0%"
+										y1="0%"
+										x2="100%"
+										y2="0%"
+									>
+										<stop offset="0%" stopColor={t.color} stopOpacity="0.05" />
+										<stop offset="100%" stopColor={t.color} stopOpacity="1" />
+									</linearGradient>
+
+									{/* 3. Gradient: Fades from Outwards -> Center */}
+									<linearGradient
+										id={`grad-in-${t.id}`}
+										x1="0%"
+										y1="0%"
+										x2="100%"
+										y2="0%"
+									>
+										<stop offset="0%" stopColor={t.color} stopOpacity="1" />
+										<stop
+											offset="100%"
+											stopColor={t.color}
+											stopOpacity="0.05"
+										/>
+									</linearGradient>
+								</Fragment>
+							))}
+						</defs>
+						{graphSvgContent}
+					</svg>
+				</div>
+				{/* LAYER 2: THE FOREGROUND UI (Stays strictly within SidebarInset bounds) */}
+				<div className="col-start-1 row-start-1 z-10 w-full h-full flex flex-col justify-between pointer-events-none">
+					{/* Header */}
+					<header className="w-full p-6 flex items-center justify-between shrink-0 pointer-events-none ">
+						<div className="bg-background/40 backdrop-blur-md p-4 rounded-2xl pointer-events-auto">
+							<h2
+								style={{ fontFamily: "Geist Variable" }}
+								className="text-4xl font-bold tracking-tighter uppercase italic serif"
+							>
+								{selectedCharacter?.name || "Select a character"}
+							</h2>
+							<p className="text-sm opacity-50 max-w-md">
+								{selectedCharacter?.description}
+							</p>
+						</div>
+
+						<Button
+							onClick={(e) => {
+								e.stopPropagation();
+								setEditingRel(null); // Null means it's a NEW relation
+								setIsModalOpen(true);
+							}}
+							className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2 pointer-events-auto z-40"
+						>
+							<Plus className="w-4 h-4" /> New Relation
+						</Button>
+					</header>
+
+					{/* Legend Container */}
+					<div className="h-full w-min p-6 flex flex-col flex-wrap-reverse justify-start items-start gap-3 pointer-events-none self-end">
+						{types.map((type) => (
+							<Badge
+								variant={"secondary"}
+								key={type.id}
+								style={{ "--badge-color": type.color } as React.CSSProperties}
+								className="selft-endp-2.5 pr-1 bg-card/40 backdrop-blur-md pointer-events-auto border border-foreground/5 transition-all hover:bg-foreground/10"
+							>
+								<span className="text-[10px] uppercase font-bold tracking-widest">
+									{type.label}
+								</span>
+								<div
+									className="size-3 rounded-full ml-2"
+									style={{ backgroundColor: type.color }}
+								/>
+							</Badge>
+						))}
+					</div>
+				</div>
+				{/* Modals */}
+				{selectedId && (
+					<RelationshipModal
+						fromId={editingRel ? editingRel.fromId : selectedId}
+						initialData={editingRel ?? undefined}
+						onSave={(newRel) => {
+							if (editingRel) updateRelationship(editingRel, newRel);
+							else addRelationship(newRel);
+						}}
+						open={isModalOpen}
+						onOpenChange={(open) => {
+							if (!open) setEditingRel(null);
+							setIsModalOpen(open);
+						}}
+					/>
+				)}
+			</div>
 		</div>
 	);
 }

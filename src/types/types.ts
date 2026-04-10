@@ -2,8 +2,10 @@ export interface Character {
 	id: string;
 	name: string;
 	description: string;
-	avatar?: string;
-	groupId?: string;
+	avatar: string | null;
+	groupId: string | null;
+	phoneNumber?: string;
+	ownerId: string;
 }
 
 export interface Group {
@@ -25,7 +27,7 @@ export interface Relationship {
 	toId: string;
 	typeId: string;
 	description: string;
-	value?: number; // optional override of the type's default value (-1 to 1)
+	value: number | null; // optional override of the type's default value (-1 to 1)
 }
 
 export interface AppData {

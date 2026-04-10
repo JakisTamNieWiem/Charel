@@ -7,7 +7,12 @@ import {
 	readTextFile,
 	writeTextFile,
 } from "@tauri-apps/plugin-fs";
-import type { Character, Group, Relationship, RelationshipType } from "@/types";
+import type {
+	Character,
+	Group,
+	Relationship,
+	RelationshipType,
+} from "@/types/types";
 
 const FILE_NAME = "graph-data.json";
 
