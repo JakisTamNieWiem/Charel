@@ -1,5 +1,5 @@
 import type { IGif } from "@giphy/js-types";
-import { ImagePlus, Send, Smile, Sticker } from "lucide-react";
+import { ImagePlus, Smile, Sticker } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
