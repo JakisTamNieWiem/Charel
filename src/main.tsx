@@ -16,7 +16,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 				<TooltipProvider>
 					<Titlebar />
 					<App />
-					<Toaster />
+					<Toaster richColors />
 				</TooltipProvider>
 			</ThemeProvider>
 		</QueryClientProvider>

@@ -93,18 +93,10 @@ export function useAddContacts() {
 	const queryClient = useQueryClient();
 
 	const mutation = useMutation({
-		mutationFn: async ({
-			fromId,
-			toIds,
-		}: {
-			fromId: string;
-			toIds: string[];
-		}) => {
-			if (toIds.length === 0) return;
-
+		mutationFn: async ({ fromId, toId }: { fromId: string; toId: string }) => {
 			const { error } = await supabase
 				.from("Contacts")
-				.insert(toIds.map((toId) => ({ fromId, toId })));
+				.insert({ fromId, toId });
 			if (error) throw error;
 		},
 		onSuccess: (_, { fromId }) => {

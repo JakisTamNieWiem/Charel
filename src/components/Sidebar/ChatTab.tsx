@@ -1,5 +1,6 @@
-import { Plus, Search, UserPlus, Users, X } from "lucide-react";
+import { Plus, PlusIcon, Search, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +47,7 @@ export default function ChatTab() {
 	const setActiveSpeakerId = useChatStore((s) => s.setActiveSpeakerId);
 
 	const { createChat } = useCreateChat();
-	const { addContacts, isPending: isAddingContacts } = useAddContacts();
+	const { addContacts } = useAddContacts();
 	const { data: contacts = [] } = useContacts(activeSpeakerId ?? "");
 
 	const characters = useGraphStore((s) => s.characters);
@@ -71,7 +72,7 @@ export default function ChatTab() {
 	const [showAddContact, setShowAddContact] = useState(false);
 	const [newGroupName, setNewGroupName] = useState("");
 	const [selectedCharIds, setSelectedCharIds] = useState<string[]>([]);
-	const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
+
 	const [charSearch, setCharSearch] = useState("");
 	const [contactSearch, setContactSearch] = useState("");
 
@@ -115,7 +116,7 @@ export default function ChatTab() {
 						),
 					),
 			),
-		[characters, activeSpeakerId, chats.some],
+		[characters, activeSpeakerId, chats],
 	);
 
 	const groupChats = useMemo(
@@ -219,17 +220,6 @@ export default function ChatTab() {
 		setCharSearch("");
 	};
 
-	const handleAddContacts = async () => {
-		if (!activeSpeakerId || selectedContactIds.length === 0) return;
-		await addContacts({
-			fromId: activeSpeakerId,
-			toIds: selectedContactIds,
-		});
-		setShowAddContact(false);
-		setSelectedContactIds([]);
-		setContactSearch("");
-	};
-
 	const newGroupCharacters = useMemo(() => {
 		if (!charSearch) return contactCharacters;
 		const q = charSearch.toLowerCase();
@@ -242,7 +232,7 @@ export default function ChatTab() {
 				(char) =>
 					char.id !== activeSpeakerId &&
 					!!char.phoneNumber?.trim() &&
-					!contactIds.has(char.id),
+					contactIds.has(char.id),
 			)
 			.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -464,88 +454,77 @@ export default function ChatTab() {
 				onOpenChange={(open) => {
 					setShowAddContact(open);
 					if (!open) {
-						setSelectedContactIds([]);
 						setContactSearch("");
 					}
 				}}
 			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Add Contacts</DialogTitle>
+						<DialogTitle>Contacts</DialogTitle>
 					</DialogHeader>
-					<div className="space-y-4">
+					<div className="space-y-6 min-h-96! flex flex-col">
 						<Input
 							placeholder="Search characters or phone numbers..."
 							value={contactSearch}
 							onChange={(e) => setContactSearch(e.target.value)}
-							className="h-7 text-xs"
+							className="h-12 text-md"
 						/>
-						{selectedContactIds.length > 0 && (
-							<div className="flex flex-wrap gap-1">
-								{selectedContactIds.map((id) => {
-									const char = characters.find((c) => c.id === id);
-									if (!char) return null;
-									return (
-										<span
-											key={id}
-											className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-xs"
-										>
-											{char.name}
-											<X
-												className="w-3 h-3 cursor-pointer hover:text-red-400"
-												onClick={() =>
-													setSelectedContactIds((prev) =>
-														prev.filter((cid) => cid !== id),
-													)
-												}
-											/>
-										</span>
-									);
-								})}
-							</div>
-						)}
-						<ScrollArea className="max-h-48 overflow-y-auto space-y-1">
-							{availableContacts
-								.filter((char) => !selectedContactIds.includes(char.id))
-								.map((char) => (
+						<ScrollArea className="h-full max-h-96 overflow-y-auto space-y-1 bg-background overflow-visible rounded-md p-1">
+							{availableContacts.length === 0 &&
+								/^\d{9}$/.test(contactSearch) && (
 									<div
-										key={char.id}
-										onClick={() =>
-											setSelectedContactIds((prev) => [...prev, char.id])
-										}
-										className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
+										onClick={async () => {
+											const char = characters.find(
+												(c) => c.phoneNumber === contactSearch.trim(),
+											);
+											if (!char) {
+												toast.error("Phone number not found!");
+												return;
+											}
+											if (!activeSpeakerId) return;
+											await addContacts({
+												fromId: activeSpeakerId,
+												toId: char.id,
+											});
+											setContactSearch("");
+											toast.success(
+												`Successfully added ${char.name} as a contact`,
+											);
+										}}
+										className="flex justify-center items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
 									>
-										<Avatar className="size-6">
-											<AvatarImage src={char.avatar ?? undefined} />
-											<AvatarFallback className="text-[8px]">
-												{char.name[0]}
-											</AvatarFallback>
-										</Avatar>
-										<div className="min-w-0">
-											<p className="text-sm truncate">{char.name}</p>
-											<p className="text-[10px] text-muted-foreground truncate">
-												{char.phoneNumber}
-											</p>
+										<div className="min-w-0 flex items-center justify-center gap-1">
+											<PlusIcon size={"20px"} />
+											<p className="text-sm truncate">Add new contact</p>
 										</div>
 									</div>
-								))}
+								)}
+							{availableContacts.map((char) => (
+								<div
+									key={char.id}
+									onClick={() => console.log("chuj")}
+									className="flex items-center gap-4 px-4 py-3 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
+								>
+									<Avatar className="size-10">
+										<AvatarImage src={char.avatar ?? undefined} />
+										<AvatarFallback className="text-[8px]">
+											{char.name[0]}
+										</AvatarFallback>
+									</Avatar>
+									<div className="min-w-0">
+										<p className="text-md truncate">{char.name}</p>
+										<p className="text-sm text-muted-foreground truncate">
+											{char.phoneNumber}
+										</p>
+									</div>
+								</div>
+							))}
 							{availableContacts.length === 0 && (
-								<p className="text-sm text-muted-foreground text-center py-4">
+								<div className="w-full text-sm text-muted-foreground text-center flex-1 absolute top-1/2 left-1/2 -translate-1/2">
 									No characters with phone numbers available.
-								</p>
+								</div>
 							)}
 						</ScrollArea>
-						<Button
-							onClick={handleAddContacts}
-							disabled={
-								!activeSpeakerId ||
-								selectedContactIds.length === 0 ||
-								isAddingContacts
-							}
-							className="w-full"
-						>
-							Add Contacts
-						</Button>
 					</div>
 				</DialogContent>
 			</Dialog>
