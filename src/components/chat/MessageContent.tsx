@@ -1,4 +1,39 @@
 import { IMAGE_URL_RE } from "@/lib/chat-utils";
+import { Emoji, EmojiStyle } from "emoji-picker-react";
+import type { ReactNode } from "react";
+
+const EMOJI_RE =
+	/(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F)(?:\u200D(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F))*/gu;
+
+function emojiToUnified(emoji: string): string {
+	return [...emoji].map((c) => c.codePointAt(0)!.toString(16)).join("-");
+}
+
+function renderWithEmojis(text: string): ReactNode[] {
+	const parts: ReactNode[] = [];
+	let lastIndex = 0;
+
+	for (const match of text.matchAll(EMOJI_RE)) {
+		if (match.index! > lastIndex) {
+			parts.push(text.slice(lastIndex, match.index));
+		}
+		parts.push(
+			<Emoji
+				key={match.index}
+				unified={emojiToUnified(match[0])}
+				emojiStyle={EmojiStyle.TWITTER}
+				size={18}
+			/>,
+		);
+		lastIndex = match.index! + match[0].length;
+	}
+
+	if (lastIndex < text.length) {
+		parts.push(text.slice(lastIndex));
+	}
+
+	return parts;
+}
 
 export default function MessageContent({ content }: { content: string }) {
 	const imgMatch = content.match(/^\[img\](.*)\[\/img\]$/s);
@@ -18,7 +53,7 @@ export default function MessageContent({ content }: { content: string }) {
 		return (
 			<div>
 				{text && (
-					<p className="text-sm whitespace-pre-wrap break-words">{text}</p>
+					<p className="text-sm whitespace-pre-wrap wrap-break-word">{renderWithEmojis(text)}</p>
 				)}
 				{imageUrls.map((url) => (
 					<img
@@ -41,5 +76,5 @@ export default function MessageContent({ content }: { content: string }) {
 		);
 	}
 
-	return <p className="text-sm whitespace-pre-wrap break-words">{content}</p>;
+	return <p className="text-sm whitespace-pre-wrap wrap-break-word flex justify-start!">{renderWithEmojis(content)}</p>;
 }

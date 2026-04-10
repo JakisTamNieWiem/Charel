@@ -12,11 +12,11 @@ import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Circle, LayoutGrid } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater";
+import { sendChatNotification } from "@/hooks/use-notifications";
 import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
@@ -255,16 +255,15 @@ function App() {
 						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
 						queryClient.invalidateQueries({ queryKey: ["chats"] });
 
-						// Fetch full message with character info for toast
-						const { data } = await supabase
-							.from("Messages")
-							.select("*, character:Characters!characterId(name, avatar)")
-							.eq("id", msg.id)
-							.single();
+						// Send native notification if not active chat
+						if (useChatStore.getState().activeChatId !== chatId) {
+							const { data } = await supabase
+								.from("Messages")
+								.select("*, character:Characters!characterId(name, avatar)")
+								.eq("id", msg.id)
+								.single();
 
-						if (data) {
-							// Show toast if not active chat
-							if (useChatStore.getState().activeChatId !== chatId) {
+							if (data) {
 								const charName = data.character?.name || "Someone";
 								const content = (data as Message).content;
 								const preview = content.startsWith("[img]")
@@ -273,18 +272,11 @@ function App() {
 										? `${content.slice(0, 50)}...`
 										: content;
 
-								toast(
-									<div
-										className="cursor-pointer select-none w-full h-full"
-										onClick={() => {
-											useChatStore.getState().setActiveChatId(chatId);
-											useGraphStore.getState().setViewMode("chat");
-										}}
-									>
-										<div className="font-semibold">{charName}</div>
-										<div className="text-sm opacity-80">{preview}</div>
-									</div>,
-								);
+								sendChatNotification({
+									charName,
+									body: preview,
+									avatar: data.character?.avatar,
+								});
 							}
 						}
 					},

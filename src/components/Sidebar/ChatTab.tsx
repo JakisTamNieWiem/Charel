@@ -24,6 +24,7 @@ import {
 	useCreateChat,
 } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
+import { useUnreadChats } from "@/hooks/use-notifications";
 import { useProfile } from "@/hooks/use-profile";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
@@ -187,22 +188,11 @@ export default function ChatTab() {
 			: last.content;
 	};
 
-	const isChatUnread = (chatId: string) => {
-		if (!activeSpeakerId) return false;
-		const chat = chats.find((c) => c.id === chatId);
-		if (!chat) return false;
-
-		const members = chat.members || [];
-		const me = members.find((m) => m.characterId === activeSpeakerId);
-		if (!me) return false;
-
-		const lastMsg = latestMessages[chatId];
-		if (!lastMsg) return false;
-		if (lastMsg.characterId === activeSpeakerId) return false;
-
-		if (!me.lastReadAt) return true;
-		return new Date(lastMsg.created_at) > new Date(me.lastReadAt);
-	};
+	const { isChatUnread } = useUnreadChats(
+		activeSpeakerId,
+		chats,
+		latestMessages,
+	);
 
 	const handleCharacterClick = (charId: string) => {
 		const existingChatId = directChatMap.get(charId);

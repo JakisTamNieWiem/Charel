@@ -114,7 +114,6 @@ export default function AppSidebar() {
 					(c) => c.id === other.characterId,
 				);
 				if (!otherCharacter?.phoneNumber?.trim()) return false;
-				if (!contactIds.has(other.characterId)) return false;
 			}
 
 			const lastMsg = latestMessages[chat.id];
