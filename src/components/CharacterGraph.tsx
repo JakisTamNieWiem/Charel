@@ -1,5 +1,12 @@
 import { Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	Fragment,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Relationship } from "@/types/types";
@@ -124,6 +131,7 @@ export default function CharacterGraph() {
 					(r.fromId === selectedId && r.toId === char.id) ||
 					(r.fromId === char.id && r.toId === selectedId),
 			);
+
 			return rels.map((rel, idx: number) => {
 				const isFromCenter = rel.fromId === selectedId;
 				const type = types.find((t) => t.id === rel.typeId);
@@ -131,62 +139,44 @@ export default function CharacterGraph() {
 				const typeValue = rel.value ?? type?.value ?? 0;
 				const absValue = Math.abs(typeValue);
 
-				// Arrow dimensions based on strength
-				const strokeW = 1 + absValue * 2.5;
-				const headW = strokeW * 3 + 4; // Width of arrowhead base
-				const headL = strokeW * 3.5 + 5; // Length of arrowhead
-				const edgeOpacity = 0.3 + absValue * 0.7;
+				// Line thickness based on strength
+				const strokeW = 1.5 + absValue * 2.5;
+				const edgeOpacity = 0.4 + absValue * 0.6;
 
-				// Gap between parallel lines
-				const gap = strokeW + 8;
-				const offset = (idx - (rels.length - 1) / 2) * gap;
+				// Curvature calculation
+				// If there is only 1 relationship, it's a straight line (gap = 0)
+				// If there are 2, they bow away from each other!
+				const gap = 20;
+				const bowOffset = (idx - (rels.length - 1) / 2) * gap;
 
-				// 1. THE OPTICAL ILLUSION FIX: Exact Circle Intersections
-				const R1 = centerRadius + 3;
-				const R2 = relatedRadius + 4;
+				// If bowOffset is 0, we set it to a tiny number (0.01) so it's not "zero"
+				const effectiveOffset = bowOffset === 0 ? 0.01 : bowOffset;
 
-				// Prevent NaN if offset is somehow larger than the circle (edge case)
-				const safeOffset1 = Math.min(Math.abs(offset), R1 - 0.1);
-				const safeOffset2 = Math.min(Math.abs(offset), R2 - 0.1);
+				// Add visual padding so arrows don't clip into the avatars
+				const startX = centerRadius + 8;
+				const endX = radius - relatedRadius - 8;
 
-				// Pythagoras: x = sqrt(r^2 - y^2)
-				const cxEdge = Math.sqrt(R1 * R1 - safeOffset1 * safeOffset1);
-				const oxEdge = radius - Math.sqrt(R2 * R2 - safeOffset2 * safeOffset2);
+				// The control point for the curve (Pulls the line up or down)
+				const cpX = (startX + endX) / 2;
+				const cpY = effectiveOffset * 2.5; // Multiply for a nicer, wider arc
 
-				const actualStartX = isFromCenter ? cxEdge : oxEdge;
-				const actualEndX = isFromCenter ? oxEdge : cxEdge;
-				const sign = isFromCenter ? 1 : -1;
+				// Draw all paths from Center to Outer. We will use marker direction to show flow.
+				const path = `M ${startX} 0 Q ${cpX} ${cpY} ${endX} 0`;
 
-				// 2. POLYGON ARROW MATH
-				const shaftTop = offset - strokeW / 2;
-				const shaftBot = offset + strokeW / 2;
-				const headTop = offset - headW / 2;
-				const headBot = offset + headW / 2;
-				const headBaseX = actualEndX - sign * headL;
-
-				// Draw the 7 points of the solid arrow shape
-				const path = `M ${actualStartX},${shaftTop} 
-				              L ${headBaseX},${shaftTop} 
-				              L ${headBaseX},${headTop} 
-				              L ${actualEndX},${offset} 
-				              L ${headBaseX},${headBot} 
-				              L ${headBaseX},${shaftBot} 
-				              L ${actualStartX},${shaftBot} Z`;
-
-				// We create a simple straight line just for the invisible hover hitbox
-				const hitboxPath = `M ${actualStartX} ${offset} L ${actualEndX} ${offset}`;
-
-				const curveMidX = (actualStartX + actualEndX) / 2;
-				const curveMidY = offset;
+				// Exact mathematical center of the quadratic curve (for the Tooltip anchor)
+				const curveMidX = (startX + endX) / 2;
+				const curveMidY = cpY / 2;
 
 				return {
 					rel,
 					type,
+					idx,
 					path,
-					hitboxPath,
+					isFromCenter,
 					angleDeg,
 					curveMidX,
 					curveMidY,
+					strokeW,
 					edgeOpacity,
 				};
 			});
@@ -214,17 +204,19 @@ export default function CharacterGraph() {
 					({
 						rel,
 						type,
+						idx,
 						path,
-						hitboxPath,
+						isFromCenter,
 						angleDeg,
 						curveMidX,
 						curveMidY,
+
 						edgeOpacity,
 					}) => {
-						const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}`;
+						const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}-${idx}`;
 						const isActive =
 							hoveredRel &&
-							`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}` ===
+							`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}-${idx}` ===
 								relId;
 						return (
 							<g
@@ -274,11 +266,11 @@ export default function CharacterGraph() {
 								)}
 								{/* Invisible trigger path */}
 								<path
-									d={hitboxPath}
+									d={path}
 									fill="none"
 									stroke="transparent"
 									strokeWidth="16"
-									className="pointer-events-auto"
+									className="pointer-events-auto cursor-help"
 									onMouseMove={(e) => {
 										// We need to find the screen position of the midpoint of the line
 										// We can get this from the path itself or the parent G element
@@ -308,6 +300,13 @@ export default function CharacterGraph() {
 										e.preventDefault();
 										e.stopPropagation();
 										setEditingRel(rel);
+									}}
+									onPointerUp={(e) => {
+										// 2. OPEN THE MODAL HERE!
+										// The click cycle is finished, so the overlay won't misinterpret the mouse release.
+										if (e.pointerType === "mouse" && e.button === 2) return;
+										e.preventDefault();
+										e.stopPropagation();
 										setIsModalOpen(true);
 									}}
 									onContextMenu={(e) => {
@@ -319,9 +318,24 @@ export default function CharacterGraph() {
 								{/* Visible path */}
 								<path
 									d={path}
-									fill={type?.color || "#fff"}
+									fill="none"
+									strokeLinecap="round"
+									strokeWidth="4"
+									// 1. Choose gradient based on direction
+									stroke={
+										isFromCenter
+											? `url(#grad-out-${type?.id})`
+											: `url(#grad-in-${type?.id})`
+									}
+									// 2. Put the arrowhead on the correct side
+									markerEnd={
+										isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
+									}
+									markerStart={
+										!isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
+									}
 									opacity={isActive ? 1 : edgeOpacity}
-									className="pointer-events-none transition-opacity"
+									className="pointer-events-none transition-opacity duration-300"
 								/>
 							</g>
 						);
@@ -491,6 +505,52 @@ export default function CharacterGraph() {
 						// By setting viewBox to start at -half, 0,0 is exactly in the center!
 						viewBox={`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`}
 					>
+						<defs>
+							{types.map((t) => (
+								<Fragment key={t.id}>
+									{/* 1. Sleek Chevron Arrowhead */}
+									<marker
+										id={`arrowhead-${t.id}`}
+										viewBox="0 0 10 10"
+										refX="6"
+										refY="5"
+										markerWidth="6"
+										markerHeight="6"
+										orient="auto-start-reverse"
+									>
+										<path d="M 0 1 L 8 5 L 0 9 L 2.5 5 Z" fill={t.color} />
+									</marker>
+
+									{/* 2. Gradient: Fades from Center -> Outwards */}
+									<linearGradient
+										id={`grad-out-${t.id}`}
+										x1="0%"
+										y1="0%"
+										x2="100%"
+										y2="0%"
+									>
+										<stop offset="0%" stopColor={t.color} stopOpacity="0.05" />
+										<stop offset="100%" stopColor={t.color} stopOpacity="1" />
+									</linearGradient>
+
+									{/* 3. Gradient: Fades from Outwards -> Center */}
+									<linearGradient
+										id={`grad-in-${t.id}`}
+										x1="0%"
+										y1="0%"
+										x2="100%"
+										y2="0%"
+									>
+										<stop offset="0%" stopColor={t.color} stopOpacity="1" />
+										<stop
+											offset="100%"
+											stopColor={t.color}
+											stopOpacity="0.05"
+										/>
+									</linearGradient>
+								</Fragment>
+							))}
+						</defs>
 						{graphSvgContent}
 					</svg>
 				</div>
@@ -553,8 +613,8 @@ export default function CharacterGraph() {
 						}}
 						open={isModalOpen}
 						onOpenChange={(open) => {
-							setIsModalOpen(open);
 							if (!open) setEditingRel(null);
+							setIsModalOpen(open);
 						}}
 					/>
 				)}

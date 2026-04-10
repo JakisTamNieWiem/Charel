@@ -98,7 +98,10 @@ export default function RelationshipModal({
 							}}
 							items={toCharacters}
 						>
-							<ComboboxInput placeholder="Select a character" />
+							<ComboboxInput
+								placeholder="Select a character"
+								disabled={!!initialData}
+							/>
 							<ComboboxContent>
 								<ComboboxEmpty>No character found.</ComboboxEmpty>
 								<ComboboxList>
@@ -251,7 +254,7 @@ export default function RelationshipModal({
 						}}
 						className="flex-1 p-3 uppercase text-xs font-bold tracking-widest"
 					>
-						{initialData ? "Save" : "Create"}
+						Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>
