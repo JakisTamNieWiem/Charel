@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Chat, ChatMember } from "@/types/chat";
+import { ScrollArea } from "../ui/scroll-area";
 
 export default function ChatTab() {
 	const { data: profile } = useProfile();
@@ -508,7 +509,7 @@ export default function ChatTab() {
 								})}
 							</div>
 						)}
-						<div className="max-h-48 overflow-y-auto space-y-1">
+						<ScrollArea className="max-h-48 overflow-y-auto space-y-1">
 							{availableContacts
 								.filter((char) => !selectedContactIds.includes(char.id))
 								.map((char) => (
@@ -538,7 +539,7 @@ export default function ChatTab() {
 									No characters with phone numbers available.
 								</p>
 							)}
-						</div>
+						</ScrollArea>
 						<Button
 							onClick={handleAddContacts}
 							disabled={
@@ -604,7 +605,7 @@ export default function ChatTab() {
 									})}
 								</div>
 							)}
-							<div className="max-h-48 overflow-y-auto space-y-1">
+							<ScrollArea className="max-h-48 overflow-y-auto space-y-1">
 								{newGroupCharacters
 									.filter((c) => !selectedCharIds.includes(c.id))
 									.map((char) => (
@@ -624,7 +625,7 @@ export default function ChatTab() {
 											<span className="text-sm truncate">{char.name}</span>
 										</div>
 									))}
-							</div>
+							</ScrollArea>
 						</div>
 						<Button
 							onClick={handleCreateGroup}
