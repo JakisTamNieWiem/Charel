@@ -107,9 +107,14 @@ export default function ChatTab() {
 				(char) =>
 					char.id !== activeSpeakerId &&
 					!!char.phoneNumber?.trim() &&
-					contactIds.has(char.id),
+					chats.some((c) =>
+						c.members.every(
+							(m) =>
+								m.characterId === char.id || m.characterId === activeSpeakerId,
+						),
+					),
 			),
-		[characters, activeSpeakerId, contactIds],
+		[characters, activeSpeakerId, chats.some],
 	);
 
 	const groupChats = useMemo(
@@ -411,9 +416,9 @@ export default function ChatTab() {
 			{/* Characters (direct messages) */}
 			<div>
 				<p className="text-[10px] font-mono uppercase tracking-widest opacity-30 px-1 mb-1">
-					Friends ({filteredCharacters.length})
+					Chats ({chats.length})
 				</p>
-				{filteredCharacters.length === 0 && (
+				{chats.length === 0 && (
 					<p className="px-3 py-2 text-xs text-muted-foreground">
 						No contacts for this character yet.
 					</p>
