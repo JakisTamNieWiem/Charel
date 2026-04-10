@@ -1,9 +1,9 @@
-import { useCallback } from "react";
 import {
 	isPermissionGranted,
 	requestPermission,
 	sendNotification,
 } from "@tauri-apps/plugin-notification";
+import { useCallback } from "react";
 import type { Chat, ChatMember, Message } from "@/types/chat";
 
 interface ChatNotificationOptions {
@@ -29,9 +29,7 @@ export async function sendChatNotification({
 				body,
 				group: "charel-messages",
 				autoCancel: true,
-				attachments: avatar
-					? [{ id: "avatar", url: avatar }]
-					: undefined,
+				attachments: avatar ? [{ id: "avatar", url: avatar }] : undefined,
 			});
 		}
 	} catch (e) {

@@ -5,7 +5,7 @@ export interface Character {
 	avatar: string | null;
 	groupId: string | null;
 	phoneNumber?: string;
-	ownerId?: string;
+	ownerId: string;
 }
 
 export interface Group {

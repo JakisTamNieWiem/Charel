@@ -176,6 +176,7 @@ export default function CharacterTab() {
 									id: "",
 									name: "",
 									description: "",
+									ownerId: "",
 									avatar: null,
 									groupId: null,
 								}

@@ -135,16 +135,19 @@ export type Database = {
         Row: {
           created_at: string
           fromId: string
+          nickname: string | null
           toId: string
         }
         Insert: {
           created_at?: string
           fromId: string
+          nickname?: string | null
           toId: string
         }
         Update: {
           created_at?: string
           fromId?: string
+          nickname?: string | null
           toId?: string
         }
         Relationships: [
