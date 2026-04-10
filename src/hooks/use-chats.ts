@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Chat, ChatMember, Contact } from "@/types/chat";
+import type { Character } from "@/types/types";
 import { withNamedMutation } from "./mutation-utils";
 
 export interface ChatWithMembers extends Chat {
@@ -45,11 +46,11 @@ export function useCreateChat() {
 		mutationFn: async ({
 			name,
 			isGroup,
-			characterIds,
+			characters,
 		}: {
 			name: string | null;
 			isGroup: boolean;
-			characterIds: string[];
+			characters: Character[];
 		}) => {
 			const { data: sessionData } = await supabase.auth.getSession();
 			if (!sessionData.session) throw new Error("No session");
@@ -67,11 +68,11 @@ export function useCreateChat() {
 			if (chatError || !chatData)
 				throw chatError || new Error("Failed to create chat");
 
-			if (characterIds.length > 0) {
-				const members = characterIds.map((characterId) => ({
+			if (characters.length > 0) {
+				const members = characters.map((character) => ({
 					chatId: chatData.id,
-					characterId,
-					userId: sessionData.session.user.id,
+					characterId: character.id,
+					userId: character.ownerId,
 				}));
 				const { error: memberError } = await supabase
 					.from("ChatsMembers")
@@ -112,10 +113,6 @@ export function useDeleteChat() {
 
 	const mutation = useMutation({
 		mutationFn: async (chatId: string) => {
-			// Cascading deletes should be handled by Supabase, but we can be explicit if needed.
-			// The old useChatStore.deleteChat was explicit.
-			await supabase.from("ChatsMembers").delete().eq("chatId", chatId);
-			await supabase.from("Messages").delete().eq("chat", chatId);
 			const { error } = await supabase.from("Chats").delete().eq("id", chatId);
 			if (error) throw error;
 		},

@@ -271,10 +271,13 @@ export default function ChatTab() {
 
 	const handleCreateGroup = async () => {
 		if (!activeSpeakerId || selectedCharIds.length < 2) return;
+		const charactersToAdd = characters.filter((c) =>
+			[activeSpeakerId, ...selectedCharIds].includes(c.id),
+		);
 		const chatId = await createChat({
 			name: newGroupName || null,
 			isGroup: true,
-			characterIds: [activeSpeakerId, ...selectedCharIds],
+			characters: charactersToAdd,
 		});
 		if (chatId) {
 			setActiveChatId(chatId);
@@ -540,7 +543,8 @@ export default function ChatTab() {
 						<ScrollArea className="h-full max-h-96 overflow-y-auto space-y-1 bg-background overflow-visible rounded-md p-1">
 							{availableContacts.length === 0 &&
 								/^\d{9}$/.test(contactSearch) && (
-									<div
+									<Button
+										variant={"ghost"}
 										onClick={async () => {
 											const char = characters.find(
 												(c) => c.phoneNumber === contactSearch.trim(),
@@ -559,13 +563,11 @@ export default function ChatTab() {
 												`Successfully added ${char.name} as a contact`,
 											);
 										}}
-										className="flex justify-center items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
+										className="w-full h-12"
 									>
-										<div className="min-w-0 flex items-center justify-center gap-1">
-											<PlusIcon size={"20px"} />
-											<p className="text-sm truncate">Add new contact</p>
-										</div>
-									</div>
+										<PlusIcon size={"24px"} />
+										Add new contact
+									</Button>
 								)}
 							{availableContacts.map((char) => {
 								const contact = contactMap.get(char.id);

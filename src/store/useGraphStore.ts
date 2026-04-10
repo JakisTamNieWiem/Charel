@@ -39,8 +39,8 @@ interface GraphState {
 	setNetworkMode: (mode: NetworkMode) => void;
 
 	// --- ACTIONS: CHARACTERS ---
-	addCharacter: (char: Omit<Character, "id">) => void;
-	updateCharacter: (char: Character) => void;
+	addCharacter: (char: Omit<Omit<Character, "id">, "ownerId">) => void;
+	updateCharacter: (char: Omit<Character, "ownerId">) => void;
 	deleteCharacter: (id: string) => void;
 
 	// --- ACTIONS: RELATIONSHIP TYPES ---
@@ -89,7 +89,10 @@ export const useGraphStore = create<GraphState>()(
 				const ownerId = sessionData.session?.user.id;
 
 				set((state) => ({
-					characters: [...state.characters, { ...char, id, ownerId }],
+					characters: [
+						...state.characters,
+						{ ...char, id, ownerId: ownerId ?? "" },
+					],
 				}));
 
 				if (sessionData.session) {
@@ -110,7 +113,7 @@ export const useGraphStore = create<GraphState>()(
 				const prevCharacters = get().characters;
 				set((state) => ({
 					characters: state.characters.map((c) =>
-						c.id === char.id ? char : c,
+						c.id === char.id ? { ...char, ownerId: c.ownerId } : c,
 					),
 				}));
 				const { data } = await supabase.auth.getSession();

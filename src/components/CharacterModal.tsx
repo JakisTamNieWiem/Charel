@@ -16,8 +16,8 @@ import { Field } from "./ui/field";
 import { Textarea } from "./ui/textarea";
 
 interface CharacterModalProps {
-	char: Character;
-	onSave: (char: Character) => void;
+	char: Omit<Character, "ownerId">;
+	onSave: (char: Omit<Character, "ownerId">) => void;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }
