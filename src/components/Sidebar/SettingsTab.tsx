@@ -2,8 +2,10 @@ import type { Session } from "@supabase/supabase-js";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Download, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/lib/supabase";
 import { useGraphStore } from "@/store/useGraphStore";
 import { THEME_PALETTES, type ThemeColor, useTheme } from "../ThemeProvider";
 import { Label } from "../ui/label";
@@ -17,19 +19,19 @@ import {
 	SelectValue,
 } from "../ui/select";
 
-interface SettingsTabProps {
-	session: Session | null;
-}
-
-export default function SettingsTab({ session }: SettingsTabProps) {
+export default function SettingsTab() {
 	const importData = useGraphStore((state) => state.importData);
 	const allCharacters = useGraphStore((state) => state.characters);
 	const relationshipTypes = useGraphStore((state) => state.relationshipTypes);
 	const relationships = useGraphStore((state) => state.relationships);
 	const groups = useGraphStore((state) => state.groups);
+	const [session, setSession] = useState<Session | null>(null);
 
 	const { color, setColor } = useTheme();
-
+	useEffect(() => {
+		supabase.auth.getSession().then(({ data }) => setSession(data.session));
+		supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+	}, []);
 	return (
 		<div className="h-full">
 			<div className="p-2 min-h-9 flex flex-col justify-between space-y-2">

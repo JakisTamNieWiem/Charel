@@ -258,7 +258,7 @@ export default function AppSidebar() {
 							{activeTab === "groups" && <GroupsTab />}
 							{activeTab === "types" && <RelationshipTypesTab />}
 							{activeTab === "chat" && <ChatTab />}
-							{activeTab === "settings" && <SettingsTab session={session} />}
+							{activeTab === "settings" && <SettingsTab />}
 						</SidebarGroup>
 					</SidebarContent>
 				</div>
