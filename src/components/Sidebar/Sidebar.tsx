@@ -19,7 +19,7 @@ import {
 	SidebarGroup,
 	SidebarHeader,
 } from "@/components/ui/sidebar";
-import { useChats, useContacts } from "@/hooks/use-chats";
+import { useChats } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/lib/supabase";
@@ -93,13 +93,8 @@ export default function AppSidebar() {
 	const chatIds = useMemo(() => chats.map((c) => c.id), [chats]);
 	const { data: latestMessages = {} } = useLatestMessages(chatIds);
 	const activeSpeakerId = useChatStore((state) => state.activeSpeakerId);
-	const { data: contacts = [] } = useContacts(activeSpeakerId ?? "");
-	const characters = useGraphStore((state) => state.characters);
 
-	const contactIds = useMemo(
-		() => new Set(contacts.map((contact) => contact.toId)),
-		[contacts],
-	);
+	const characters = useGraphStore((state) => state.characters);
 
 	const hasUnread = useMemo(() => {
 		if (!activeSpeakerId || chats.length === 0) return false;
@@ -123,7 +118,7 @@ export default function AppSidebar() {
 			if (!me.lastReadAt) return true;
 			return new Date(lastMsg.created_at) > new Date(me.lastReadAt);
 		});
-	}, [activeSpeakerId, chats, characters, contactIds, latestMessages]);
+	}, [activeSpeakerId, chats, characters, latestMessages]);
 
 	const contentRef = useRef<HTMLDivElement>(null);
 
