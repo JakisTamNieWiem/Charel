@@ -46,6 +46,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{secrets.VITE_SUPABASE_URL}}
+          VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{secrets.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY}}
+          VITE_GIPHY_SDK_KEY: ${{secrets.VITE_GIPHY_SDK_KEY}}
         with:
           tagName: charel-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: 'Charel v__VERSION__'
