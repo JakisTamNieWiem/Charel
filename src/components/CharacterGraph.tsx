@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Relationship } from "@/types/types";
+import ConfirmModal from "./ConfirmModal";
 import RelationshipModal from "./RelationshipModal";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -44,6 +45,7 @@ export default function CharacterGraph() {
 
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingRel, setEditingRel] = useState<Relationship | null>(null);
+	const [deletingRel, setDeletingRel] = useState<Relationship | null>(null);
 
 	const [hoveredRel, setHoveredRel] = useState<Relationship | null>(null);
 
@@ -312,7 +314,7 @@ export default function CharacterGraph() {
 									onContextMenu={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
-										deleteRelationship(rel.fromId, rel.toId, rel.typeId);
+										setDeletingRel(rel);
 									}}
 								/>
 								{/* Visible path */}
@@ -445,7 +447,6 @@ export default function CharacterGraph() {
 		// 2. Cached Hover Functions (Now stable thanks to useCallback)
 		handleMouseEnterLine,
 		handleMouseLeaveLine,
-		deleteRelationship,
 		setSelectedCharId,
 		tooltipSide,
 		types.find,
@@ -615,6 +616,23 @@ export default function CharacterGraph() {
 						onOpenChange={(open) => {
 							if (!open) setEditingRel(null);
 							setIsModalOpen(open);
+						}}
+					/>
+				)}
+				{deletingRel && (
+					<ConfirmModal
+						title="Delete Relationship"
+						message={`Are you sure you want to delete relationship from ${allChars.find((c) => c.id === deletingRel.fromId)?.name} to ${allChars.find((c) => c.id === deletingRel.toId)?.name}?`}
+						onConfirm={() =>
+							deleteRelationship(
+								deletingRel.fromId,
+								deletingRel.toId,
+								deletingRel.typeId,
+							)
+						}
+						open={!!deletingRel}
+						onOpenChange={(open) => {
+							if (!open) setDeletingRel(null);
 						}}
 					/>
 				)}

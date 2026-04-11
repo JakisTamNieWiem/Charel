@@ -1,7 +1,7 @@
 // src/components/ThemeProvider.tsx
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-export const THEME_PALETTES = [
+export const PRESET_THEMES = [
 	{ label: "Zen", value: "zen" },
 	{ label: "Damon", value: "damon" },
 	{ label: "Caffeine", value: "caffeine" },
@@ -10,19 +10,28 @@ export const THEME_PALETTES = [
 ] as const;
 
 type ThemeMode = "dark" | "light" | "system";
-export type ThemeColor = (typeof THEME_PALETTES)[number]["value"];
 
-type ThemeProviderProps = {
-	children: React.ReactNode;
-	defaultTheme?: ThemeMode;
-	defaultColor?: ThemeColor;
+export type CustomTheme = {
+	id: string;
+	name: string;
+	css: string;
+};
+
+export type ThemeOption = {
+	label: string;
+	value: string;
+	isCustom: boolean;
 };
 
 type ThemeProviderState = {
 	theme: ThemeMode;
 	setTheme: (theme: ThemeMode) => void;
-	color: ThemeColor;
-	setColor: (color: ThemeColor) => void;
+	color: string;
+	setColor: (color: string) => void;
+	customThemes: CustomTheme[];
+	addCustomTheme: (theme: CustomTheme) => void;
+	removeCustomTheme: (id: string) => void;
+	allThemes: ThemeOption[];
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState | undefined>(
@@ -33,47 +42,89 @@ export function ThemeProvider({
 	children,
 	defaultTheme = "system",
 	defaultColor = "zen",
-}: ThemeProviderProps) {
-	// 1. State for Light/Dark
+}: {
+	children: React.ReactNode;
+	defaultTheme?: ThemeMode;
+	defaultColor?: string;
+}) {
 	const [theme, setThemeState] = useState<ThemeMode>(
 		() => (localStorage.getItem("app-theme") as ThemeMode) || defaultTheme,
 	);
 
-	// 2. State for Color Palette
-	const [color, setColorState] = useState<ThemeColor>(
-		() => (localStorage.getItem("app-color") as ThemeColor) || defaultColor,
+	const [color, setColorState] = useState<string>(
+		() => localStorage.getItem("app-color") || defaultColor,
 	);
 
-	// 3. Effect to apply Light/Dark classes
+	// Store custom themes in LocalStorage (or you could use Tauri's fs here, but this is faster/synchronous for UI)
+	const [customThemes, setCustomThemes] = useState<CustomTheme[]>(() => {
+		const saved = localStorage.getItem("app-custom-themes");
+
+		return saved ? JSON.parse(saved) : [];
+	});
+
+	const allThemes = useMemo<ThemeOption[]>(() => {
+		return [
+			...PRESET_THEMES.map((t) => ({ ...t, isCustom: false })),
+			...customThemes.map((t) => ({
+				label: t.name,
+				value: t.id,
+				isCustom: true,
+			})),
+		];
+	}, [customThemes]);
+
+	// 1. Apply Dark/Light mode
 	useEffect(() => {
 		const root = window.document.documentElement;
 		root.classList.remove("light", "dark");
-
 		if (theme === "system") {
 			const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
 				.matches
 				? "dark"
 				: "light";
 			root.classList.add(systemTheme);
-			return;
+		} else {
+			root.classList.add(theme);
 		}
-		root.classList.add(theme);
 	}, [theme]);
 
-	// 4. Effect to apply Color Palette classes
+	// 2. Apply Theme Color Classes & Inject Custom CSS
 	useEffect(() => {
 		const root = window.document.documentElement;
+		let styleEl = document.getElementById("custom-theme-style");
 
-		// Strip out any existing color classes to prevent conflicts
+		// Remove all previous theme classes
 		root.classList.forEach((className) => {
-			if (className.startsWith("theme-")) {
-				root.classList.remove(className);
-			}
+			if (className.startsWith("theme-")) root.classList.remove(className);
 		});
 
-		// Add the new color class (e.g., "theme-rose")
-		root.classList.add(`theme-${color}`);
-	}, [color]);
+		const isPreset = PRESET_THEMES.some((p) => p.value === color);
+
+		if (isPreset) {
+			// It's a built-in theme
+			root.classList.add(`theme-${color}`);
+			if (styleEl) styleEl.remove();
+		} else {
+			// It's a custom theme!
+			const activeCustom = customThemes.find((t) => t.id === color);
+			if (activeCustom) {
+				// We apply a generic "theme-custom" class to the HTML
+				root.classList.add("theme-custom");
+
+				// Inject the specific CSS for this theme
+				if (!styleEl) {
+					styleEl = document.createElement("style");
+					styleEl.id = "custom-theme-style";
+					document.head.appendChild(styleEl);
+				}
+				styleEl.textContent = activeCustom.css;
+			} else {
+				// Fallback if custom theme was deleted
+				root.classList.add(`theme-${defaultColor}`);
+				setColorState(defaultColor);
+			}
+		}
+	}, [color, customThemes, defaultColor]);
 
 	const value = {
 		theme,
@@ -82,10 +133,26 @@ export function ThemeProvider({
 			setThemeState(newTheme);
 		},
 		color,
-		setColor: (newColor: ThemeColor) => {
+		setColor: (newColor: string) => {
 			localStorage.setItem("app-color", newColor);
 			setColorState(newColor);
 		},
+		customThemes,
+		addCustomTheme: (newTheme: CustomTheme) => {
+			const updated = [
+				...customThemes.filter((t) => t.id !== newTheme.id),
+				newTheme,
+			];
+			setCustomThemes(updated);
+			localStorage.setItem("app-custom-themes", JSON.stringify(updated));
+		},
+		removeCustomTheme: (id: string) => {
+			const updated = customThemes.filter((t) => t.id !== id);
+			setCustomThemes(updated);
+			localStorage.setItem("app-custom-themes", JSON.stringify(updated));
+			if (color === id) setColorState("zen"); // Reset if they delete active theme
+		},
+		allThemes,
 	};
 
 	return (
