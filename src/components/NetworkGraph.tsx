@@ -471,7 +471,7 @@ export default function NetworkGraph() {
 				//ctx.imageSmoothingEnabled = true;
 				//ctx.imageSmoothingQuality = "medium";
 
-				ctx.clearRect(0, 0, engine.width, engine.height);
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 				const { x: tx, y: ty, k } = engine.transform;
 				const lyt = engine.layout;
