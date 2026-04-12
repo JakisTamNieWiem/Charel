@@ -1,10 +1,15 @@
 import { Loader2, Lock, Users } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
-import { Field, FieldLabel } from "../ui/field";
-import { Input } from "../ui/input";
 
 export default function LoginModal({
 	open,

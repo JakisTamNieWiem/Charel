@@ -4,10 +4,10 @@ import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Download, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 import { useGraphStore } from "@/store/useGraphStore";
-import { Separator } from "../ui/separator";
 import ThemeManager from "./ThemeManager";
 
 export default function SettingsTab() {

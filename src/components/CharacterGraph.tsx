@@ -590,7 +590,7 @@ export default function CharacterGraph() {
 								variant={"secondary"}
 								key={type.id}
 								style={{ "--badge-color": type.color } as React.CSSProperties}
-								className="selft-endp-2.5 pr-1 bg-card/40 backdrop-blur-md pointer-events-auto border border-foreground/5 transition-all hover:bg-foreground/10"
+								className="p-2.5 pr-1 bg-card/40 backdrop-blur-md pointer-events-auto border border-foreground/5 transition-all hover:bg-foreground/10"
 							>
 								<span className="text-[10px] uppercase font-bold tracking-widest">
 									{type.label}

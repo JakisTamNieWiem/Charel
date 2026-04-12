@@ -1,6 +1,8 @@
 import { Plus, Trash2, X } from "lucide-react";
 import { useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -11,8 +13,6 @@ import {
 } from "@/components/ui/select";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Group } from "@/types/types";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 
 export default function GroupsTab() {
 	const allCharacters = useGraphStore((state) => state.characters);
