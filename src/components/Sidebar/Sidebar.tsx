@@ -8,6 +8,7 @@ import {
 	Loader2,
 	MessageCircle,
 	Network,
+	ScrollText,
 	Settings,
 	Users,
 } from "lucide-react";
@@ -36,6 +37,7 @@ import NetworkTab from "./NetworkTab";
 import RelationshipTypesTab from "./RelationshipTypesTab";
 import SettingsTab from "./SettingsTab";
 import ThemeToggle from "./ThemeToggle";
+import CharacterSheetTab from "@/components/CharacterSheet/CharacterSheetTab";
 
 type SidebarTab =
 	| "characters"
@@ -43,13 +45,14 @@ type SidebarTab =
 	| "groups"
 	| "types"
 	| "settings"
-	| "chat";
+	| "chat"
+	| "sheets";
 
 const navItems: {
 	value: SidebarTab;
 	icon: React.ElementType;
 	title: string;
-	viewMode: "character" | "network" | "chat";
+	viewMode: "character" | "network" | "chat" | "sheet";
 }[] = [
 	{
 		value: "characters",
@@ -71,6 +74,12 @@ const navItems: {
 		viewMode: "character",
 	},
 	{ value: "chat", icon: MessageCircle, title: "Chat", viewMode: "chat" },
+	{
+		value: "sheets",
+		icon: ScrollText,
+		title: "Character Sheets",
+		viewMode: "sheet",
+	},
 	{
 		value: "settings",
 		icon: Settings,
@@ -252,6 +261,7 @@ export default function AppSidebar() {
 							{activeTab === "groups" && <GroupsTab />}
 							{activeTab === "types" && <RelationshipTypesTab />}
 							{activeTab === "chat" && <ChatTab />}
+							{activeTab === "sheets" && <CharacterSheetTab />}
 							{activeTab === "settings" && <SettingsTab />}
 						</SidebarGroup>
 					</SidebarContent>

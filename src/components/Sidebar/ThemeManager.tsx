@@ -28,7 +28,6 @@ export default function ThemeManager() {
 		setColor,
 		customThemes,
 		addCustomTheme,
-		removeCustomTheme,
 		allThemes,
 	} = useTheme();
 	const [isEditorOpen, setIsEditorOpen] = useState(false);

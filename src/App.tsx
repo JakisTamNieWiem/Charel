@@ -1,12 +1,14 @@
 import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
+import CharacterSheetWorkspace from "@/components/CharacterSheet/CharacterSheetWorkspace";
 import ChatWindow from "@/components/chat/ChatWindow";
 import NetworkGraph from "@/components/NetworkGraph";
 import AppSidebar from "@/components/Sidebar/Sidebar";
 import TypeModal from "@/components/TypeModal";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
+import { useSheetStore } from "@/store/useSheetStore";
 import type { Character, Relationship, RelationshipType } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
@@ -29,6 +31,7 @@ function App() {
 	const [isAuthResolved, setIsAuthResolved] = useState(false);
 	const [isDataLoaded, setIsDataLoaded] = useState(false);
 	const setSyncing = useGraphStore((s) => s.setSyncing);
+	const initializeSheets = useSheetStore((state) => state.initialize);
 	const queryClient = useQueryClient();
 
 	// Zustand Store
@@ -46,6 +49,10 @@ function App() {
 	useEffect(() => {
 		checkForUpdates();
 	}, []);
+
+	useEffect(() => {
+		initializeSheets();
+	}, [initializeSheets]);
 
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
@@ -426,6 +433,8 @@ function App() {
 										</Tabs>
 									</div>
 								</>
+							) : viewMode === "sheet" ? (
+								<CharacterSheetWorkspace />
 							) : selectedCharacter ? (
 								<CharacterGraph />
 							) : (

@@ -17,7 +17,7 @@ const defaultData = {
 	groups: [] as Group[],
 	relationshipTypes: [] as RelationshipType[],
 };
-type ViewMode = "character" | "network" | "chat";
+type ViewMode = "character" | "network" | "chat" | "sheet";
 type NetworkMode = "group" | "global";
 
 interface GraphState {
