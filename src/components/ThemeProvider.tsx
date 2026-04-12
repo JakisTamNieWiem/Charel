@@ -1,5 +1,6 @@
 // src/components/ThemeProvider.tsx
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { normalizeCustomThemeCss } from "@/lib/theme-editor";
 
 export const PRESET_THEMES = [
 	{ label: "Zen", value: "zen" },
@@ -117,7 +118,7 @@ export function ThemeProvider({
 					styleEl.id = "custom-theme-style";
 					document.head.appendChild(styleEl);
 				}
-				styleEl.textContent = activeCustom.css;
+				styleEl.textContent = normalizeCustomThemeCss(activeCustom.css);
 			} else {
 				// Fallback if custom theme was deleted
 				root.classList.add(`theme-${defaultColor}`);

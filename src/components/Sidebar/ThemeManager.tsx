@@ -1,42 +1,132 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { Palette, Upload } from "lucide-react";
-import { useState } from "react";
-import { useTheme } from "@/components/ThemeProvider";
+import { useEffect, useState } from "react";
+import { type CustomTheme, useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
 	SelectTrigger,
 	SelectValue,
-} from "../ui/select";
+} from "@/components/ui/select";
+import {
+	applyThemePreview,
+	clearThemePreview,
+	getPresetThemeValues,
+	normalizeThemeValues,
+	parseThemeCss,
+	serializeThemeCss,
+	type ThemeMode,
+	type ThemeValues,
+} from "@/lib/theme-editor";
+import { ThemeEditorDialog } from "./theme-manager/ThemeEditorDialog";
+
+type ThemeDraft = {
+	id: string;
+	name: string;
+	values: ThemeValues;
+};
+
+function buildThemeDraft(
+	color: string,
+	allThemes: ReturnType<typeof useTheme>["allThemes"],
+	customThemes: CustomTheme[],
+): ThemeDraft {
+	const selectedCustomTheme = customThemes.find((theme) => theme.id === color);
+
+	if (selectedCustomTheme) {
+		return {
+			id: selectedCustomTheme.id,
+			name: selectedCustomTheme.name,
+			values: normalizeThemeValues(parseThemeCss(selectedCustomTheme.css)),
+		};
+	}
+
+	const selectedThemeOption = allThemes.find((theme) => theme.value === color);
+
+	return {
+		id: "",
+		name: selectedThemeOption
+			? `${selectedThemeOption.label} Copy`
+			: "Custom Theme",
+		values: getPresetThemeValues(color),
+	};
+}
 
 export default function ThemeManager() {
-	const {
-		color,
-		setColor,
-		customThemes,
-		addCustomTheme,
-		removeCustomTheme,
-		allThemes,
-	} = useTheme();
+	const { color, setColor, customThemes, addCustomTheme, allThemes } =
+		useTheme();
 	const [isEditorOpen, setIsEditorOpen] = useState(false);
-	const [editingTheme, setEditingTheme] = useState(
-		customThemes.find((t) => t.id === color) ?? { id: "", name: "", css: "" },
+	const [draft, setDraft] = useState<ThemeDraft>(() =>
+		buildThemeDraft(color, allThemes, customThemes),
 	);
+	const [rawCss, setRawCss] = useState(() => serializeThemeCss(draft.values));
 
-	// 1. Tauri Native File Picker Import
+	useEffect(() => {
+		if (!isEditorOpen) {
+			clearThemePreview();
+			return;
+		}
+
+		applyThemePreview(draft.values);
+
+		return () => clearThemePreview();
+	}, [draft.values, isEditorOpen]);
+
+	const openEditor = () => {
+		const nextDraft = buildThemeDraft(color, allThemes, customThemes);
+		setDraft(nextDraft);
+		setRawCss(serializeThemeCss(nextDraft.values));
+		setIsEditorOpen(true);
+	};
+
+	const handleVariableChange = (
+		mode: ThemeMode,
+		key: string,
+		value: string,
+	) => {
+		const nextValues = {
+			...draft.values,
+			[mode]: {
+				...draft.values[mode],
+				[key]: value,
+			},
+		};
+
+		setDraft({ ...draft, values: nextValues });
+		setRawCss(serializeThemeCss(nextValues));
+	};
+
+	const handleRawCssChange = (nextRawCss: string) => {
+		const nextValues = normalizeThemeValues(
+			parseThemeCss(nextRawCss),
+			draft.values,
+		);
+
+		setRawCss(nextRawCss);
+		setDraft({ ...draft, values: nextValues });
+	};
+
+	const handleSaveDraft = () => {
+		const name = draft.name.trim();
+
+		if (!name) {
+			return;
+		}
+
+		const id = draft.id || `custom-${Date.now()}`;
+		const css = serializeThemeCss(draft.values);
+
+		addCustomTheme({ id, name, css });
+		setColor(id);
+		setIsEditorOpen(false);
+	};
+
 	const handleImportFile = async () => {
 		try {
 			const selectedPath = await open({
@@ -45,62 +135,77 @@ export default function ThemeManager() {
 				filters: [{ name: "CSS Files", extensions: ["css"] }],
 			});
 
-			if (selectedPath && typeof selectedPath === "string") {
-				// Read file from disk
-				const cssContent = await readTextFile(selectedPath);
-
-				// Extract file name without extension to use as the Theme Name
-				const fileName =
-					selectedPath.split(/[\\/]/).pop()?.replace(".css", "") ||
-					"Imported Theme";
-				const themeId = `custom-${Date.now()}`;
-
-				addCustomTheme({
-					id: themeId,
-					name: fileName,
-					css: cssContent,
-				});
-
-				setColor(themeId); // Auto-apply it
+			if (!selectedPath || typeof selectedPath !== "string") {
+				return;
 			}
+
+			const fileContents = await readTextFile(selectedPath);
+			const fileName =
+				selectedPath.split(/[\\/]/).pop()?.replace(".css", "") ||
+				"Imported Theme";
+			const fallbackValues = buildThemeDraft(
+				color,
+				allThemes,
+				customThemes,
+			).values;
+			const values = normalizeThemeValues(
+				parseThemeCss(fileContents),
+				fallbackValues,
+			);
+			const id = `custom-${Date.now()}`;
+
+			addCustomTheme({
+				id,
+				name: fileName,
+				css: serializeThemeCss(values),
+			});
+			setColor(id);
 		} catch (error) {
 			console.error("Failed to import theme:", error);
 		}
 	};
 
-	const handleSaveDraft = () => {
-		if (!editingTheme.name.trim()) return;
-
-		const id =
-			editingTheme.id === "" ? `custom-${Date.now()}` : editingTheme.id;
-		addCustomTheme({ id, name: editingTheme.name, css: editingTheme.css });
-		setColor(id);
-		setIsEditorOpen(false);
-	};
-
 	return (
-		<div className="min-h-9 p-2 my-2 flex flex-col justify-between space-y-2">
+		<div className="my-2 flex min-h-9 flex-col justify-between space-y-2 p-2">
 			<Label className="text-xs font-mono uppercase tracking-widest opacity-50">
 				Theme Management
 			</Label>
+
 			<Select
-				items={allThemes}
 				value={color}
-				onValueChange={(value) => {
-					if (value) setColor(value);
-					const theme = customThemes.find((t) => t.id === value);
-					if (theme) setEditingTheme(theme);
+				onValueChange={(nextColor) => {
+					if (!nextColor) {
+						return;
+					}
+
+					setColor(nextColor);
 				}}
+				items={allThemes}
 			>
 				<SelectTrigger className="w-full">
 					<SelectValue placeholder="Select a theme" />
 				</SelectTrigger>
 				<SelectContent alignItemWithTrigger={false}>
-					{allThemes.map((palette) => (
-						<SelectItem key={palette.value} value={palette.value}>
-							{palette.label}
-						</SelectItem>
-					))}
+					<SelectGroup>
+						<SelectLabel>Default</SelectLabel>
+						{allThemes
+							.filter((theme) => !theme.isCustom)
+							.map((theme) => (
+								<SelectItem key={theme.value} value={theme.value}>
+									{theme.label}
+								</SelectItem>
+							))}
+					</SelectGroup>
+					<SelectGroup>
+						<SelectLabel>Custom</SelectLabel>
+						{allThemes
+							.filter((theme) => theme.isCustom)
+							.map((theme) => (
+								<SelectItem key={theme.value} value={theme.value}>
+									{theme.label}
+								</SelectItem>
+							))}
+					</SelectGroup>
 				</SelectContent>
 			</Select>
 
@@ -110,60 +215,26 @@ export default function ThemeManager() {
 					variant="secondary"
 					onClick={handleImportFile}
 				>
-					<Upload className="w-4 h-4" /> Import
+					<Upload className="mr-2 h-4 w-4" /> Import
 				</Button>
 
-				{/* Large Editor Modal */}
-				<Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-					<Button
-						className="flex-1"
-						variant="outline"
-						onClick={() => setIsEditorOpen(true)}
-					>
-						<Palette className="w-4 h-4" /> Editor
-					</Button>
-					<DialogContent className="max-w-4xl h-[80vh] min-w-[50vw] flex flex-col">
-						<DialogHeader>
-							<DialogTitle className="underline underline-offset-8">
-								Custom Theme Editor
-							</DialogTitle>
-						</DialogHeader>
-
-						<div className="flex flex-col gap-4 flex-1 p-1 overflow-hidden">
-							<Input
-								placeholder="Theme Name (e.g. Midnight Blue)"
-								value={editingTheme.name}
-								onChange={(e) =>
-									setEditingTheme({ ...editingTheme, name: e.target.value })
-								}
-							/>
-							<Textarea
-								className="font-mono text-xs flex-1 bg-card/50 resize-none p-4"
-								placeholder={`:root.theme-custom {\n  --background: oklch(0.98 0 0);\n  --foreground: oklch(0.1 0 0);\n}\n.dark.theme-custom {\n  --background: oklch(0.1 0 0);\n  --foreground: oklch(0.98 0 0);\n}`}
-								value={editingTheme.css}
-								onChange={(e) =>
-									setEditingTheme({ ...editingTheme, css: e.target.value })
-								}
-							/>
-						</div>
-						<DialogFooter>
-							<div className="flex justify-end gap-2 pt-2">
-								<Button variant="ghost" onClick={() => setIsEditorOpen(false)}>
-									Cancel
-								</Button>
-								<Button
-									onClick={handleSaveDraft}
-									disabled={
-										!editingTheme.name.trim() || !editingTheme.css.trim()
-									}
-								>
-									Save Theme
-								</Button>
-							</div>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
+				<Button className="flex-1" variant="outline" onClick={openEditor}>
+					<Palette className="mr-2 h-4 w-4" /> Editor
+				</Button>
 			</div>
+
+			<ThemeEditorDialog
+				open={isEditorOpen}
+				onOpenChange={setIsEditorOpen}
+				themeName={draft.name}
+				onThemeNameChange={(name) => setDraft({ ...draft, name })}
+				values={draft.values}
+				rawCss={rawCss}
+				onRawCssChange={handleRawCssChange}
+				onVariableChange={handleVariableChange}
+				onSave={handleSaveDraft}
+				saveDisabled={!draft.name.trim()}
+			/>
 		</div>
 	);
 }
