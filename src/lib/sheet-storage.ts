@@ -11,6 +11,7 @@ import type {
 	SheetIndexEntry,
 	SheetIndexFile,
 } from "@/types/sheets";
+import { createDefaultSheetPage } from "@/types/sheets";
 
 const SHEETS_DIR = "sheets";
 const INDEX_FILE = `${SHEETS_DIR}/index.json`;
@@ -22,7 +23,9 @@ const EMPTY_INDEX: SheetIndexFile = {
 };
 
 async function ensureSheetsDir() {
-	const dirExists = await exists(SHEETS_DIR, { baseDir: BaseDirectory.AppData });
+	const dirExists = await exists(SHEETS_DIR, {
+		baseDir: BaseDirectory.AppData,
+	});
 	if (!dirExists) {
 		await mkdir(SHEETS_DIR, {
 			baseDir: BaseDirectory.AppData,
@@ -41,7 +44,9 @@ function getSheetPath(fileName: string) {
 
 export async function loadSheetIndex(): Promise<SheetIndexFile> {
 	await ensureSheetsDir();
-	const indexExists = await exists(INDEX_FILE, { baseDir: BaseDirectory.AppData });
+	const indexExists = await exists(INDEX_FILE, {
+		baseDir: BaseDirectory.AppData,
+	});
 	if (!indexExists) {
 		await writeTextFile(INDEX_FILE, JSON.stringify(EMPTY_INDEX, null, 2), {
 			baseDir: BaseDirectory.AppData,
@@ -50,7 +55,9 @@ export async function loadSheetIndex(): Promise<SheetIndexFile> {
 	}
 
 	try {
-		const raw = await readTextFile(INDEX_FILE, { baseDir: BaseDirectory.AppData });
+		const raw = await readTextFile(INDEX_FILE, {
+			baseDir: BaseDirectory.AppData,
+		});
 		const parsed = JSON.parse(raw) as Partial<SheetIndexFile>;
 		return {
 			version: "1",
@@ -70,7 +77,9 @@ export async function saveSheetIndex(index: SheetIndexFile) {
 	});
 }
 
-export async function loadSheetDocument(fileName: string): Promise<SheetDocument | null> {
+export async function loadSheetDocument(
+	fileName: string,
+): Promise<SheetDocument | null> {
 	await ensureSheetsDir();
 	const path = getSheetPath(fileName);
 	const fileExists = await exists(path, { baseDir: BaseDirectory.AppData });
@@ -78,7 +87,27 @@ export async function loadSheetDocument(fileName: string): Promise<SheetDocument
 
 	try {
 		const raw = await readTextFile(path, { baseDir: BaseDirectory.AppData });
-		return JSON.parse(raw) as SheetDocument;
+		const parsed = JSON.parse(raw) as
+			| (SheetDocument & {
+					modules?: SheetDocument["pages"][number]["modules"];
+			  })
+			| null;
+		if (!parsed) return null;
+
+		const legacyModules = Array.isArray(parsed.modules) ? parsed.modules : [];
+		const pages =
+			Array.isArray(parsed.pages) && parsed.pages.length > 0
+				? parsed.pages
+				: [{ ...createDefaultSheetPage(), modules: legacyModules }];
+
+		return {
+			version: "2",
+			meta: parsed.meta,
+			grid: parsed.grid,
+			pages,
+			values:
+				parsed.values && typeof parsed.values === "object" ? parsed.values : {},
+		};
 	} catch (error) {
 		console.error("Failed to load sheet document", error);
 		return null;

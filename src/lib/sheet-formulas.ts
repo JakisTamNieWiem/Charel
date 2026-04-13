@@ -5,9 +5,16 @@ import type {
 	SheetFormulaIssue,
 	SheetModule,
 } from "@/types/sheets";
-import { isFieldModule } from "@/types/sheets";
+import { getAllSheetModules, isFieldModule } from "@/types/sheets";
 
-const ALLOWED_FUNCTIONS = new Set(["floor", "ceil", "round", "min", "max", "abs"]);
+const ALLOWED_FUNCTIONS = new Set([
+	"floor",
+	"ceil",
+	"round",
+	"min",
+	"max",
+	"abs",
+]);
 
 function toNumber(value: SheetFieldValue | undefined) {
 	if (typeof value === "number") return value;
@@ -21,7 +28,11 @@ function toNumber(value: SheetFieldValue | undefined) {
 }
 
 function getDefaultValue(module: SheetModule): SheetFieldValue | undefined {
-	if (module.type === "text" || module.type === "textarea") {
+	if (
+		module.type === "text" ||
+		module.type === "textarea" ||
+		module.type === "number"
+	) {
 		return module.props.defaultValue;
 	}
 	if (module.type === "checkbox") {
@@ -31,7 +42,11 @@ function getDefaultValue(module: SheetModule): SheetFieldValue | undefined {
 }
 
 function getFormula(module: SheetModule) {
-	if (module.type === "text" || module.type === "textarea") {
+	if (
+		module.type === "text" ||
+		module.type === "textarea" ||
+		module.type === "number"
+	) {
 		return module.props.formula.trim();
 	}
 	return "";
@@ -89,11 +104,15 @@ function compileFormula(
 	) => number;
 }
 
-export function evaluateSheetDocument(document: SheetDocument): EvaluatedSheetState {
+export function evaluateSheetDocument(
+	document: SheetDocument,
+): EvaluatedSheetState {
 	const values: Record<string, SheetFieldValue> = {};
 	const issues: SheetFormulaIssue[] = [];
-	const fieldModules = document.modules.filter(isFieldModule);
-	const fieldMap = new Map(fieldModules.map((module) => [module.props.fieldKey.trim(), module]));
+	const fieldModules = getAllSheetModules(document).filter(isFieldModule);
+	const fieldMap = new Map(
+		fieldModules.map((module) => [module.props.fieldKey.trim(), module]),
+	);
 
 	for (const module of fieldModules) {
 		const fieldKey = getFieldKey(module);
@@ -148,7 +167,11 @@ export function evaluateSheetDocument(document: SheetDocument): EvaluatedSheetSt
 			(token) => !ALLOWED_FUNCTIONS.has(token) && token !== fieldKey,
 		);
 
-		if (tokens.some((token) => !ALLOWED_FUNCTIONS.has(token) && !fieldMap.has(token))) {
+		if (
+			tokens.some(
+				(token) => !ALLOWED_FUNCTIONS.has(token) && !fieldMap.has(token),
+			)
+		) {
 			const missing = tokens.find(
 				(token) => !ALLOWED_FUNCTIONS.has(token) && !fieldMap.has(token),
 			);

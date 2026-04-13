@@ -1,6 +1,13 @@
 export type SheetViewMode = "edit" | "view";
 
-export type SheetModuleType = "text" | "textarea" | "checkbox" | "bar";
+export type SheetModuleType =
+	| "text"
+	| "textarea"
+	| "checkbox"
+	| "bar"
+	| "number"
+	| "heading"
+	| "divider";
 
 export type SheetFieldValue = string | number | boolean;
 
@@ -16,6 +23,12 @@ export interface SheetDocumentMeta {
 	name: string;
 	createdAt: string;
 	updatedAt: string;
+}
+
+export interface SheetPage {
+	id: string;
+	name: string;
+	modules: SheetModule[];
 }
 
 export interface BaseSheetModule<TType extends SheetModuleType, TProps> {
@@ -57,22 +70,54 @@ export interface BarModuleProps {
 	showValues: boolean;
 }
 
+export interface NumberModuleProps {
+	label: string;
+	fieldKey: string;
+	defaultValue: string;
+	formula: string;
+	prefix: string;
+	suffix: string;
+}
+
+export interface HeadingModuleProps {
+	title: string;
+	subtitle: string;
+	align: "start" | "center";
+}
+
+export interface DividerModuleProps {
+	label: string;
+	style: "solid" | "dashed" | "ornate";
+}
+
 export type TextSheetModule = BaseSheetModule<"text", TextModuleProps>;
-export type TextareaSheetModule = BaseSheetModule<"textarea", TextareaModuleProps>;
-export type CheckboxSheetModule = BaseSheetModule<"checkbox", CheckboxModuleProps>;
+export type TextareaSheetModule = BaseSheetModule<
+	"textarea",
+	TextareaModuleProps
+>;
+export type CheckboxSheetModule = BaseSheetModule<
+	"checkbox",
+	CheckboxModuleProps
+>;
 export type BarSheetModule = BaseSheetModule<"bar", BarModuleProps>;
+export type NumberSheetModule = BaseSheetModule<"number", NumberModuleProps>;
+export type HeadingSheetModule = BaseSheetModule<"heading", HeadingModuleProps>;
+export type DividerSheetModule = BaseSheetModule<"divider", DividerModuleProps>;
 
 export type SheetModule =
 	| TextSheetModule
 	| TextareaSheetModule
 	| CheckboxSheetModule
-	| BarSheetModule;
+	| BarSheetModule
+	| NumberSheetModule
+	| HeadingSheetModule
+	| DividerSheetModule;
 
 export interface SheetDocument {
-	version: "1";
+	version: "2";
 	meta: SheetDocumentMeta;
 	grid: SheetGridSettings;
-	modules: SheetModule[];
+	pages: SheetPage[];
 	values: Record<string, SheetFieldValue>;
 }
 
@@ -110,10 +155,18 @@ export const SHEET_RESOLUTIONS: Array<{
 
 export const DEFAULT_SHEET_RESOLUTION = SHEET_RESOLUTIONS[1];
 
+export function createDefaultSheetPage(name = "Page 1"): SheetPage {
+	return {
+		id: crypto.randomUUID(),
+		name,
+		modules: [],
+	};
+}
+
 export function createDefaultSheet(name: string): SheetDocument {
 	const now = new Date().toISOString();
 	return {
-		version: "1",
+		version: "2",
 		meta: {
 			id: crypto.randomUUID(),
 			name,
@@ -126,13 +179,49 @@ export function createDefaultSheet(name: string): SheetDocument {
 			cellSize: DEFAULT_SHEET_RESOLUTION.cellSize,
 			resolutionId: DEFAULT_SHEET_RESOLUTION.id,
 		},
-		modules: [],
+		pages: [createDefaultSheetPage()],
 		values: {},
+	};
+}
+
+export function getAllSheetModules(document: SheetDocument) {
+	return document.pages.flatMap((page) => page.modules);
+}
+
+export function getSheetPage(
+	document: SheetDocument,
+	pageId: string | null | undefined,
+) {
+	if (!document.pages.length) {
+		return createDefaultSheetPage();
+	}
+	return document.pages.find((page) => page.id === pageId) ?? document.pages[0];
+}
+
+export function replaceSheetPage(
+	document: SheetDocument,
+	pageId: string,
+	updater: (page: SheetPage) => SheetPage,
+): SheetDocument {
+	return {
+		...document,
+		pages: document.pages.map((page) =>
+			page.id === pageId ? updater(page) : page,
+		),
 	};
 }
 
 export function isFieldModule(
 	module: SheetModule,
-): module is TextSheetModule | TextareaSheetModule | CheckboxSheetModule {
-	return module.type === "text" || module.type === "textarea" || module.type === "checkbox";
+): module is
+	| TextSheetModule
+	| TextareaSheetModule
+	| CheckboxSheetModule
+	| NumberSheetModule {
+	return (
+		module.type === "text" ||
+		module.type === "textarea" ||
+		module.type === "checkbox" ||
+		module.type === "number"
+	);
 }

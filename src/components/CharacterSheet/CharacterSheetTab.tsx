@@ -1,5 +1,5 @@
 import { Copy, FilePlus2, Pencil, ScrollText, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,15 +27,51 @@ export default function CharacterSheetTab() {
 	const deleteSheet = useSheetStore((state) => state.deleteSheet);
 	const setMode = useSheetStore((state) => state.setMode);
 	const updateGrid = useSheetStore((state) => state.updateGrid);
+	const paletteDrag = useSheetStore((state) => state.paletteDrag);
+	const setPaletteDrag = useSheetStore((state) => state.setPaletteDrag);
 
 	const [newSheetName, setNewSheetName] = useState("");
 	const [editingSheetId, setEditingSheetId] = useState<string | null>(null);
 	const [editingSheetName, setEditingSheetName] = useState("");
+	const [draggingType, setDraggingType] = useState<string | null>(null);
 
 	const sortedSheets = useMemo(
 		() => [...sheets].sort((a, b) => a.name.localeCompare(b.name)),
 		[sheets],
 	);
+
+	useEffect(() => {
+		if (!draggingType) return;
+
+		const handlePointerMove = (event: PointerEvent) => {
+			setPaletteDrag({
+				type: draggingType as (typeof SHEET_BLOCKS)[number]["type"],
+				clientX: event.clientX,
+				clientY: event.clientY,
+			});
+		};
+
+		const handlePointerUp = (event: PointerEvent) => {
+			window.dispatchEvent(
+				new CustomEvent("sheet-palette-drop", {
+					detail: {
+						type: draggingType,
+						clientX: event.clientX,
+						clientY: event.clientY,
+					},
+				}),
+			);
+			setPaletteDrag(null);
+			setDraggingType(null);
+		};
+
+		window.addEventListener("pointermove", handlePointerMove);
+		window.addEventListener("pointerup", handlePointerUp);
+		return () => {
+			window.removeEventListener("pointermove", handlePointerMove);
+			window.removeEventListener("pointerup", handlePointerUp);
+		};
+	}, [draggingType, setPaletteDrag]);
 
 	return (
 		<div className="flex flex-col">
@@ -222,13 +258,15 @@ export default function CharacterSheetTab() {
 						{SHEET_BLOCKS.map((block) => (
 							<div
 								key={block.type}
-								draggable
-								onDragStart={(event) => {
-									event.dataTransfer.setData(
-										"application/x-sheet-block",
-										block.type,
-									);
-									event.dataTransfer.effectAllowed = "copy";
+								onPointerDown={(event) => {
+									if (mode !== "edit") return;
+									event.preventDefault();
+									setDraggingType(block.type);
+									setPaletteDrag({
+										type: block.type,
+										clientX: event.clientX,
+										clientY: event.clientY,
+									});
 								}}
 								className="cursor-grab rounded-lg border border-sidebar-border/80 bg-background/40 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-background/60 active:cursor-grabbing"
 							>
@@ -246,6 +284,26 @@ export default function CharacterSheetTab() {
 					</div>
 				</div>
 			</div>
+
+			{paletteDrag && draggingType && (
+				<div
+					className="pointer-events-none fixed z-200 rounded-lg border border-primary/30 bg-background/95 px-3 py-2 shadow-xl"
+					style={{
+						left: paletteDrag.clientX + 14,
+						top: paletteDrag.clientY + 14,
+					}}
+				>
+					<div className="text-sm font-medium">
+						{
+							SHEET_BLOCKS.find((block) => block.type === paletteDrag.type)
+								?.label
+						}
+					</div>
+					<div className="text-[11px] text-muted-foreground">
+						Drop on the sheet
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
