@@ -14,9 +14,9 @@ export default defineConfig({
 		tailwindcss(),
 	],
 	test: {
-		include: ["src/**/*.test.{ts,tsx}"],
+		include: ["src/tests/**/*.test.{ts,tsx}"],
 		environment: "jsdom",
-		setupFiles: ["./src/test/setup.ts"],
+		setupFiles: ["./src/tests/setup.ts"],
 		css: true,
 		restoreMocks: true,
 		clearMocks: true,

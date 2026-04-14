@@ -1,0 +1,86 @@
+name: release-version-check
+
+on:
+  pull_request:
+    branches:
+      - release
+
+jobs:
+  verify-version-bump:
+    name: verify-version-bump
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify release version bump
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python <<'PY'
+          import json
+          import subprocess
+          import tomllib
+          from pathlib import Path
+          import os
+
+          base_sha = os.environ["BASE_SHA"]
+          head_sha = os.environ["HEAD_SHA"]
+
+          def read_git_file(revision: str, path: str) -> str:
+              return subprocess.check_output(
+                  ["git", "show", f"{revision}:{path}"],
+                  text=True,
+              )
+
+          def read_package_version(raw: str) -> str:
+              return json.loads(raw)["version"]
+
+          def read_tauri_version(raw: str) -> str:
+              return json.loads(raw)["version"]
+
+          def read_cargo_version(raw: str) -> str:
+              return tomllib.loads(raw)["package"]["version"]
+
+          files = {
+              "package.json": read_package_version,
+              "src-tauri/tauri.conf.json": read_tauri_version,
+              "src-tauri/Cargo.toml": read_cargo_version,
+          }
+
+          base_versions = {}
+          head_versions = {}
+
+          for path, parser in files.items():
+              base_versions[path] = parser(read_git_file(base_sha, path))
+              head_versions[path] = parser(Path(path).read_text(encoding="utf-8"))
+
+          unique_head_versions = set(head_versions.values())
+          if len(unique_head_versions) != 1:
+              print("Version mismatch across release files:")
+              for path, version in head_versions.items():
+                  print(f"  {path}: {version}")
+              raise SystemExit(1)
+
+          unchanged = [
+              path for path in files
+              if head_versions[path] == base_versions[path]
+          ]
+
+          if unchanged:
+              print("Release PRs must bump version in all tracked version files.")
+              print("Unchanged files:")
+              for path in unchanged:
+                  print(f"  {path}: {head_versions[path]}")
+              print("Base versions:")
+              for path, version in base_versions.items():
+                  print(f"  {path}: {version}")
+              raise SystemExit(1)
+
+          version = unique_head_versions.pop()
+          print(f"Release version bump verified: {version}")
+          PY
