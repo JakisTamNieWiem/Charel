@@ -7,7 +7,10 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { normalizeThemeValues, serializeThemeCss } from "@/lib/theme-editor";
+import {
+	normalizeThemeValues,
+	serializeThemeCssWithFontImports,
+} from "@/lib/theme-editor";
 import {
 	loadLegacyCustomThemes,
 	loadStoredCustomThemes,
@@ -199,7 +202,9 @@ export function ThemeProvider({
 					styleEl.id = "custom-theme-style";
 					document.head.appendChild(styleEl);
 				}
-				styleEl.textContent = serializeThemeCss(activeCustom.values);
+				styleEl.textContent = serializeThemeCssWithFontImports(
+					activeCustom.values,
+				);
 			} else {
 				// Fallback if custom theme was deleted
 				root.classList.add(`theme-${defaultColor}`);

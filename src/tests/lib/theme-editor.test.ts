@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
 	DEFAULT_THEME_VALUES,
 	formatShadowValue,
+	getThemeFontImportUrl,
 	normalizeThemeValues,
 	parseShadowValue,
 	parseThemeCss,
 	serializeThemeCss,
+	serializeThemeCssWithFontImports,
 } from "@/lib/theme-editor";
 
 describe("theme-editor", () => {
@@ -57,5 +59,38 @@ describe("theme-editor", () => {
 		expect(formatShadowValue(layers ?? [])).toBe(
 			"0px 2px 8px 0px rgba(0, 0, 0, 0.24), 1px 1px 2px 0px #fff",
 		);
+	});
+
+	it("creates a Google Fonts import for custom font stacks only", () => {
+		const values = normalizeThemeValues({
+			light: {
+				"font-sans": '"Space Grotesk", Inter, sans-serif',
+			},
+			dark: {
+				"font-sans": '"Space Grotesk", Inter, sans-serif',
+				"font-mono": '"IBM Plex Mono", monospace',
+			},
+		});
+
+		const url = getThemeFontImportUrl(values);
+
+		expect(url).toContain("Space+Grotesk");
+		expect(url).toContain("IBM+Plex+Mono");
+		expect(url).not.toContain("Inter");
+		expect(serializeThemeCssWithFontImports(values)).toContain("@import url(");
+	});
+
+	it("skips font imports for local and generic font stacks", () => {
+		const values = normalizeThemeValues({
+			light: {
+				"font-sans": "Inter, system-ui, sans-serif",
+			},
+			dark: {
+				"font-mono": '"JetBrains Mono", monospace',
+			},
+		});
+
+		expect(getThemeFontImportUrl(values)).toBeNull();
+		expect(serializeThemeCssWithFontImports(values)).not.toContain("@import");
 	});
 });

@@ -35,6 +35,145 @@ const CSS_VARIABLE_REGEX = /--([a-zA-Z0-9-]+):\s*([^;]+);/g;
 const LIGHT_BLOCK_REGEX = /:root(?:\.[a-zA-Z0-9-]+)?[^{]*{([\s\S]*?)}/;
 const DARK_BLOCK_REGEX = /\.dark(?:\.[a-zA-Z0-9-]+)?[^{]*{([\s\S]*?)}/;
 const PREVIEW_STYLE_ID = "theme-preview-style";
+const FONT_VARIABLE_KEYS = ["font-sans", "font-serif", "font-mono"] as const;
+const GENERIC_FONT_FAMILIES = new Set([
+	"serif",
+	"sans-serif",
+	"monospace",
+	"cursive",
+	"fantasy",
+	"system-ui",
+	"ui-serif",
+	"ui-sans-serif",
+	"ui-monospace",
+	"ui-rounded",
+	"math",
+	"emoji",
+	"fangsong",
+]);
+const LOCAL_FONT_FAMILIES = new Set([
+	"geist",
+	"geist mono",
+	"inter",
+	"playfair display",
+	"jetbrains mono",
+	"plus jakarta sans",
+	"georgia",
+	"times new roman",
+	"times",
+	"cambria",
+	"arial",
+	"helvetica",
+	"helvetica neue",
+	"lucida grande",
+	"segoe ui",
+	"roboto",
+	"ubuntu",
+	"cantarell",
+	"fira sans",
+	"noto sans",
+	"apple color emoji",
+	"segoe ui emoji",
+	"segoe ui symbol",
+	"noto color emoji",
+	"sfmono-regular",
+	"menlo",
+	"monaco",
+	"consolas",
+	"liberation mono",
+	"courier new",
+	"-apple-system",
+	"blinkmacsystemfont",
+]);
+
+function splitFontFamilyList(value: string) {
+	const parts: string[] = [];
+	let current = "";
+	let quote: string | null = null;
+
+	for (const char of value) {
+		if (quote) {
+			current += char;
+			if (char === quote) {
+				quote = null;
+			}
+			continue;
+		}
+
+		if (char === "'" || char === '"') {
+			quote = char;
+			current += char;
+			continue;
+		}
+
+		if (char === ",") {
+			if (current.trim()) {
+				parts.push(current.trim());
+			}
+			current = "";
+			continue;
+		}
+
+		current += char;
+	}
+
+	if (current.trim()) {
+		parts.push(current.trim());
+	}
+
+	return parts;
+}
+
+function normalizeFontFamily(value: string) {
+	return value.trim().replace(/^['"]|['"]$/g, "");
+}
+
+function isCustomHostedFontFamily(family: string) {
+	const normalizedFamily = normalizeFontFamily(family).toLowerCase();
+
+	return (
+		Boolean(normalizedFamily) &&
+		!GENERIC_FONT_FAMILIES.has(normalizedFamily) &&
+		!LOCAL_FONT_FAMILIES.has(normalizedFamily)
+	);
+}
+
+function collectCustomThemeFonts(values: ThemeValues) {
+	const families = new Set<string>();
+
+	for (const mode of ["light", "dark"] as const) {
+		for (const key of FONT_VARIABLE_KEYS) {
+			const value = values[mode][key];
+			if (!value) {
+				continue;
+			}
+
+			for (const family of splitFontFamilyList(value)) {
+				if (isCustomHostedFontFamily(family)) {
+					families.add(normalizeFontFamily(family));
+				}
+			}
+		}
+	}
+
+	return [...families].sort((left, right) => left.localeCompare(right));
+}
+
+function toGoogleFontsFamilyParam(family: string) {
+	return `family=${encodeURIComponent(family.replace(/\s+/g, " ").trim()).replace(/%20/g, "+")}:wght@400;500;600;700`;
+}
+
+export function getThemeFontImportUrl(values: ThemeValues) {
+	const families = collectCustomThemeFonts(values);
+
+	if (families.length === 0) {
+		return null;
+	}
+
+	const params = families.map(toGoogleFontsFamilyParam).join("&");
+
+	return `https://fonts.googleapis.com/css2?${params}&display=swap`;
+}
 
 function extractCssVariables(block: string): ThemeVariableMap {
 	const variables: ThemeVariableMap = {};
@@ -370,6 +509,13 @@ export function serializeThemeCss(values: ThemeValues) {
 	].join("\n\n");
 }
 
+export function serializeThemeCssWithFontImports(values: ThemeValues) {
+	const fontImportUrl = getThemeFontImportUrl(values);
+	const css = serializeThemeCss(values);
+
+	return fontImportUrl ? `@import url("${fontImportUrl}");\n\n${css}` : css;
+}
+
 export function normalizeCustomThemeCss(
 	css: string,
 	fallback: ThemeValues = DEFAULT_THEME_VALUES,
@@ -398,10 +544,14 @@ export function applyThemePreview(values: ThemeValues) {
 		document.head.appendChild(style);
 	}
 
-	style.textContent = [
+	const fontImportUrl = getThemeFontImportUrl(values);
+	const previewCss = [
 		serializePreviewBlock(":root", values.light),
 		serializePreviewBlock(".dark", values.dark),
 	].join("\n\n");
+	style.textContent = fontImportUrl
+		? `@import url("${fontImportUrl}");\n\n${previewCss}`
+		: previewCss;
 }
 
 export function clearThemePreview() {
