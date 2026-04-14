@@ -16,6 +16,19 @@ export type OklchColor = {
 	c: number;
 	h: number;
 };
+export type RgbaColor = {
+	r: number;
+	g: number;
+	b: number;
+	a: number;
+};
+export type BoxShadowLayer = {
+	x: number;
+	y: number;
+	blur: number;
+	spread: number;
+	color: string;
+};
 
 const THEME_BLOCK_REGEX = /(:root|\.dark)\.theme-([a-z0-9-]+)\s*{([\s\S]*?)}/g;
 const CSS_VARIABLE_REGEX = /--([a-zA-Z0-9-]+):\s*([^;]+);/g;
@@ -78,7 +91,10 @@ function fillModeValues(
 	fallback?: ThemeVariableMap,
 ) {
 	return Object.fromEntries(
-		THEME_VARIABLE_KEYS.map((key) => [key, values?.[key] ?? fallback?.[key] ?? ""]),
+		THEME_VARIABLE_KEYS.map((key) => [
+			key,
+			values?.[key] ?? fallback?.[key] ?? "",
+		]),
 	);
 }
 
@@ -106,32 +122,29 @@ export const PRESET_THEME_VALUES = Object.fromEntries(
 	]),
 ) as Record<string, ThemeValues>;
 
+const HIDDEN_THEME_VARIABLE_KEYS = new Set([
+	"sea-ink",
+	"sea-ink-soft",
+	"lagoon",
+	"lagoon-deep",
+	"palm",
+	"sand",
+	"foam",
+	"surface",
+	"surface-strong",
+	"line",
+	"inset-glint",
+	"kicker",
+	"bg-base",
+	"header-bg",
+	"chip-bg",
+	"chip-line",
+	"link-bg-hover",
+	"hero-a",
+	"hero-b",
+]);
+
 const GROUP_DEFINITIONS: ThemeVariableGroup[] = [
-	{
-		id: "brand",
-		label: "Brand",
-		keys: [
-			"sea-ink",
-			"sea-ink-soft",
-			"lagoon",
-			"lagoon-deep",
-			"palm",
-			"sand",
-			"foam",
-			"surface",
-			"surface-strong",
-			"line",
-			"inset-glint",
-			"kicker",
-			"bg-base",
-			"header-bg",
-			"chip-bg",
-			"chip-line",
-			"link-bg-hover",
-			"hero-a",
-			"hero-b",
-		],
-	},
 	{
 		id: "core",
 		label: "Core",
@@ -217,7 +230,9 @@ const GROUP_DEFINITIONS: ThemeVariableGroup[] = [
 ];
 
 const groupedKeys = new Set(GROUP_DEFINITIONS.flatMap((group) => group.keys));
-const remainingKeys = THEME_VARIABLE_KEYS.filter((key) => !groupedKeys.has(key));
+const remainingKeys = THEME_VARIABLE_KEYS.filter(
+	(key) => !groupedKeys.has(key) && !HIDDEN_THEME_VARIABLE_KEYS.has(key),
+);
 
 export const THEME_VARIABLE_GROUPS = remainingKeys.length
 	? [
@@ -229,6 +244,92 @@ export const THEME_VARIABLE_GROUPS = remainingKeys.length
 			},
 		]
 	: GROUP_DEFINITIONS;
+
+const THEME_VARIABLE_DESCRIPTIONS: Record<string, string> = {
+	background: "Main app background",
+	foreground: "Primary text color",
+	card: "Panel surface color",
+	"card-foreground": "Text on panels",
+	popover: "Popover surface color",
+	"popover-foreground": "Text on popovers",
+	primary: "Primary action color",
+	"primary-foreground": "Text on primary",
+	secondary: "Secondary surface color",
+	"secondary-foreground": "Text on secondary",
+	muted: "Subtle surface color",
+	"muted-foreground": "Muted text color",
+	accent: "Accent highlight color",
+	"accent-foreground": "Text on accent",
+	destructive: "Danger action color",
+	"destructive-foreground": "Text on danger",
+	border: "Default border color",
+	input: "Input border color",
+	ring: "Focus ring color",
+	"chart-1": "Chart series one",
+	"chart-2": "Chart series two",
+	"chart-3": "Chart series three",
+	"chart-4": "Chart series four",
+	"chart-5": "Chart series five",
+	sidebar: "Sidebar background color",
+	"sidebar-foreground": "Sidebar text color",
+	"sidebar-primary": "Sidebar primary color",
+	"sidebar-primary-foreground": "Text on sidebar primary",
+	"sidebar-accent": "Sidebar accent color",
+	"sidebar-accent-foreground": "Text on sidebar accent",
+	"sidebar-border": "Sidebar border color",
+	"sidebar-ring": "Sidebar focus ring",
+	"font-sans": "Default UI font",
+	"font-serif": "Serif font stack",
+	"font-mono": "Monospace font stack",
+	"letter-spacing": "Global letter spacing",
+	"tracking-normal": "Base tracking value",
+	radius: "Base corner radius",
+	spacing: "Base spacing unit",
+	"shadow-color": "Shadow tint color",
+	"shadow-opacity": "Global shadow opacity",
+	"shadow-blur": "Default shadow blur",
+	"shadow-spread": "Default shadow spread",
+	"shadow-offset-x": "Default shadow X",
+	"shadow-offset-y": "Default shadow Y",
+	"shadow-x": "Shared shadow X",
+	"shadow-y": "Shared shadow Y",
+	"shadow-2xs": "Tiny elevation recipe",
+	"shadow-xs": "Extra small shadow",
+	"shadow-sm": "Small elevation recipe",
+	shadow: "Default elevation recipe",
+	"shadow-md": "Medium elevation recipe",
+	"shadow-lg": "Large elevation recipe",
+	"shadow-xl": "Extra large shadow",
+	"shadow-2xl": "Max elevation recipe",
+};
+
+export function getThemeVariableDescription(key: string) {
+	if (THEME_VARIABLE_DESCRIPTIONS[key]) {
+		return THEME_VARIABLE_DESCRIPTIONS[key];
+	}
+
+	if (key.endsWith("-foreground")) {
+		return "Text for this token";
+	}
+
+	if (key.includes("border")) {
+		return "Border color value";
+	}
+
+	if (key.includes("ring")) {
+		return "Focus ring value";
+	}
+
+	if (key.startsWith("font-")) {
+		return "Font stack value";
+	}
+
+	if (key.startsWith("shadow-")) {
+		return "Shadow token value";
+	}
+
+	return "Theme token value";
+}
 
 export function getPresetThemeValues(themeId: string) {
 	return PRESET_THEME_VALUES[themeId] ?? DEFAULT_THEME_VALUES;
@@ -316,9 +417,7 @@ export function isOklchValue(value: string) {
 }
 
 export function parseOklchValue(value: string): OklchColor {
-	const match = value.match(
-		/oklch\(\s*([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s*\)/,
-	);
+	const match = value.match(/oklch\(\s*([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s*\)/);
 
 	if (!match) {
 		return { l: 0, c: 0, h: 0 };
@@ -333,4 +432,282 @@ export function parseOklchValue(value: string): OklchColor {
 
 export function formatOklchValue(color: OklchColor) {
 	return `oklch(${color.l.toFixed(4)} ${color.c.toFixed(4)} ${color.h.toFixed(4)})`;
+}
+
+function clamp(value: number, min: number, max: number) {
+	return Math.min(max, Math.max(min, value));
+}
+
+function parseHexColor(value: string): RgbaColor | null {
+	const hex = value.trim().replace("#", "");
+
+	if (![3, 4, 6, 8].includes(hex.length)) {
+		return null;
+	}
+
+	const normalized =
+		hex.length <= 4
+			? hex
+					.split("")
+					.map((char) => `${char}${char}`)
+					.join("")
+			: hex;
+
+	const red = Number.parseInt(normalized.slice(0, 2), 16);
+	const green = Number.parseInt(normalized.slice(2, 4), 16);
+	const blue = Number.parseInt(normalized.slice(4, 6), 16);
+	const alpha =
+		normalized.length === 8
+			? Number.parseInt(normalized.slice(6, 8), 16) / 255
+			: 1;
+
+	if ([red, green, blue].some(Number.isNaN)) {
+		return null;
+	}
+
+	return { r: red, g: green, b: blue, a: alpha };
+}
+
+function parseFunctionalColor(value: string) {
+	const match = value.trim().match(/^(rgba?|hsla?)\(\s*(.*?)\s*\)$/i);
+
+	if (!match) {
+		return null;
+	}
+
+	const fnName = match[1].toLowerCase();
+	const rawArgs = match[2].replace(/,/g, " ");
+	const [rawChannels, rawAlpha] = rawArgs
+		.split("/")
+		.map((part: string) => part.trim());
+	const channels = rawChannels.split(/\s+/).filter(Boolean);
+
+	if (fnName.startsWith("rgb")) {
+		const [r, g, b, aValue] = channels;
+		const alpha = rawAlpha || aValue;
+		const parsed = [r, g, b].map((channel) => Number.parseFloat(channel));
+
+		if (parsed.some(Number.isNaN)) {
+			return null;
+		}
+
+		return {
+			r: clamp(Math.round(parsed[0]), 0, 255),
+			g: clamp(Math.round(parsed[1]), 0, 255),
+			b: clamp(Math.round(parsed[2]), 0, 255),
+			a: clamp(Number.parseFloat(alpha ?? "1"), 0, 1),
+		} satisfies RgbaColor;
+	}
+
+	const [hueValue, saturationValue, lightnessValue, alphaValue] = channels;
+	const hue = Number.parseFloat(hueValue);
+	const saturation = Number.parseFloat(saturationValue);
+	const lightness = Number.parseFloat(lightnessValue);
+	const alpha = rawAlpha || alphaValue;
+
+	if ([hue, saturation, lightness].some(Number.isNaN)) {
+		return null;
+	}
+
+	return hslToRgb({
+		h: hue,
+		s: saturation / 100,
+		l: lightness / 100,
+		a: clamp(Number.parseFloat(alpha ?? "1"), 0, 1),
+	});
+}
+
+export function isColorValue(value: string) {
+	const normalized = value.trim().toLowerCase();
+	return (
+		normalized.startsWith("oklch(") ||
+		normalized.startsWith("#") ||
+		normalized.startsWith("rgb(") ||
+		normalized.startsWith("rgba(") ||
+		normalized.startsWith("hsl(") ||
+		normalized.startsWith("hsla(")
+	);
+}
+
+export function parseColorValue(value: string): RgbaColor | null {
+	if (isOklchValue(value)) {
+		return oklchToRgb(parseOklchValue(value));
+	}
+
+	return parseHexColor(value) ?? parseFunctionalColor(value);
+}
+
+export function formatRgbaValue(color: RgbaColor) {
+	const alpha = Number(color.a.toFixed(2));
+
+	if (alpha >= 1) {
+		return `rgb(${Math.round(color.r)} ${Math.round(color.g)} ${Math.round(color.b)})`;
+	}
+
+	return `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(
+		color.b,
+	)}, ${alpha})`;
+}
+
+export function formatHexColor(color: RgbaColor) {
+	const toHex = (value: number) =>
+		clamp(Math.round(value), 0, 255).toString(16).padStart(2, "0");
+
+	return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`;
+}
+
+export function parseLengthValue(value: string) {
+	const match = value.trim().match(/^(-?\d*\.?\d+)([a-z%]*)$/i);
+
+	if (!match) {
+		return null;
+	}
+
+	return {
+		value: Number.parseFloat(match[1]),
+		unit: match[2] || "px",
+	};
+}
+
+export function formatLengthValue(value: number, unit: string) {
+	return `${Number(value.toFixed(3))}${unit}`;
+}
+
+function splitCssValueList(value: string) {
+	const parts: string[] = [];
+	let current = "";
+	let depth = 0;
+
+	for (const char of value) {
+		if (char === "(") {
+			depth += 1;
+		} else if (char === ")") {
+			depth = Math.max(0, depth - 1);
+		}
+
+		if (char === "," && depth === 0) {
+			parts.push(current.trim());
+			current = "";
+			continue;
+		}
+
+		current += char;
+	}
+
+	if (current.trim()) {
+		parts.push(current.trim());
+	}
+
+	return parts;
+}
+
+export function parseShadowValue(value: string): BoxShadowLayer[] | null {
+	const layers = splitCssValueList(value)
+		.map((layer) => {
+			const match = layer.match(
+				/^\s*(-?\d*\.?\d+)(?:px|rem|em|%)?\s+(-?\d*\.?\d+)(?:px|rem|em|%)?\s+(-?\d*\.?\d+)(?:px|rem|em|%)?\s+(-?\d*\.?\d+)(?:px|rem|em|%)?\s+(.+)\s*$/i,
+			);
+
+			if (!match) {
+				return null;
+			}
+
+			return {
+				x: Number.parseFloat(match[1]),
+				y: Number.parseFloat(match[2]),
+				blur: Number.parseFloat(match[3]),
+				spread: Number.parseFloat(match[4]),
+				color: match[5].trim(),
+			} satisfies BoxShadowLayer;
+		})
+		.filter((layer) => layer !== null);
+
+	return layers.length > 0 ? layers : null;
+}
+
+export function formatShadowValue(layers: BoxShadowLayer[]) {
+	return layers
+		.map(
+			(layer) =>
+				`${layer.x}px ${layer.y}px ${layer.blur}px ${layer.spread}px ${layer.color}`,
+		)
+		.join(", ");
+}
+
+function hslToRgb({
+	h,
+	s,
+	l,
+	a,
+}: {
+	h: number;
+	s: number;
+	l: number;
+	a: number;
+}): RgbaColor {
+	const hue = ((h % 360) + 360) % 360;
+	const chroma = (1 - Math.abs(2 * l - 1)) * s;
+	const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
+	const m = l - chroma / 2;
+
+	let red = 0;
+	let green = 0;
+	let blue = 0;
+
+	if (hue < 60) {
+		red = chroma;
+		green = x;
+	} else if (hue < 120) {
+		red = x;
+		green = chroma;
+	} else if (hue < 180) {
+		green = chroma;
+		blue = x;
+	} else if (hue < 240) {
+		green = x;
+		blue = chroma;
+	} else if (hue < 300) {
+		red = x;
+		blue = chroma;
+	} else {
+		red = chroma;
+		blue = x;
+	}
+
+	return {
+		r: Math.round((red + m) * 255),
+		g: Math.round((green + m) * 255),
+		b: Math.round((blue + m) * 255),
+		a,
+	};
+}
+
+function linearToSrgb(value: number) {
+	const normalized =
+		value <= 0.0031308 ? value * 12.92 : 1.055 * value ** (1 / 2.4) - 0.055;
+
+	return clamp(Math.round(normalized * 255), 0, 255);
+}
+
+function oklchToRgb(color: OklchColor): RgbaColor {
+	const angle = (color.h * Math.PI) / 180;
+	const a = color.c * Math.cos(angle);
+	const b = color.c * Math.sin(angle);
+	const lValue = color.l + 0.3963377774 * a + 0.2158037573 * b;
+	const mValue = color.l - 0.1055613458 * a - 0.0638541728 * b;
+	const sValue = color.l - 0.0894841775 * a - 1.291485548 * b;
+	const l = lValue ** 3;
+	const m = mValue ** 3;
+	const s = sValue ** 3;
+
+	const redLinear = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+	const greenLinear = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+	const blueLinear = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+
+	return {
+		r: linearToSrgb(redLinear),
+		g: linearToSrgb(greenLinear),
+		b: linearToSrgb(blueLinear),
+		a: 1,
+	};
 }

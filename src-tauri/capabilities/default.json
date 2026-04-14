@@ -19,6 +19,14 @@
     "core:window:allow-close",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
-    "notification:default"
+    "notification:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "$APPDATA/themes"
+        }
+      ]
+    }
   ]
 }
