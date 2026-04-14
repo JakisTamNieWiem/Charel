@@ -366,6 +366,10 @@ export default function CharacterGraph() {
 							key={char.id}
 							onPointerDown={(e) => {
 								e.stopPropagation();
+							}}
+							onClick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
 								setSelectedCharId(char.id);
 							}}
 							className="cursor-pointer group"

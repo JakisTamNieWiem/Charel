@@ -1,5 +1,21 @@
 // src/components/ThemeProvider.tsx
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useEffectEvent,
+	useMemo,
+	useState,
+} from "react";
+import { normalizeThemeValues, serializeThemeCss } from "@/lib/theme-editor";
+import {
+	loadLegacyCustomThemes,
+	loadStoredCustomThemes,
+	openCustomThemesFolder as revealCustomThemesFolder,
+	type StoredCustomTheme,
+	saveStoredCustomTheme,
+	watchStoredCustomThemes,
+} from "@/lib/theme-storage";
 
 export const PRESET_THEMES = [
 	{ label: "Zen", value: "zen" },
@@ -11,11 +27,7 @@ export const PRESET_THEMES = [
 
 type ThemeMode = "dark" | "light" | "system";
 
-export type CustomTheme = {
-	id: string;
-	name: string;
-	css: string;
-};
+export type CustomTheme = StoredCustomTheme;
 
 export type ThemeOption = {
 	label: string;
@@ -29,14 +41,19 @@ type ThemeProviderState = {
 	color: string;
 	setColor: (color: string) => void;
 	customThemes: CustomTheme[];
-	addCustomTheme: (theme: CustomTheme) => void;
-	removeCustomTheme: (id: string) => void;
+	customThemesLoaded: boolean;
+	addCustomTheme: (theme: CustomTheme) => Promise<void>;
+	openCustomThemesFolder: () => Promise<string>;
 	allThemes: ThemeOption[];
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState | undefined>(
 	undefined,
 );
+
+function sortCustomThemes(themes: CustomTheme[]) {
+	return [...themes].sort((left, right) => left.name.localeCompare(right.name));
+}
 
 export function ThemeProvider({
 	children,
@@ -55,23 +72,85 @@ export function ThemeProvider({
 		() => localStorage.getItem("app-color") || defaultColor,
 	);
 
-	// Store custom themes in LocalStorage (or you could use Tauri's fs here, but this is faster/synchronous for UI)
-	const [customThemes, setCustomThemes] = useState<CustomTheme[]>(() => {
-		const saved = localStorage.getItem("app-custom-themes");
-
-		return saved ? JSON.parse(saved) : [];
-	});
+	const [customThemes, setCustomThemes] = useState<CustomTheme[]>(() =>
+		sortCustomThemes(loadLegacyCustomThemes()),
+	);
+	const [customThemesLoaded, setCustomThemesLoaded] = useState(false);
 
 	const allThemes = useMemo<ThemeOption[]>(() => {
 		return [
 			...PRESET_THEMES.map((t) => ({ ...t, isCustom: false })),
-			...customThemes.map((t) => ({
+			...sortCustomThemes(customThemes).map((t) => ({
 				label: t.name,
 				value: t.id,
 				isCustom: true,
 			})),
 		];
 	}, [customThemes]);
+
+	const refreshCustomThemes = useEffectEvent(async () => {
+		const loadedThemes = await loadStoredCustomThemes();
+		setCustomThemes(sortCustomThemes(loadedThemes));
+		return loadedThemes;
+	});
+
+	useEffect(() => {
+		let cancelled = false;
+
+		void refreshCustomThemes()
+			.then((loadedThemes) => {
+				if (cancelled) {
+					return;
+				}
+
+				setCustomThemes(sortCustomThemes(loadedThemes));
+			})
+			.catch((error) => {
+				console.error("Failed to hydrate custom themes:", error);
+			})
+			.finally(() => {
+				if (!cancelled) {
+					setCustomThemesLoaded(true);
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	useEffect(() => {
+		let isDisposed = false;
+		let unwatch: (() => void) | null = null;
+
+		void watchStoredCustomThemes(async () => {
+			if (isDisposed) {
+				return;
+			}
+
+			try {
+				await refreshCustomThemes();
+			} catch (error) {
+				console.error("Failed to refresh custom themes:", error);
+			}
+		})
+			.then((stopWatching) => {
+				if (isDisposed) {
+					stopWatching?.();
+					return;
+				}
+
+				unwatch = stopWatching;
+			})
+			.catch((error) => {
+				console.error("Failed to watch custom themes:", error);
+			});
+
+		return () => {
+			isDisposed = true;
+			unwatch?.();
+		};
+	}, []);
 
 	// 1. Apply Dark/Light mode
 	useEffect(() => {
@@ -92,13 +171,16 @@ export function ThemeProvider({
 	useEffect(() => {
 		const root = window.document.documentElement;
 		let styleEl = document.getElementById("custom-theme-style");
+		const isPreset = PRESET_THEMES.some((p) => p.value === color);
+
+		if (!isPreset && !customThemesLoaded) {
+			return;
+		}
 
 		// Remove all previous theme classes
 		root.classList.forEach((className) => {
 			if (className.startsWith("theme-")) root.classList.remove(className);
 		});
-
-		const isPreset = PRESET_THEMES.some((p) => p.value === color);
 
 		if (isPreset) {
 			// It's a built-in theme
@@ -117,16 +199,17 @@ export function ThemeProvider({
 					styleEl.id = "custom-theme-style";
 					document.head.appendChild(styleEl);
 				}
-				styleEl.textContent = activeCustom.css;
+				styleEl.textContent = serializeThemeCss(activeCustom.values);
 			} else {
 				// Fallback if custom theme was deleted
 				root.classList.add(`theme-${defaultColor}`);
+				localStorage.setItem("app-color", defaultColor);
 				setColorState(defaultColor);
 			}
 		}
-	}, [color, customThemes, defaultColor]);
+	}, [color, customThemes, customThemesLoaded, defaultColor]);
 
-	const value = {
+	const value: ThemeProviderState = {
 		theme,
 		setTheme: (newTheme: ThemeMode) => {
 			localStorage.setItem("app-theme", newTheme);
@@ -138,20 +221,20 @@ export function ThemeProvider({
 			setColorState(newColor);
 		},
 		customThemes,
-		addCustomTheme: (newTheme: CustomTheme) => {
-			const updated = [
-				...customThemes.filter((t) => t.id !== newTheme.id),
-				newTheme,
-			];
+		customThemesLoaded,
+		addCustomTheme: async (newTheme: CustomTheme) => {
+			const normalizedTheme = {
+				...newTheme,
+				name: newTheme.name.trim() || "Custom Theme",
+				values: normalizeThemeValues(newTheme.values),
+			};
+			const updated = await saveStoredCustomTheme(
+				normalizedTheme,
+				customThemes,
+			);
 			setCustomThemes(updated);
-			localStorage.setItem("app-custom-themes", JSON.stringify(updated));
 		},
-		removeCustomTheme: (id: string) => {
-			const updated = customThemes.filter((t) => t.id !== id);
-			setCustomThemes(updated);
-			localStorage.setItem("app-custom-themes", JSON.stringify(updated));
-			if (color === id) setColorState("zen"); // Reset if they delete active theme
-		},
+		openCustomThemesFolder: () => revealCustomThemesFolder(),
 		allThemes,
 	};
 

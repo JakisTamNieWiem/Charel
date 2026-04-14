@@ -3,6 +3,7 @@ import {
 	Dialog,
 	DialogClose,
 	DialogContent,
+	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
@@ -27,32 +28,20 @@ export default function ConfirmModal({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle className="underline underline-offset-8">
-						{title}
-					</DialogTitle>
+					<DialogTitle>{title}</DialogTitle>
 				</DialogHeader>
-				<p className="text-sm opacity-70">{message}</p>
+				<DialogDescription>{message}</DialogDescription>
 				<DialogFooter>
+					<DialogClose render={<Button variant="outline" />}>
+						Cancel
+					</DialogClose>
 					<DialogClose
 						render={
-							<Button
-								variant={"secondary"}
-								className="flex-1 p-3 border border-white/10 rounded-lg hover:bg-white/5 transition-colors uppercase text-xs font-bold tracking-widest"
-							>
-								Cancel
-							</Button>
-						}
-					></DialogClose>
-					<DialogClose
-						render={
-							<Button
-								onClick={onConfirm}
-								className="flex-1 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors uppercase text-xs font-bold tracking-widest"
-							>
+							<Button onClick={onConfirm} variant="destructive">
 								Delete
 							</Button>
 						}
-					></DialogClose>
+					/>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
