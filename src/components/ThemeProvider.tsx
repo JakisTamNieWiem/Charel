@@ -1,5 +1,12 @@
 // src/components/ThemeProvider.tsx
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useEffectEvent,
+	useMemo,
+	useState,
+} from "react";
 import { normalizeThemeValues, serializeThemeCss } from "@/lib/theme-editor";
 import {
 	loadLegacyCustomThemes,
@@ -7,6 +14,7 @@ import {
 	openCustomThemesFolder as revealCustomThemesFolder,
 	type StoredCustomTheme,
 	saveStoredCustomTheme,
+	watchStoredCustomThemes,
 } from "@/lib/theme-storage";
 
 export const PRESET_THEMES = [
@@ -80,10 +88,16 @@ export function ThemeProvider({
 		];
 	}, [customThemes]);
 
+	const refreshCustomThemes = useEffectEvent(async () => {
+		const loadedThemes = await loadStoredCustomThemes();
+		setCustomThemes(sortCustomThemes(loadedThemes));
+		return loadedThemes;
+	});
+
 	useEffect(() => {
 		let cancelled = false;
 
-		void loadStoredCustomThemes()
+		void refreshCustomThemes()
 			.then((loadedThemes) => {
 				if (cancelled) {
 					return;
@@ -102,6 +116,39 @@ export function ThemeProvider({
 
 		return () => {
 			cancelled = true;
+		};
+	}, []);
+
+	useEffect(() => {
+		let isDisposed = false;
+		let unwatch: (() => void) | null = null;
+
+		void watchStoredCustomThemes(async () => {
+			if (isDisposed) {
+				return;
+			}
+
+			try {
+				await refreshCustomThemes();
+			} catch (error) {
+				console.error("Failed to refresh custom themes:", error);
+			}
+		})
+			.then((stopWatching) => {
+				if (isDisposed) {
+					stopWatching?.();
+					return;
+				}
+
+				unwatch = stopWatching;
+			})
+			.catch((error) => {
+				console.error("Failed to watch custom themes:", error);
+			});
+
+		return () => {
+			isDisposed = true;
+			unwatch?.();
 		};
 	}, []);
 

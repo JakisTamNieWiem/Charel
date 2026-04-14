@@ -7,6 +7,8 @@ import {
 	readDir,
 	readTextFile,
 	remove,
+	type UnwatchFn,
+	watch,
 	writeTextFile,
 } from "@tauri-apps/plugin-fs";
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -32,6 +34,7 @@ type ThemeFilePayload = {
 const LEGACY_CUSTOM_THEMES_KEY = "app-custom-themes";
 const CUSTOM_THEMES_DIR = "themes";
 const LEGACY_COLLECTION_FILE = `${CUSTOM_THEMES_DIR}/custom-themes.json`;
+const MANAGED_THEME_FILE_PATTERN = /^.+--[^/\\]+\.json$/i;
 
 function isDesktopTauri() {
 	return typeof window !== "undefined" && isTauri();
@@ -49,6 +52,10 @@ function toThemeFileName(theme: Pick<StoredCustomTheme, "id" | "name">) {
 	const slug =
 		slugifyFileName(theme.name) || slugifyFileName(theme.id) || "theme";
 	return `${slug}--${theme.id}.json`;
+}
+
+function isManagedThemeFileName(fileName: string) {
+	return MANAGED_THEME_FILE_PATTERN.test(fileName);
 }
 
 function normalizeTheme(theme: StoredCustomTheme): StoredCustomTheme {
@@ -227,6 +234,7 @@ async function writeSeparateThemeFiles(themes: StoredCustomTheme[]) {
 		existingEntries
 			.filter((entry) => entry.isFile && entry.name.endsWith(".json"))
 			.filter((entry) => entry.name !== "custom-themes.json")
+			.filter((entry) => isManagedThemeFileName(entry.name))
 			.map((entry) =>
 				remove(`${CUSTOM_THEMES_DIR}/${entry.name}`, {
 					baseDir: BaseDirectory.AppData,
@@ -343,6 +351,35 @@ export async function saveStoredCustomTheme(
 		...existingThemes.filter((existingTheme) => existingTheme.id !== theme.id),
 		normalizeTheme(theme),
 	]);
+}
+
+export async function watchStoredCustomThemes(
+	onChange: () => void | Promise<void>,
+): Promise<UnwatchFn | null> {
+	if (!isDesktopTauri()) {
+		return null;
+	}
+
+	await ensureThemesDirectory();
+
+	return watch(
+		CUSTOM_THEMES_DIR,
+		(event) => {
+			if (
+				event.paths.length === 0 ||
+				event.paths.some(
+					(path) =>
+						path.endsWith(".json") || path.endsWith(`/${CUSTOM_THEMES_DIR}`),
+				)
+			) {
+				void onChange();
+			}
+		},
+		{
+			baseDir: BaseDirectory.AppData,
+			delayMs: 150,
+		},
+	);
 }
 
 export async function openCustomThemesFolder() {

@@ -264,7 +264,7 @@ export default function ThemeManager() {
 				variant="secondary"
 				onClick={handleImportFile}
 			>
-				<Upload className="mr-2 h-4 w-4" /> Import CSS
+				<Upload className="mr-2 h-4 w-4" /> Import Theme File
 			</Button>
 
 			<Button
