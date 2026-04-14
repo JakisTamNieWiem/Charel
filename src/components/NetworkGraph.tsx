@@ -1,14 +1,17 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Badge } from "./ui/badge";
 
-// --- Types & Constants ---
 const NODE_SIZE = 20;
 const AVATAR_CACHE_SIZE = 256;
 const GLOW_SPEED = 0.25;
 const GLOW_SPREAD = 0.18;
 const GLOW_STEPS = 40;
 const GLOW_EDGE_FADE_RANGE = 0.12;
+const QUALITY_SETTLE_DELAY_MS = 90;
+const INITIAL_AVATAR_SUPPRESSION_MS = 180;
+
+type AvatarQualityTier = "interactive" | "settled";
 
 interface ComputedNode {
 	id: string;
@@ -30,8 +33,8 @@ interface ComputedLink {
 	target: ComputedNode;
 	typeId: string;
 	color: string;
-	cpX?: number; // Control point X for quadratic curve
-	cpY?: number; // Control point Y
+	cpX?: number;
+	cpY?: number;
 }
 
 interface ComputedGroup {
@@ -51,75 +54,146 @@ interface LayoutData {
 	nodeMap: Map<string, ComputedNode>;
 }
 
-// --- Global Caches ---
+interface ViewportBounds {
+	left: number;
+	right: number;
+	top: number;
+	bottom: number;
+}
+
+interface AvatarSpriteSpec {
+	cacheKey: string;
+	size: number;
+}
+
+type EngineState = {
+	transform: { x: number; y: number; k: number };
+	width: number;
+	height: number;
+	theme: { bg: string; fg: string; card: string };
+	hoveredNodeId: string | null;
+	hoveredGroupId: string | null;
+	connectedNodeIds: Set<string>;
+	isDragging: boolean;
+	isInteracting: boolean;
+	hasCentered: boolean;
+	avatarQualityTier: AvatarQualityTier;
+	pointerDownPos: { x: number; y: number };
+	lastPointerPos: { x: number; y: number };
+	layout: LayoutData;
+	baseCanvas: HTMLCanvasElement | null;
+	baseCtx: CanvasRenderingContext2D | null;
+	fxCanvas: HTMLCanvasElement | null;
+	fxCtx: CanvasRenderingContext2D | null;
+	baseDirty: boolean;
+	fxDirty: boolean;
+	activeEffects: boolean;
+	animFrameId: number;
+	settleTimer: number | null;
+	suppressAvatarFallbacksUntil: number;
+};
+
 const avatarCache = new Map<string, HTMLCanvasElement>();
 const avatarLoading = new Set<string>();
+const AVATAR_BUCKETS = [32, 48, 64, 96, 128, 192, 256];
 
-function getAvatarCanvas(avatarUrl: string): HTMLCanvasElement | null {
-	const cached = avatarCache.get(avatarUrl);
-	if (cached) return cached;
-	if (avatarLoading.has(avatarUrl)) return null;
+function pickAvatarBucket(targetSize: number) {
+	return (
+		AVATAR_BUCKETS.find((bucket) => bucket >= targetSize) ??
+		AVATAR_BUCKETS[AVATAR_BUCKETS.length - 1]
+	);
+}
 
-	avatarLoading.add(avatarUrl);
+function getAvatarSpriteSpec(
+	avatarUrl: string,
+	tier: AvatarQualityTier,
+	scale: number,
+	dpr: number,
+): AvatarSpriteSpec {
+	const screenDiameter =
+		NODE_SIZE * 2 * Math.max(scale, 0.35) * Math.max(dpr, 1);
+	const targetSize =
+		tier === "interactive"
+			? Math.max(32, screenDiameter * 1.15)
+			: Math.max(64, screenDiameter * 2);
+	const size = pickAvatarBucket(Math.min(targetSize, AVATAR_CACHE_SIZE));
+
+	return {
+		cacheKey: `${avatarUrl}|${tier}|${size}`,
+		size,
+	};
+}
+
+function getAvatarSprite(
+	avatarUrl: string,
+	spec: AvatarSpriteSpec,
+	onReady: () => void,
+): HTMLCanvasElement | null {
+	const cached = avatarCache.get(spec.cacheKey);
+
+	if (cached) {
+		return cached;
+	}
+
+	if (avatarLoading.has(spec.cacheKey)) {
+		return null;
+	}
+
+	avatarLoading.add(spec.cacheKey);
+
 	const img = new Image();
 	img.crossOrigin = "anonymous";
 	img.src = avatarUrl;
 
 	img.onload = async () => {
-		// 1. "Object-fit: cover" Math (Find the perfect center square to prevent stretching)
-		const minSize = Math.min(img.width, img.height);
-		const startX = (img.width - minSize) / 2;
-		const startY = (img.height - minSize) / 2;
+		try {
+			const minSize = Math.min(img.width, img.height);
+			const startX = (img.width - minSize) / 2;
+			const startY = (img.height - minSize) / 2;
 
-		// 2. Hardware-Accelerated High-Quality Downscaling
-		// This forces the browser to use Lanczos/Bicubic scaling natively
-		const bitmap = await createImageBitmap(
-			img,
-			startX,
-			startY,
-			minSize,
-			minSize,
-			{
-				resizeWidth: AVATAR_CACHE_SIZE,
-				resizeHeight: AVATAR_CACHE_SIZE,
-				resizeQuality: "high", // This actually works, unlike the canvas context version!
-			},
-		);
-
-		const canvas = document.createElement("canvas");
-		canvas.width = AVATAR_CACHE_SIZE;
-		canvas.height = AVATAR_CACHE_SIZE;
-		const ctx = canvas.getContext("2d");
-
-		if (ctx) {
-			// 3. Draw a perfectly smooth anti-aliased circle first
-			ctx.fillStyle = "#ffffff";
-			ctx.beginPath();
-			ctx.arc(
-				AVATAR_CACHE_SIZE / 2,
-				AVATAR_CACHE_SIZE / 2,
-				AVATAR_CACHE_SIZE / 2,
-				0,
-				2 * Math.PI,
+			const bitmap = await createImageBitmap(
+				img,
+				startX,
+				startY,
+				minSize,
+				minSize,
+				{
+					resizeWidth: spec.size,
+					resizeHeight: spec.size,
+					resizeQuality: "high",
+				},
 			);
-			ctx.fill();
 
-			// 4. The Magic: Tell the canvas to ONLY draw the image where the circle exists
-			ctx.globalCompositeOperation = "source-in";
+			const canvas = document.createElement("canvas");
+			canvas.width = spec.size;
+			canvas.height = spec.size;
 
-			// 5. Draw the perfectly downscaled, perfectly squared bitmap
-			ctx.drawImage(bitmap, 0, 0);
+			const ctx = canvas.getContext("2d");
 
-			avatarCache.set(avatarUrl, canvas);
+			if (ctx) {
+				ctx.fillStyle = "#ffffff";
+				ctx.beginPath();
+				ctx.arc(spec.size / 2, spec.size / 2, spec.size / 2, 0, 2 * Math.PI);
+				ctx.fill();
+				ctx.globalCompositeOperation = "source-in";
+				ctx.imageSmoothingEnabled = true;
+				ctx.imageSmoothingQuality = "high";
+				ctx.drawImage(bitmap, 0, 0);
+				avatarCache.set(spec.cacheKey, canvas);
+				onReady();
+			}
+		} finally {
+			avatarLoading.delete(spec.cacheKey);
 		}
-		avatarLoading.delete(avatarUrl);
 	};
 
-	img.onerror = () => avatarLoading.delete(avatarUrl);
+	img.onerror = () => {
+		avatarLoading.delete(spec.cacheKey);
+	};
+
 	return null;
 }
 
-// --- Math Helpers ---
 function radialTextAlign(cos: number): CanvasTextAlign {
 	return cos > 0.5 ? "left" : cos < -0.5 ? "right" : "center";
 }
@@ -138,32 +212,417 @@ function sampleQuadratic(
 	t: number,
 ): [number, number] {
 	const t1 = 1 - t;
+
 	return [
 		t1 * t1 * sx + 2 * t1 * t * cpX + t * t * ex,
 		t1 * t1 * sy + 2 * t1 * t * cpY + t * t * ey,
 	];
 }
 
-// --- Main Component ---
-export default function NetworkGraph() {
-	const allChars = useGraphStore((s) => s.characters);
-	const relationships = useGraphStore((s) => s.relationships);
-	const types = useGraphStore((s) => s.relationshipTypes);
-	const groups = useGraphStore((s) => s.groups);
-	const networkMode = useGraphStore((s) => s.networkMode);
-	const setSelectedCharId = useGraphStore((s) => s.setSelectedCharId);
+function getViewportBounds(
+	transform: EngineState["transform"],
+	width: number,
+	height: number,
+): ViewportBounds {
+	return {
+		left: -transform.x / transform.k,
+		right: (width - transform.x) / transform.k,
+		top: -transform.y / transform.k,
+		bottom: (height - transform.y) / transform.k,
+	};
+}
 
-	// Engine state completely isolated from React re-renders
-	const engineRef = useRef({
+function isCircleVisible(
+	bounds: ViewportBounds,
+	x: number,
+	y: number,
+	radius: number,
+) {
+	return !(
+		x + radius < bounds.left ||
+		x - radius > bounds.right ||
+		y + radius < bounds.top ||
+		y - radius > bounds.bottom
+	);
+}
+
+function isLinkVisible(
+	bounds: ViewportBounds,
+	link: ComputedLink,
+	padding: number,
+) {
+	const xs =
+		link.cpX != null
+			? [link.source.x, link.target.x, link.cpX]
+			: [link.source.x, link.target.x];
+	const ys =
+		link.cpY != null
+			? [link.source.y, link.target.y, link.cpY]
+			: [link.source.y, link.target.y];
+	const minX = Math.min(...xs) - padding;
+	const maxX = Math.max(...xs) + padding;
+	const minY = Math.min(...ys) - padding;
+	const maxY = Math.max(...ys) + padding;
+
+	return !(
+		maxX < bounds.left ||
+		minX > bounds.right ||
+		maxY < bounds.top ||
+		minY > bounds.bottom
+	);
+}
+
+function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
+	const ctx = engine.baseCtx;
+	const canvas = engine.baseCanvas;
+
+	if (!ctx || !canvas || engine.width <= 0 || engine.height <= 0) {
+		return;
+	}
+
+	const dpr = window.devicePixelRatio || 1;
+	const { x: tx, y: ty, k } = engine.transform;
+	const bounds = getViewportBounds(
+		engine.transform,
+		engine.width,
+		engine.height,
+	);
+	const { theme, hoveredNodeId, hoveredGroupId, connectedNodeIds } = engine;
+	const suppressAvatarFallbacks =
+		performance.now() < engine.suppressAvatarFallbacksUntil;
+
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.save();
+	ctx.scale(dpr, dpr);
+	ctx.translate(tx, ty);
+	ctx.scale(k, k);
+
+	for (const group of engine.layout.groups) {
+		const isHovered = hoveredGroupId === group.id;
+
+		if (
+			(k < 0.03 && !isHovered) ||
+			!isCircleVisible(bounds, group.cx, group.cy, group.radius + 60)
+		) {
+			continue;
+		}
+
+		ctx.globalAlpha = isHovered ? 0.15 : 0.035;
+		ctx.fillStyle = group.color;
+		ctx.beginPath();
+		ctx.arc(group.cx, group.cy, group.radius, 0, 2 * Math.PI);
+		ctx.fill();
+
+		if (isHovered || k > 0.1) {
+			ctx.globalAlpha = isHovered ? 0.9 : 0.4;
+			ctx.fillStyle = group.color;
+			ctx.font = `bold ${Math.min(Math.round(22 / k), 60)}px Inter, sans-serif`;
+
+			const cos = Math.cos(group.angle);
+			const sin = Math.sin(group.angle);
+			const labelDist = group.radius + Math.min(25 / k, 50);
+
+			ctx.textAlign = radialTextAlign(cos);
+			ctx.textBaseline = radialTextBaseline(sin);
+			ctx.fillText(
+				group.name.toUpperCase(),
+				group.cx + labelDist * cos,
+				group.cy + labelDist * sin,
+			);
+		}
+	}
+
+	for (const link of engine.layout.links) {
+		if (!isLinkVisible(bounds, link, 32)) {
+			continue;
+		}
+
+		const isNodeActive = Boolean(
+			hoveredNodeId &&
+				(link.sourceId === hoveredNodeId || link.targetId === hoveredNodeId),
+		);
+		const isGroupActive = Boolean(
+			hoveredGroupId &&
+				(link.source.groupId === hoveredGroupId ||
+					link.target.groupId === hoveredGroupId),
+		);
+		const isActive = isNodeActive || isGroupActive;
+
+		const opacity =
+			!hoveredNodeId && !hoveredGroupId ? 0.25 : isActive ? 0.8 : 0.02;
+
+		if (opacity < 0.02) {
+			continue;
+		}
+
+		ctx.globalAlpha = opacity;
+		ctx.strokeStyle = link.color;
+		ctx.lineWidth = link.cpX != null ? 0.6 / k : 0.2 / k;
+		ctx.beginPath();
+		ctx.moveTo(Math.round(link.source.x), Math.round(link.source.y));
+
+		if (link.cpX != null && link.cpY != null) {
+			ctx.quadraticCurveTo(
+				Math.round(link.cpX),
+				Math.round(link.cpY),
+				Math.round(link.target.x),
+				Math.round(link.target.y),
+			);
+		} else {
+			ctx.lineTo(Math.round(link.target.x), Math.round(link.target.y));
+		}
+
+		ctx.stroke();
+	}
+
+	ctx.imageSmoothingEnabled = engine.avatarQualityTier === "settled";
+	ctx.imageSmoothingQuality =
+		engine.avatarQualityTier === "settled" ? "high" : "low";
+
+	for (const node of engine.layout.nodes) {
+		const isHovered = node.id === hoveredNodeId;
+		const isGroupHovered = node.groupId === hoveredGroupId;
+		const isConnected = connectedNodeIds.has(node.id);
+		const isHighlighted = isHovered || isGroupHovered || isConnected;
+
+		if (
+			!isCircleVisible(bounds, node.x, node.y, NODE_SIZE + 48) &&
+			(!isHighlighted || k < 0.3)
+		) {
+			continue;
+		}
+
+		const rx = Math.round(node.x);
+		const ry = Math.round(node.y);
+
+		if (k < 0.05 && !isHighlighted) {
+			ctx.globalAlpha = 1;
+			ctx.fillStyle = node.color;
+			ctx.beginPath();
+			ctx.arc(rx, ry, 3, 0, 2 * Math.PI);
+			ctx.fill();
+			continue;
+		}
+
+		ctx.globalAlpha =
+			!hoveredNodeId && !hoveredGroupId ? 1 : isHighlighted ? 1 : 0.05;
+
+		ctx.beginPath();
+		ctx.arc(rx, ry, NODE_SIZE, 0, 2 * Math.PI);
+		ctx.fillStyle = theme.card;
+		ctx.fill();
+
+		ctx.lineWidth = Math.min(isHovered || isConnected ? 3 / k : 1.5 / k, 4);
+		ctx.strokeStyle = isHovered || isConnected ? theme.fg : node.color;
+		ctx.stroke();
+
+		const avatarSpec = node.avatar
+			? getAvatarSpriteSpec(node.avatar, engine.avatarQualityTier, k, dpr)
+			: null;
+		const avatarSprite =
+			node.avatar && avatarSpec
+				? getAvatarSprite(node.avatar, avatarSpec, () => {
+						engine.baseDirty = true;
+						scheduleRender();
+					})
+				: null;
+
+		if (avatarSprite) {
+			ctx.drawImage(
+				avatarSprite,
+				rx - NODE_SIZE + 1,
+				ry - NODE_SIZE + 1,
+				(NODE_SIZE - 1) * 2,
+				(NODE_SIZE - 1) * 2,
+			);
+		} else if (!suppressAvatarFallbacks) {
+			ctx.fillStyle = theme.fg;
+			ctx.font = `bold ${Math.round(NODE_SIZE * 0.8)}px sans-serif`;
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.fillText(node.initials, rx, ry);
+		}
+
+		if (k > 0.3) {
+			const dx = rx - node.groupCx;
+			const dy = ry - node.groupCy;
+			const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+			const cos = dx / distance;
+			const sin = dy / distance;
+			const textDist = NODE_SIZE + Math.min(8 / k, 20);
+
+			ctx.font = `500 ${Math.min(Math.round(11 / k), 40)}px sans-serif`;
+			ctx.fillStyle = theme.fg;
+			ctx.textAlign = radialTextAlign(cos);
+			ctx.textBaseline = radialTextBaseline(sin);
+			ctx.fillText(node.name, rx + textDist * cos, ry + textDist * sin);
+		}
+	}
+
+	ctx.restore();
+}
+
+function prewarmVisibleAvatarSprites(
+	engine: EngineState,
+	scheduleRender: () => void,
+) {
+	if (engine.width <= 0 || engine.height <= 0) {
+		return;
+	}
+
+	const dpr = window.devicePixelRatio || 1;
+	const bounds = getViewportBounds(
+		engine.transform,
+		engine.width,
+		engine.height,
+	);
+	let requestedSprite = false;
+
+	for (const node of engine.layout.nodes) {
+		if (
+			!node.avatar ||
+			!isCircleVisible(bounds, node.x, node.y, NODE_SIZE + 48)
+		) {
+			continue;
+		}
+
+		for (const tier of ["interactive", "settled"] as const) {
+			const spec = getAvatarSpriteSpec(
+				node.avatar,
+				tier,
+				engine.transform.k,
+				dpr,
+			);
+
+			if (avatarCache.has(spec.cacheKey)) {
+				continue;
+			}
+
+			requestedSprite = true;
+			getAvatarSprite(node.avatar, spec, () => {
+				engine.baseDirty = true;
+				scheduleRender();
+			});
+		}
+	}
+
+	if (requestedSprite) {
+		engine.suppressAvatarFallbacksUntil =
+			performance.now() + INITIAL_AVATAR_SUPPRESSION_MS;
+	}
+}
+
+function drawFxLayer(engine: EngineState) {
+	const ctx = engine.fxCtx;
+	const canvas = engine.fxCanvas;
+
+	if (!ctx || !canvas) {
+		return;
+	}
+
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+	if (!engine.activeEffects || !engine.hoveredNodeId) {
+		return;
+	}
+
+	const dpr = window.devicePixelRatio || 1;
+	const { x: tx, y: ty, k } = engine.transform;
+	const hoveredNodeId = engine.hoveredNodeId;
+	const bounds = getViewportBounds(
+		engine.transform,
+		engine.width,
+		engine.height,
+	);
+	const timeSeconds = performance.now() * 0.001;
+	const glowCenter = (timeSeconds * GLOW_SPEED) % 1;
+
+	ctx.save();
+	ctx.scale(dpr, dpr);
+	ctx.translate(tx, ty);
+	ctx.scale(k, k);
+
+	for (const link of engine.layout.links) {
+		if (hoveredNodeId !== link.sourceId && hoveredNodeId !== link.targetId) {
+			continue;
+		}
+
+		if (!isLinkVisible(bounds, link, 32)) {
+			continue;
+		}
+
+		const sx = Math.round(link.source.x);
+		const sy = Math.round(link.source.y);
+		const ex = Math.round(link.target.x);
+		const ey = Math.round(link.target.y);
+
+		for (let index = 0; index < GLOW_STEPS - 1; index += 1) {
+			const t0 = index / (GLOW_STEPS - 1);
+			const t1 = (index + 1) / (GLOW_STEPS - 1);
+			const mid = (t0 + t1) / 2;
+
+			let dist = Math.abs(mid - glowCenter);
+			dist = Math.min(dist, 1 - dist);
+
+			const intensity = Math.max(0, 1 - dist / GLOW_SPREAD);
+			const edgeFade = Math.min(
+				Math.min(mid, 1 - mid) / GLOW_EDGE_FADE_RANGE,
+				1,
+			);
+			const glow = intensity * intensity * (3 - 2 * intensity) * edgeFade;
+
+			if (glow < 0.01) {
+				continue;
+			}
+
+			const [x0, y0] =
+				link.cpX != null && link.cpY != null
+					? sampleQuadratic(sx, sy, link.cpX, link.cpY, ex, ey, t0)
+					: [sx + (ex - sx) * t0, sy + (ey - sy) * t0];
+			const [x1, y1] =
+				link.cpX != null && link.cpY != null
+					? sampleQuadratic(sx, sy, link.cpX, link.cpY, ex, ey, t1)
+					: [sx + (ex - sx) * t1, sy + (ey - sy) * t1];
+
+			ctx.beginPath();
+			ctx.moveTo(x0, y0);
+			ctx.lineTo(x1, y1);
+			ctx.strokeStyle = link.color;
+			ctx.lineWidth = Math.max(3 / k, 1);
+			ctx.globalAlpha = glow * 0.5;
+			ctx.shadowColor = link.color;
+			ctx.shadowBlur = Math.max((25 * glow) / k, 8 * glow);
+			ctx.stroke();
+		}
+	}
+
+	ctx.shadowColor = "transparent";
+	ctx.shadowBlur = 0;
+	ctx.restore();
+}
+
+export default function NetworkGraph() {
+	const allChars = useGraphStore((state) => state.characters);
+	const relationships = useGraphStore((state) => state.relationships);
+	const types = useGraphStore((state) => state.relationshipTypes);
+	const groups = useGraphStore((state) => state.groups);
+	const networkMode = useGraphStore((state) => state.networkMode);
+	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
+
+	const engineRef = useRef<EngineState>({
 		transform: { x: 0, y: 0, k: 0.5 },
-		width: 800,
-		height: 600,
+		width: 0,
+		height: 0,
 		theme: { bg: "#000", fg: "#fff", card: "#22" },
-		hoveredNodeId: null as string | null,
-		hoveredGroupId: null as string | null,
+		hoveredNodeId: null,
+		hoveredGroupId: null,
 		connectedNodeIds: new Set<string>(),
 		isDragging: false,
+		isInteracting: false,
 		hasCentered: false,
+		avatarQualityTier: "settled",
 		pointerDownPos: { x: 0, y: 0 },
 		lastPointerPos: { x: 0, y: 0 },
 		layout: {
@@ -171,78 +630,89 @@ export default function NetworkGraph() {
 			links: [],
 			groups: [],
 			nodeMap: new Map(),
-		} as LayoutData,
+		},
+		baseCanvas: null,
+		baseCtx: null,
+		fxCanvas: null,
+		fxCtx: null,
+		baseDirty: true,
+		fxDirty: true,
+		activeEffects: false,
 		animFrameId: 0,
+		settleTimer: null,
+		suppressAvatarFallbacksUntil: 0,
 	});
+	const scheduleRenderRef = useRef<(() => void) | null>(null);
 
-	// Deriving layout math once when data changes, outside the render loop
-	const layout: LayoutData = (() => {
-		const typeMap = new Map(types.map((t) => [t.id, t]));
-		const groupInfoMap = new Map(groups.map((g) => [g.id, g]));
-
+	const layout = useMemo<LayoutData>(() => {
+		const typeMap = new Map(types.map((type) => [type.id, type]));
+		const groupInfoMap = new Map(groups.map((group) => [group.id, group]));
 		const nodes: ComputedNode[] = [];
 		const groupBounds: ComputedGroup[] = [];
 
 		if (networkMode === "global") {
-			const sortedChars = [...allChars].sort((a, b) =>
-				a.name.localeCompare(b.name),
+			const sortedChars = [...allChars].sort((left, right) =>
+				left.name.localeCompare(right.name),
 			);
 			const radius = Math.max(400, sortedChars.length * 20);
 
-			sortedChars.forEach((c, i) => {
-				const group = groupInfoMap.get(c.groupId || "");
-				const angle = (i / sortedChars.length) * 2 * Math.PI - Math.PI / 2;
+			sortedChars.forEach((character, index) => {
+				const group = groupInfoMap.get(character.groupId || "");
+				const angle = (index / sortedChars.length) * 2 * Math.PI - Math.PI / 2;
+
 				nodes.push({
-					id: c.id,
-					name: c.name,
-					groupId: c.groupId,
-					avatar: c.avatar,
+					id: character.id,
+					name: character.name,
+					groupId: character.groupId,
+					avatar: character.avatar,
 					x: Math.cos(angle) * radius,
 					y: Math.sin(angle) * radius,
 					color: group?.color || "#ffffff",
-					initials: c.name.substring(0, 2).toUpperCase(),
+					initials: character.name.substring(0, 2).toUpperCase(),
 					groupCx: 0,
 					groupCy: 0,
 				});
 			});
 		} else {
 			const groupMap = new Map<string | null, typeof allChars>();
-			for (const c of allChars) {
-				const entries = groupMap.get(c.groupId) || [];
-				entries.push(c);
-				groupMap.set(c.groupId, entries);
+
+			for (const character of allChars) {
+				const entries = groupMap.get(character.groupId) || [];
+				entries.push(character);
+				groupMap.set(character.groupId, entries);
 			}
 
 			const sortedGroupIds = Array.from(groupMap.keys());
 			const groupCount = sortedGroupIds.length;
 			const outerRadius = 600;
 
-			sortedGroupIds.forEach((groupId, gIdx) => {
+			sortedGroupIds.forEach((groupId, groupIndex) => {
 				const groupNodes = groupMap.get(groupId) || [];
 				const groupInfo = groupInfoMap.get(groupId || "");
 				const innerRadius = Math.max(80, groupNodes.length * 10);
-
-				const groupAngle = (gIdx / groupCount) * 2 * Math.PI - Math.PI / 2;
+				const groupAngle =
+					(groupIndex / groupCount) * 2 * Math.PI - Math.PI / 2;
 				const gCx = groupCount <= 1 ? 0 : Math.cos(groupAngle) * outerRadius;
 				const gCy = groupCount <= 1 ? 0 : Math.sin(groupAngle) * outerRadius;
 
-				groupNodes.forEach((c, nIdx) => {
-					const nAngle = (nIdx / groupNodes.length) * 2 * Math.PI;
+				groupNodes.forEach((character, nodeIndex) => {
+					const nodeAngle = (nodeIndex / groupNodes.length) * 2 * Math.PI;
+
 					nodes.push({
-						id: c.id,
-						name: c.name,
-						groupId: c.groupId,
-						avatar: c.avatar,
+						id: character.id,
+						name: character.name,
+						groupId: character.groupId,
+						avatar: character.avatar,
 						x:
 							groupNodes.length === 1
 								? gCx
-								: gCx + Math.cos(nAngle) * innerRadius,
+								: gCx + Math.cos(nodeAngle) * innerRadius,
 						y:
 							groupNodes.length === 1
 								? gCy
-								: gCy + Math.sin(nAngle) * innerRadius,
+								: gCy + Math.sin(nodeAngle) * innerRadius,
 						color: groupInfo?.color || "#ffffff",
-						initials: c.name.substring(0, 2).toUpperCase(),
+						initials: character.name.substring(0, 2).toUpperCase(),
 						groupCx: gCx,
 						groupCy: gCy,
 					});
@@ -262,15 +732,18 @@ export default function NetworkGraph() {
 			});
 		}
 
-		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-
+		const nodeMap = new Map(nodes.map((node) => [node.id, node]));
 		const links: ComputedLink[] = [];
-		for (const r of relationships) {
-			const source = nodeMap.get(r.fromId);
-			const target = nodeMap.get(r.toId);
-			if (!source || !target) continue;
 
-			const type = typeMap.get(r.typeId);
+		for (const relationship of relationships) {
+			const source = nodeMap.get(relationship.fromId);
+			const target = nodeMap.get(relationship.toId);
+
+			if (!source || !target) {
+				continue;
+			}
+
+			const type = typeMap.get(relationship.typeId);
 			const isCrossGroup =
 				networkMode === "group" ? source.groupId !== target.groupId : true;
 
@@ -282,7 +755,7 @@ export default function NetworkGraph() {
 				const my = (source.y + target.y) / 2;
 				const dx = target.x - source.x;
 				const dy = target.y - source.y;
-				// Beautiful arc sweeping out based on relative distance
+
 				cpX = mx - dy * 0.25;
 				cpY = my + dx * 0.25;
 			}
@@ -292,7 +765,7 @@ export default function NetworkGraph() {
 				targetId: target.id,
 				source,
 				target,
-				typeId: r.typeId,
+				typeId: relationship.typeId,
 				color: type?.color || "#555",
 				cpX,
 				cpY,
@@ -300,390 +773,315 @@ export default function NetworkGraph() {
 		}
 
 		return { nodes, links, groups: groupBounds, nodeMap };
-	})();
+	}, [allChars, groups, networkMode, relationships, types]);
 
-	// Sync layout to engine synchronously without triggering side-effects
-	engineRef.current.layout = layout;
+	useEffect(() => {
+		const engine = engineRef.current;
+		engine.layout = layout;
+		engine.baseDirty = true;
+		engine.fxDirty = true;
+		if (scheduleRenderRef.current) {
+			prewarmVisibleAvatarSprites(engine, scheduleRenderRef.current);
+		}
+		scheduleRenderRef.current?.();
+	}, [layout]);
 
-	// Center view on first load if dimensions are established
-	if (!engineRef.current.hasCentered && engineRef.current.width > 0) {
-		engineRef.current.transform.x = engineRef.current.width / 2;
-		engineRef.current.transform.y = engineRef.current.height / 2;
-		engineRef.current.hasCentered = true;
-	}
-
-	// --- Canvas Setup & Binding using React 19 Ref Callback Cleanup ---
 	const containerRef = useCallback(
-		(el: HTMLDivElement | null) => {
-			if (!el) return;
+		(element: HTMLDivElement | null) => {
+			if (!element) {
+				return;
+			}
+
 			const engine = engineRef.current;
+			const baseCanvas = element.querySelector<HTMLCanvasElement>(
+				"canvas[data-layer='base']",
+			);
+			const fxCanvas = element.querySelector<HTMLCanvasElement>(
+				"canvas[data-layer='fx']",
+			);
 
-			// 1. Setup automatic canvas resizing
-			const canvas = el.querySelector("canvas");
-			if (!canvas) return;
+			if (!baseCanvas || !fxCanvas) {
+				return;
+			}
 
-			const ro = new ResizeObserver((entries) => {
+			engine.baseCanvas = baseCanvas;
+			engine.fxCanvas = fxCanvas;
+			engine.baseCtx = baseCanvas.getContext("2d");
+			engine.fxCtx = fxCanvas.getContext("2d");
+
+			const scheduleRender = () => {
+				if (engine.animFrameId) {
+					return;
+				}
+
+				engine.animFrameId = window.requestAnimationFrame(() => {
+					engine.animFrameId = 0;
+
+					if (engine.baseDirty) {
+						drawBaseLayer(engine, scheduleRender);
+						engine.baseDirty = false;
+					}
+
+					if (engine.fxDirty || engine.activeEffects) {
+						drawFxLayer(engine);
+						engine.fxDirty = false;
+					}
+
+					if (engine.activeEffects) {
+						scheduleRender();
+					}
+				});
+			};
+
+			scheduleRenderRef.current = scheduleRender;
+
+			const markDirty = (base = true, fx = true) => {
+				if (base) {
+					engine.baseDirty = true;
+				}
+
+				if (fx) {
+					engine.fxDirty = true;
+				}
+
+				scheduleRender();
+			};
+
+			const recomputeConnectedNodeIds = () => {
+				engine.connectedNodeIds.clear();
+
+				if (!engine.hoveredNodeId) {
+					return;
+				}
+
+				for (const link of engine.layout.links) {
+					if (link.sourceId === engine.hoveredNodeId) {
+						engine.connectedNodeIds.add(link.targetId);
+					}
+
+					if (link.targetId === engine.hoveredNodeId) {
+						engine.connectedNodeIds.add(link.sourceId);
+					}
+				}
+			};
+
+			const syncEffectState = () => {
+				engine.activeEffects =
+					Boolean(engine.hoveredNodeId) && !engine.isInteracting;
+			};
+
+			const scheduleSettledQuality = () => {
+				if (engine.settleTimer !== null) {
+					window.clearTimeout(engine.settleTimer);
+				}
+
+				engine.settleTimer = window.setTimeout(() => {
+					engine.settleTimer = null;
+					engine.isInteracting = false;
+					engine.avatarQualityTier = "settled";
+					syncEffectState();
+					markDirty(true, true);
+				}, QUALITY_SETTLE_DELAY_MS);
+			};
+
+			const startInteraction = () => {
+				if (engine.settleTimer !== null) {
+					window.clearTimeout(engine.settleTimer);
+					engine.settleTimer = null;
+				}
+
+				engine.isInteracting = true;
+				engine.avatarQualityTier = "interactive";
+				syncEffectState();
+				markDirty(true, true);
+			};
+
+			const updateHoverState = (mouseX: number, mouseY: number) => {
+				const { x: tx, y: ty, k } = engine.transform;
+				const worldX = (mouseX - tx) / k;
+				const worldY = (mouseY - ty) / k;
+
+				let hitNodeId: string | null = null;
+
+				for (const node of engine.layout.nodes) {
+					const dx = node.x - worldX;
+					const dy = node.y - worldY;
+
+					if (dx * dx + dy * dy <= NODE_SIZE * NODE_SIZE) {
+						hitNodeId = node.id;
+						break;
+					}
+				}
+
+				if (engine.hoveredNodeId === hitNodeId) {
+					baseCanvas.style.cursor = hitNodeId ? "pointer" : "default";
+					return;
+				}
+
+				engine.hoveredNodeId = hitNodeId;
+				recomputeConnectedNodeIds();
+				syncEffectState();
+				baseCanvas.style.cursor = hitNodeId ? "pointer" : "default";
+				markDirty(true, true);
+			};
+
+			const updateTheme = () => {
+				const styles = getComputedStyle(document.documentElement);
+				engine.theme = {
+					bg: styles.getPropertyValue("--background").trim(),
+					fg: styles.getPropertyValue("--foreground").trim(),
+					card: styles.getPropertyValue("--card").trim(),
+				};
+				markDirty(true, false);
+			};
+
+			const getEventPos = (event: MouseEvent | PointerEvent | WheelEvent) => {
+				const rect = baseCanvas.getBoundingClientRect();
+
+				return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+			};
+
+			const onWheel = (event: WheelEvent) => {
+				event.preventDefault();
+				startInteraction();
+
+				const pos = getEventPos(event);
+				const { x, y, k } = engine.transform;
+				const scaleAdjustment = Math.exp(-event.deltaY * 0.002);
+				const nextScale = Math.min(Math.max(k * scaleAdjustment, 0.03), 4);
+
+				engine.transform.x = pos.x - (pos.x - x) * (nextScale / k);
+				engine.transform.y = pos.y - (pos.y - y) * (nextScale / k);
+				engine.transform.k = nextScale;
+
+				markDirty(true, true);
+				scheduleSettledQuality();
+			};
+
+			const onPointerDown = (event: PointerEvent) => {
+				engine.isDragging = true;
+				startInteraction();
+				engine.lastPointerPos = { x: event.clientX, y: event.clientY };
+				engine.pointerDownPos = getEventPos(event);
+
+				baseCanvas.setPointerCapture(event.pointerId);
+				baseCanvas.style.cursor = "grabbing";
+			};
+
+			const onPointerMove = (event: PointerEvent) => {
+				if (engine.isDragging) {
+					const dx = event.clientX - engine.lastPointerPos.x;
+					const dy = event.clientY - engine.lastPointerPos.y;
+
+					engine.transform.x += dx;
+					engine.transform.y += dy;
+					engine.lastPointerPos = { x: event.clientX, y: event.clientY };
+					markDirty(true, false);
+					return;
+				}
+
+				const pos = getEventPos(event);
+				updateHoverState(pos.x, pos.y);
+			};
+
+			const endPointerInteraction = (event: PointerEvent) => {
+				engine.isDragging = false;
+				baseCanvas.releasePointerCapture(event.pointerId);
+
+				const pos = getEventPos(event);
+				const dx = pos.x - engine.pointerDownPos.x;
+				const dy = pos.y - engine.pointerDownPos.y;
+
+				updateHoverState(pos.x, pos.y);
+
+				if (dx * dx + dy * dy < 25 && engine.hoveredNodeId) {
+					setSelectedCharId(engine.hoveredNodeId);
+				}
+
+				scheduleSettledQuality();
+			};
+
+			const onPointerLeave = () => {
+				if (engine.isDragging) {
+					return;
+				}
+
+				if (engine.hoveredNodeId !== null) {
+					engine.hoveredNodeId = null;
+					engine.connectedNodeIds.clear();
+					syncEffectState();
+					baseCanvas.style.cursor = "default";
+					markDirty(true, true);
+				}
+			};
+
+			const resizeObserver = new ResizeObserver((entries) => {
 				const rect = entries[0].contentRect;
-				const dpr = window.devicePixelRatio || 1; // Get screen density
+				const dpr = window.devicePixelRatio || 1;
 
 				engine.width = rect.width;
 				engine.height = rect.height;
 
-				// Internal resolution (high quality)
-				canvas.width = rect.width * dpr;
-				canvas.height = rect.height * dpr;
-
-				// CSS display size (normal size)
-				canvas.style.width = `${rect.width}px`;
-				canvas.style.height = `${rect.height}px`;
+				for (const canvas of [baseCanvas, fxCanvas]) {
+					canvas.width = rect.width * dpr;
+					canvas.height = rect.height * dpr;
+					canvas.style.width = `${rect.width}px`;
+					canvas.style.height = `${rect.height}px`;
+				}
 
 				if (!engine.hasCentered) {
 					engine.transform.x = rect.width / 2;
 					engine.transform.y = rect.height / 2;
 					engine.hasCentered = true;
 				}
-			});
-			ro.observe(el);
 
-			// 2. Setup theme observation completely natively
-			const updateTheme = () => {
-				const s = getComputedStyle(document.documentElement);
-				engine.theme = {
-					bg: s.getPropertyValue("--background").trim(),
-					fg: s.getPropertyValue("--foreground").trim(),
-					card: s.getPropertyValue("--card").trim(),
-				};
-			};
+				prewarmVisibleAvatarSprites(engine, scheduleRender);
+				markDirty(true, true);
+			});
+
+			resizeObserver.observe(element);
 			updateTheme();
-			const themeObs = new MutationObserver(updateTheme);
-			themeObs.observe(document.documentElement, {
+
+			const themeObserver = new MutationObserver(updateTheme);
+			themeObserver.observe(document.documentElement, {
 				attributes: true,
 				attributeFilter: ["class"],
 			});
 
-			// 3. Pointer & Pan/Zoom Event Logic
-			const getEventPos = (e: MouseEvent | PointerEvent) => {
-				const rect = canvas.getBoundingClientRect();
-				return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-			};
+			baseCanvas.addEventListener("wheel", onWheel, { passive: false });
+			baseCanvas.addEventListener("pointerdown", onPointerDown);
+			baseCanvas.addEventListener("pointermove", onPointerMove);
+			baseCanvas.addEventListener("pointerup", endPointerInteraction);
+			baseCanvas.addEventListener("pointercancel", endPointerInteraction);
+			baseCanvas.addEventListener("pointerleave", onPointerLeave);
 
-			const onWheel = (e: WheelEvent) => {
-				e.preventDefault();
-				const pos = getEventPos(e);
-				const { x, y, k } = engine.transform;
+			markDirty(true, true);
 
-				const scaleAdj = Math.exp(-e.deltaY * 0.002);
-				const newK = Math.min(Math.max(k * scaleAdj, 0.03), 4);
-
-				engine.transform.x = pos.x - (pos.x - x) * (newK / k);
-				engine.transform.y = pos.y - (pos.y - y) * (newK / k);
-				engine.transform.k = newK;
-			};
-
-			const updateHoverState = (mouseX: number, mouseY: number) => {
-				const { x: tx, y: ty, k } = engine.transform;
-				const wX = (mouseX - tx) / k;
-				const wY = (mouseY - ty) / k;
-
-				let hitNode: string | null = null;
-
-				for (const node of engine.layout.nodes) {
-					const dx = node.x - wX;
-					const dy = node.y - wY;
-					if (dx * dx + dy * dy <= NODE_SIZE * NODE_SIZE) {
-						hitNode = node.id;
-						break;
-					}
-				}
-
-				engine.hoveredNodeId = hitNode;
-
-				engine.connectedNodeIds.clear();
-				if (hitNode) {
-					for (const link of engine.layout.links) {
-						if (link.sourceId === hitNode)
-							engine.connectedNodeIds.add(link.targetId);
-						if (link.targetId === hitNode)
-							engine.connectedNodeIds.add(link.sourceId);
-					}
-				}
-
-				canvas.style.cursor = hitNode ? "pointer" : "default";
-			};
-
-			const onPointerDown = (e: PointerEvent) => {
-				engine.isDragging = true;
-				engine.lastPointerPos = { x: e.clientX, y: e.clientY };
-				engine.pointerDownPos = { x: e.clientX, y: e.clientY };
-
-				canvas.setPointerCapture(e.pointerId);
-				canvas.style.cursor = "grabbing";
-			};
-
-			const onPointerMove = (e: PointerEvent) => {
-				if (engine.isDragging) {
-					// 2. Calculate the exact delta manually
-					const dx = e.clientX - engine.lastPointerPos.x;
-					const dy = e.clientY - engine.lastPointerPos.y;
-
-					// 3. Apply it
-					engine.transform.x += dx;
-					engine.transform.y += dy;
-
-					// 4. Reset for the next frame
-					engine.lastPointerPos = { x: e.clientX, y: e.clientY };
-				} else {
-					const rect = canvas.getBoundingClientRect();
-					updateHoverState(e.clientX - rect.left, e.clientY - rect.top);
-				}
-			};
-
-			const onPointerUp = (e: PointerEvent) => {
-				engine.isDragging = false;
-				canvas.releasePointerCapture(e.pointerId);
-
-				const pos = getEventPos(e);
-				const dx = pos.x - engine.pointerDownPos.x;
-				const dy = pos.y - engine.pointerDownPos.y;
-
-				// If it was a click (not a drag)
-				if (dx * dx + dy * dy < 25 && engine.hoveredNodeId) {
-					setSelectedCharId(engine.hoveredNodeId);
-				}
-				updateHoverState(pos.x, pos.y);
-			};
-
-			canvas.addEventListener("wheel", onWheel, { passive: false });
-			canvas.addEventListener("pointerdown", onPointerDown);
-			canvas.addEventListener("pointermove", onPointerMove);
-			canvas.addEventListener("pointerup", onPointerUp);
-
-			// 4. Dedicated 60FPS High-Performance Render Loop
-			const ctx = canvas.getContext("2d");
-
-			const render = () => {
-				engine.animFrameId = requestAnimationFrame(render);
-				if (!ctx) return;
-
-				const dpr = window.devicePixelRatio || 1;
-
-				// Enable high-quality image scaling
-				//ctx.imageSmoothingEnabled = true;
-				//ctx.imageSmoothingQuality = "medium";
-
-				ctx.clearRect(0, 0, engine.width, engine.height);
-
-				const { x: tx, y: ty, k } = engine.transform;
-				const lyt = engine.layout;
-				const { theme, hoveredNodeId, hoveredGroupId, connectedNodeIds } =
-					engine;
-
-				ctx.save();
-				// 1. Scale everything up by the device pixel ratio first
-				ctx.scale(dpr, dpr);
-
-				// 2. Then apply the pan and zoom transforms
-				ctx.translate(tx, ty);
-				ctx.scale(k, k);
-
-				// A. Draw Groups Backgrounds
-				for (const b of lyt.groups) {
-					const isHovered = hoveredGroupId === b.id;
-					if (k < 0.03 && !isHovered) continue;
-
-					ctx.globalAlpha = isHovered ? 0.15 : 0.035;
-					ctx.fillStyle = b.color;
-					ctx.beginPath();
-					ctx.arc(b.cx, b.cy, b.radius, 0, 2 * Math.PI);
-					ctx.fill();
-
-					if (isHovered || k > 0.1) {
-						ctx.globalAlpha = isHovered ? 0.9 : 0.4;
-						ctx.fillStyle = b.color;
-						ctx.font = `bold ${Math.min(Math.round(22 / k), 60)}px Inter, sans-serif`;
-						const cos = Math.cos(b.angle);
-						const sin = Math.sin(b.angle);
-						const labelDist = b.radius + Math.min(25 / k, 50);
-						ctx.textAlign = radialTextAlign(cos);
-						ctx.textBaseline = radialTextBaseline(sin);
-						ctx.fillText(
-							b.name.toUpperCase(),
-							b.cx + labelDist * cos,
-							b.cy + labelDist * sin,
-						);
-					}
-				}
-
-				// B. Draw Links & Particles
-				const timeSeconds = performance.now() * 0.001;
-				const glowCenter = (timeSeconds * GLOW_SPEED) % 1;
-
-				for (const link of lyt.links) {
-					const sx = Math.round(link.source.x);
-					const sy = Math.round(link.source.y);
-					const ex = Math.round(link.target.x);
-					const ey = Math.round(link.target.y);
-
-					const isNodeActive = Boolean(
-						hoveredNodeId &&
-							(link.sourceId === hoveredNodeId ||
-								link.targetId === hoveredNodeId),
-					);
-					const isGroupActive = Boolean(
-						hoveredGroupId &&
-							(link.source.groupId === hoveredGroupId ||
-								link.target.groupId === hoveredGroupId),
-					);
-					const isActive = isNodeActive || isGroupActive;
-
-					const opacity =
-						!hoveredNodeId && !hoveredGroupId ? 0.25 : isActive ? 0.8 : 0.02;
-					if (opacity < 0.02) continue;
-
-					ctx.globalAlpha = opacity;
-					ctx.strokeStyle = link.color;
-					ctx.lineWidth = link.cpX != null ? 0.6 / k : 0.2 / k;
-
-					ctx.beginPath();
-					ctx.moveTo(sx, sy);
-					if (link.cpX != null && link.cpY != null) {
-						ctx.quadraticCurveTo(
-							Math.round(link.cpX),
-							Math.round(link.cpY),
-							ex,
-							ey,
-						);
-					} else {
-						ctx.lineTo(ex, ey);
-					}
-					ctx.stroke();
-
-					// Particles logic - ONLY for node hover (performance optimization)
-					if (isNodeActive) {
-						for (let i = 0; i < GLOW_STEPS - 1; i++) {
-							const t0 = i / (GLOW_STEPS - 1);
-							const t1 = (i + 1) / (GLOW_STEPS - 1);
-							const mid = (t0 + t1) / 2;
-
-							let dist = Math.abs(mid - glowCenter);
-							dist = Math.min(dist, 1 - dist);
-							const intensity = Math.max(0, 1 - dist / GLOW_SPREAD);
-							const edgeFade = Math.min(
-								Math.min(mid, 1 - mid) / GLOW_EDGE_FADE_RANGE,
-								1,
-							);
-							const glow =
-								intensity * intensity * (3 - 2 * intensity) * edgeFade;
-							if (glow < 0.01) continue;
-
-							const [x0, y0] =
-								link.cpX != null
-									? sampleQuadratic(sx, sy, link.cpX, link.cpY ?? 0, ex, ey, t0)
-									: [sx + (ex - sx) * t0, sy + (ey - sy) * t0];
-							const [x1, y1] =
-								link.cpX != null
-									? sampleQuadratic(sx, sy, link.cpX, link.cpY ?? 0, ex, ey, t1)
-									: [sx + (ex - sx) * t1, sy + (ey - sy) * t1];
-
-							ctx.beginPath();
-							ctx.moveTo(x0, y0);
-							ctx.lineTo(x1, y1);
-							ctx.strokeStyle = link.color;
-							ctx.lineWidth = Math.max(3 / k, 1);
-							ctx.globalAlpha = glow * 0.5;
-							ctx.shadowColor = link.color;
-							ctx.shadowBlur = Math.max((25 * glow) / k, 8 * glow);
-							ctx.stroke();
-						}
-						ctx.shadowColor = "transparent";
-						ctx.shadowBlur = 0;
-					}
-				}
-
-				// C. Draw Nodes
-				for (const node of lyt.nodes) {
-					const isHovered = node.id === hoveredNodeId;
-					const isGroupHovered = node.groupId === hoveredGroupId;
-					const isConnected = connectedNodeIds.has(node.id);
-					const isHighlighted = isHovered || isGroupHovered || isConnected;
-
-					const rx = Math.round(node.x);
-					const ry = Math.round(node.y);
-
-					if (k < 0.05 && !isHighlighted) {
-						ctx.fillStyle = node.color;
-						ctx.beginPath();
-						ctx.arc(rx, ry, 3, 0, 2 * Math.PI);
-						ctx.fill();
-						continue;
-					}
-
-					ctx.globalAlpha =
-						!hoveredNodeId && !hoveredGroupId ? 1 : isHighlighted ? 1 : 0.05;
-
-					// Background
-					ctx.beginPath();
-					ctx.arc(rx, ry, NODE_SIZE, 0, 2 * Math.PI);
-					ctx.fillStyle = theme.card;
-					ctx.fill();
-
-					// Border
-					ctx.lineWidth = Math.min(
-						isHovered || isConnected ? 3 / k : 1.5 / k,
-						4,
-					);
-					ctx.strokeStyle = isHovered || isConnected ? theme.fg : node.color;
-					ctx.stroke();
-
-					// Avatar
-					const avatarCanvas = node.avatar
-						? getAvatarCanvas(node.avatar)
-						: null;
-					if (avatarCanvas) {
-						ctx.drawImage(
-							avatarCanvas,
-							rx - NODE_SIZE + 1,
-							ry - NODE_SIZE + 1,
-							(NODE_SIZE - 1) * 2,
-							(NODE_SIZE - 1) * 2,
-						);
-					} else {
-						ctx.fillStyle = theme.fg;
-						ctx.font = `bold ${Math.round(NODE_SIZE * 0.8)}px sans-serif`;
-						ctx.textAlign = "center";
-						ctx.textBaseline = "middle";
-						ctx.fillText(node.initials, rx, ry);
-					}
-
-					if (k > 0.3) {
-						const dx = rx - node.groupCx;
-						const dy = ry - node.groupCy;
-						const d = Math.sqrt(dx * dx + dy * dy) || 1;
-						const cos = dx / d;
-						const sin = dy / d;
-						const textDist = NODE_SIZE + Math.min(8 / k, 20);
-
-						ctx.font = `500 ${Math.min(Math.round(11 / k), 40)}px sans-serif`;
-						ctx.fillStyle = theme.fg;
-						ctx.textAlign = radialTextAlign(cos);
-						ctx.textBaseline = radialTextBaseline(sin);
-						ctx.fillText(node.name, rx + textDist * cos, ry + textDist * sin);
-					}
-				}
-
-				ctx.restore();
-			};
-			engine.animFrameId = requestAnimationFrame(render);
-
-			// Cleanup strictly on unmount
 			return () => {
-				ro.disconnect();
-				themeObs.disconnect();
-				canvas.removeEventListener("wheel", onWheel);
-				canvas.removeEventListener("pointerdown", onPointerDown);
-				canvas.removeEventListener("pointermove", onPointerMove);
-				canvas.removeEventListener("pointerup", onPointerUp);
-				cancelAnimationFrame(engine.animFrameId);
+				if (engine.settleTimer !== null) {
+					window.clearTimeout(engine.settleTimer);
+					engine.settleTimer = null;
+				}
+
+				if (engine.animFrameId) {
+					window.cancelAnimationFrame(engine.animFrameId);
+					engine.animFrameId = 0;
+				}
+
+				resizeObserver.disconnect();
+				themeObserver.disconnect();
+				baseCanvas.removeEventListener("wheel", onWheel);
+				baseCanvas.removeEventListener("pointerdown", onPointerDown);
+				baseCanvas.removeEventListener("pointermove", onPointerMove);
+				baseCanvas.removeEventListener("pointerup", endPointerInteraction);
+				baseCanvas.removeEventListener("pointercancel", endPointerInteraction);
+				baseCanvas.removeEventListener("pointerleave", onPointerLeave);
+
+				engine.baseCanvas = null;
+				engine.baseCtx = null;
+				engine.fxCanvas = null;
+				engine.fxCtx = null;
+				scheduleRenderRef.current = null;
 			};
 		},
 		[setSelectedCharId],
@@ -691,51 +1089,74 @@ export default function NetworkGraph() {
 
 	return (
 		<div
-			className="relative flex-1 h-full w-full flex justify-end items-center overflow-hidden"
+			className="relative flex h-full w-full flex-1 items-center justify-end overflow-hidden"
 			ref={containerRef}
 		>
-			<canvas className="absolute inset-0 pointer-events-auto block" />
+			<canvas
+				className="absolute inset-0 block pointer-events-auto"
+				data-layer="base"
+			/>
+			<canvas
+				className="pointer-events-none absolute inset-0 block"
+				data-layer="fx"
+			/>
 
-			{/* Overlays */}
 			{networkMode === "group" && (
-				<div className="absolute top-6 left-6 z-10 flex flex-col gap-2 pointer-events-none">
-					{groups.map((g) => (
+				<div className="pointer-events-none absolute top-6 left-6 z-10 flex flex-col gap-2">
+					{groups.map((group) => (
 						<div
-							key={g.id}
-							className="flex items-center gap-2 bg-card/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-foreground/5 pointer-events-auto cursor-pointer transition-all hover:bg-foreground/10"
+							key={group.id}
+							className="flex cursor-pointer items-center gap-2 rounded-full border border-foreground/5 bg-card/40 px-3 py-1.5 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
 							onMouseEnter={() => {
-								engineRef.current.hoveredGroupId = g.id;
+								const engine = engineRef.current;
+
+								if (engine.hoveredGroupId === group.id) {
+									return;
+								}
+
+								engine.hoveredGroupId = group.id;
+								engine.baseDirty = true;
+								engine.fxDirty = true;
+								scheduleRenderRef.current?.();
 							}}
 							onMouseLeave={() => {
-								engineRef.current.hoveredGroupId = null;
+								const engine = engineRef.current;
+
+								if (engine.hoveredGroupId === null) {
+									return;
+								}
+
+								engine.hoveredGroupId = null;
+								engine.baseDirty = true;
+								engine.fxDirty = true;
+								scheduleRenderRef.current?.();
 							}}
 						>
 							<div
-								className="w-2 h-2 rounded-full"
-								style={{ backgroundColor: g.color }}
+								className="h-2 w-2 rounded-full"
+								style={{ backgroundColor: group.color }}
 							/>
 							<span className="text-[10px] font-bold uppercase tracking-widest text-foreground/70">
-								{g.name}
+								{group.name}
 							</span>
 						</div>
 					))}
 				</div>
 			)}
 
-			{/* Legend Container */}
-			<div className="z-10 w-min p-6 flex flex-col flex-wrap-reverse gap-3 pointer-events-none">
+			<div className="pointer-events-none z-10 flex w-min flex-col flex-wrap-reverse gap-3 p-6">
 				{types.map((type) => (
 					<Badge
-						variant={"secondary"}
+						variant="secondary"
 						key={type.id}
 						style={{ "--badge-color": type.color } as React.CSSProperties}
-						className="self-start p-2.5 pr-1 bg-card/40 backdrop-blur-md pointer-events-auto border border-foreground/5 transition-all hover:bg-foreground/10"
+						className="self-start border border-foreground/5 bg-card/40 p-2.5 pr-1 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
 					>
-						<span className="text-[10px] uppercase font-bold tracking-widest">
+						<span className="text-[10px] font-bold uppercase tracking-widest">
 							{type.label}
 						</span>
 						<div
-							className="size-3 rounded-full ml-2"
+							className="ml-2 h-3 w-3 rounded-full"
 							style={{ backgroundColor: type.color }}
 						/>
 					</Badge>

@@ -13,11 +13,13 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
 	Sidebar,
 	SidebarContent,
 	SidebarGroup,
 	SidebarHeader,
+	SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useChats } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
@@ -26,8 +28,6 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
-import { Separator } from "../ui/separator";
-import { SidebarTrigger } from "../ui/sidebar";
 import CharacterTab from "./CharacterTab";
 import ChatTab from "./ChatTab";
 import GroupsTab from "./GroupsTab";

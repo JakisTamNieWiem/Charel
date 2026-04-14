@@ -1,8 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
-
-@import 'tw-animate-css';
 
 @import "tw-animate-css";
 
@@ -13,26 +10,6 @@
 @custom-variant dark (&:is(.dark *));
 
 :root.theme-zen {
-  --sea-ink: #173a40;
-  --sea-ink-soft: #416166;
-  --lagoon: #4fb8b2;
-  --lagoon-deep: #328f97;
-  --palm: #2f6a4a;
-  --sand: #e7f0e8;
-  --foam: #f3faf5;
-  --surface: rgba(255, 255, 255, 0.74);
-  --surface-strong: rgba(255, 255, 255, 0.9);
-  --line: rgba(23, 58, 64, 0.14);
-  --inset-glint: rgba(255, 255, 255, 0.82);
-  --kicker: rgba(47, 106, 74, 0.9);
-  --bg-base: #e7f3ec;
-  --header-bg: rgba(251, 255, 248, 0.84);
-  --chip-bg: rgba(255, 255, 255, 0.8);
-  --chip-line: rgba(47, 106, 74, 0.18);
-  --link-bg-hover: rgba(255, 255, 255, 0.9);
-  --hero-a: rgba(79, 184, 178, 0.36);
-  --hero-b: rgba(47, 106, 74, 0.2);
-
   --background: oklch(0.9195 0.0169 88.0030);
   --foreground: oklch(0.2350 0 0);
   --card: oklch(0.9530 0.0156 86.4257);
@@ -75,6 +52,8 @@
   --shadow-spread: 0px;
   --shadow-offset-x: 0px;
   --shadow-offset-y: 4px;
+  --shadow-x: 0px;
+  --shadow-y: 4px;
   --letter-spacing: 0.01em;
   --spacing: 0.25rem;
   --shadow-2xs: 0px 4px 10px 0px hsl(0 0% 0% / 0.05);
@@ -89,26 +68,6 @@
 }
 
 .dark.theme-zen {
-  --sea-ink: #d7ece8;
-  --sea-ink-soft: #afcdc8;
-  --lagoon: #60d7cf;
-  --lagoon-deep: #8de5db;
-  --palm: #6ec89a;
-  --sand: #0f1a1e;
-  --foam: #101d22;
-  --surface: rgba(16, 30, 34, 0.8);
-  --surface-strong: rgba(15, 27, 31, 0.92);
-  --line: rgba(141, 229, 219, 0.18);
-  --inset-glint: rgba(194, 247, 238, 0.14);
-  --kicker: #b8efe5;
-  --bg-base: #0a1418;
-  --header-bg: rgba(10, 20, 24, 0.8);
-  --chip-bg: rgba(13, 28, 32, 0.9);
-  --chip-line: rgba(141, 229, 219, 0.24);
-  --link-bg-hover: rgba(24, 44, 49, 0.8);
-  --hero-a: rgba(96, 215, 207, 0.18);
-  --hero-b: rgba(110, 200, 154, 0.12);
-
   --background: oklch(0.1913 0 0);
   --foreground: oklch(0.9173 0.0133 82.4015);
   --card: oklch(0.2264 0 0);
@@ -151,6 +110,8 @@
   --shadow-spread: 0px;
   --shadow-offset-x: 0px;
   --shadow-offset-y: 6px;
+  --shadow-x: 0px;
+  --shadow-y: 6px;
   --letter-spacing: 0.01em;
   --spacing: 0.25rem;
   --shadow-2xs: 0px 6px 15px 0px hsl(0 0% 0% / 0.15);
@@ -161,6 +122,7 @@
   --shadow-lg: 0px 6px 15px 0px hsl(0 0% 0% / 0.30), 0px 4px 6px -1px hsl(0 0% 0% / 0.30);
   --shadow-xl: 0px 6px 15px 0px hsl(0 0% 0% / 0.30), 0px 8px 10px -1px hsl(0 0% 0% / 0.30);
   --shadow-2xl: 0px 6px 15px 0px hsl(0 0% 0% / 0.75);
+  --tracking-normal: 0.01em;
 }
 
 :root.theme-damon {
@@ -202,10 +164,13 @@
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 1px;
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 1px;
   --shadow-blur: 2px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.18;
   --shadow-color: hsl(0 0% 0%);
+  --letter-spacing: 0em;
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
   --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
   --shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18);
@@ -257,10 +222,13 @@
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 1px;
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 1px;
   --shadow-blur: 2px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.18;
   --shadow-color: hsl(0 0% 0%);
+  --letter-spacing: 0em;
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
   --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
   --shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18);
@@ -269,79 +237,8 @@
   --shadow-lg: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 4px 6px -1px hsl(0 0% 0% / 0.18);
   --shadow-xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 8px 10px -1px hsl(0 0% 0% / 0.18);
   --shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
-}
-
-
-@theme inline {
-  --font-sans: "Inter", sans-serif;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --font-heading: var(--font-sans);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-  --font-serif: var(--font-serif);
-  
-  --radius: 0.5rem;
-  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
-  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
-  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
-  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
-  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
-  --tracking-normal: var(--tracking-normal);
-  --shadow-2xl: var(--shadow-2xl);
-  --shadow-xl: var(--shadow-xl);
-  --shadow-lg: var(--shadow-lg);
-  --shadow-md: var(--shadow-md);
-  --shadow: var(--shadow);
-  --shadow-sm: var(--shadow-sm);
-  --shadow-xs: var(--shadow-xs);
-  --shadow-2xs: var(--shadow-2xs);
-  --spacing: var(--spacing);
-  --letter-spacing: var(--letter-spacing);
-  --shadow-offset-y: var(--shadow-offset-y);
-  --shadow-offset-x: var(--shadow-offset-x);
-  --shadow-spread: var(--shadow-spread);
-  --shadow-blur: var(--shadow-blur);
-  --shadow-opacity: var(--shadow-opacity);
-  --color-shadow-color: var(--shadow-color);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
 }
 
 :root.theme-whatsapp {
@@ -383,10 +280,13 @@
   --radius: 1rem;
   --shadow-x: 0px;
   --shadow-y: 2px;
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 2px;
   --shadow-blur: 10px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.1;
   --shadow-color: rgba(0,0,0,0.1);
+  --letter-spacing: 0em;
   --shadow-2xs: 0px 2px 10px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0px 2px 10px 0px hsl(0 0% 0% / 0.05);
   --shadow-sm: 0px 2px 10px 0px hsl(0 0% 0% / 0.10), 0px 1px 2px -1px hsl(0 0% 0% / 0.10);
@@ -438,10 +338,13 @@
   --radius: 1rem;
   --shadow-x: 0px;
   --shadow-y: 4px;
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 4px;
   --shadow-blur: 12px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.4;
   --shadow-color: rgba(0,0,0,0.4);
+  --letter-spacing: 0em;
   --shadow-2xs: 0px 4px 12px 0px hsl(0 0% 0% / 0.20);
   --shadow-xs: 0px 4px 12px 0px hsl(0 0% 0% / 0.20);
   --shadow-sm: 0px 4px 12px 0px hsl(0 0% 0% / 0.40), 0px 1px 2px -1px hsl(0 0% 0% / 0.40);
@@ -450,6 +353,8 @@
   --shadow-lg: 0px 4px 12px 0px hsl(0 0% 0% / 0.40), 0px 4px 6px -1px hsl(0 0% 0% / 0.40);
   --shadow-xl: 0px 4px 12px 0px hsl(0 0% 0% / 0.40), 0px 8px 10px -1px hsl(0 0% 0% / 0.40);
   --shadow-2xl: 0px 4px 12px 0px hsl(0 0% 0% / 1.00);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
 }
 
 :root.theme-deeppurple {
@@ -491,10 +396,13 @@
   --radius: 1rem;
   --shadow-x: 0px;
   --shadow-y: 8px;
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 8px;
   --shadow-blur: 30px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.08;
   --shadow-color: hsl(263, 70%, 50%);
+  --letter-spacing: -0.02em;
   --shadow-2xs: 0px 8px 30px 0px hsl(263 70% 50% / 0.04);
   --shadow-xs: 0px 8px 30px 0px hsl(263 70% 50% / 0.04);
   --shadow-sm: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 1px 2px -1px hsl(263 70% 50% / 0.08);
@@ -546,10 +454,13 @@
   --radius: 1rem;
   --shadow-x: 0px;
   --shadow-y: 20px;
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 20px;
   --shadow-blur: 40px;
   --shadow-spread: -10px;
   --shadow-opacity: 0.6;
   --shadow-color: hsl(0, 0%, 0%);
+  --letter-spacing: -0.02em;
   --shadow-2xs: 0px 20px 40px -10px hsl(0 0% 0% / 0.30);
   --shadow-xs: 0px 20px 40px -10px hsl(0 0% 0% / 0.30);
   --shadow-sm: 0px 20px 40px -10px hsl(0 0% 0% / 0.60), 0px 1px 2px -11px hsl(0 0% 0% / 0.60);
@@ -558,6 +469,8 @@
   --shadow-lg: 0px 20px 40px -10px hsl(0 0% 0% / 0.60), 0px 4px 6px -11px hsl(0 0% 0% / 0.60);
   --shadow-xl: 0px 20px 40px -10px hsl(0 0% 0% / 0.60), 0px 8px 10px -11px hsl(0 0% 0% / 0.60);
   --shadow-2xl: 0px 20px 40px -10px hsl(0 0% 0% / 1.50);
+  --tracking-normal: -0.02em;
+  --spacing: 0.25rem;
 }
 
 :root.theme-caffeine {
@@ -599,10 +512,13 @@
   --radius: 0.5rem;
   --shadow-x: 0;
   --shadow-y: 1px;
+  --shadow-offset-x: 0;
+  --shadow-offset-y: 1px;
   --shadow-blur: 3px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.1;
   --shadow-color: oklch(0 0 0);
+  --letter-spacing: 0em;
   --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
   --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
@@ -654,10 +570,13 @@
   --radius: 0.5rem;
   --shadow-x: 0;
   --shadow-y: 1px;
+  --shadow-offset-x: 0;
+  --shadow-offset-y: 1px;
   --shadow-blur: 3px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.1;
   --shadow-color: oklch(0 0 0);
+  --letter-spacing: 0em;
   --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
   --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
@@ -666,8 +585,84 @@
   --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
   --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
 }
 
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+  
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --shadow-2xl: var(--shadow-2xl);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-md: var(--shadow-md);
+  --shadow: var(--shadow);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-2xs: var(--shadow-2xs);
+  --radius: 0.5rem;
+  
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+  --tracking-normal: var(--tracking-normal);
+
+
+  --spacing: var(--spacing);
+  --letter-spacing: var(--letter-spacing);
+  --shadow-offset-y: var(--shadow-offset-y);
+  --shadow-offset-x: var(--shadow-offset-x);
+  --shadow-spread: var(--shadow-spread);
+  --shadow-blur: var(--shadow-blur);
+  --shadow-opacity: var(--shadow-opacity);
+  --color-shadow-color: var(--shadow-color);
+}
 
 @layer base {
   * {
@@ -686,7 +681,6 @@
 
 ::-webkit-scrollbar {
     @apply w-2.5 h-2.5;
-   
 }
 
 ::-webkit-scrollbar-track {
@@ -696,6 +690,7 @@
 ::-webkit-scrollbar-thumb {
     @apply rounded-full bg-border border border-transparent border-solid bg-clip-padding;
 }
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -704,25 +699,25 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  .input-no-spin {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .input-no-spin::-webkit-outer-spin-button,
+  .input-no-spin::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+  }
+
   .bg-dot-grid {
-    /* 
-       LIGHT THEME:
-       Transparent is 10% (meaning the dots are 90% opaque)
-    */
     --grid-transparency: 20%;
-    /* 
-       Using 'foreground' with low opacity (0.07) ensures 
-       it works on both light and dark backgrounds.
-    */
     background-image: radial-gradient(
       color-mix(in oklch, var(--foreground), transparent var(--grid-transparency)) 1px, 
       transparent 0
     );
     background-size: 40px 40px;
-     /* 1. LOCK TO VIEWPORT: This stops the grid from moving when the container resizes */
     background-attachment: fixed; 
-    
-    /* 2. ANCHOR TO CORNER: Ensures zooming the browser window doesn't shift the grid */
     background-position: top left; 
   }
 
@@ -730,7 +725,6 @@
     --grid-transparency: 80%;
   }
 
-  /* Emoji Picker Custom Scrollbar */
   .EmojiPickerReact .epr-body::-webkit-scrollbar {
     width: 5px;
   }
@@ -749,7 +743,6 @@
     background: var(--muted-foreground);
   }
 
-  /* Firefox support */
   .EmojiPickerReact .epr-body {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;

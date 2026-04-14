@@ -1,9 +1,9 @@
 import { Edit2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import TypeModal from "@/components/TypeModal";
+import { Button } from "@/components/ui/button";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { RelationshipType } from "@/types/types";
-import { Button } from "../ui/button";
 
 export default function RelationshipTypesTab() {
 	const relationshipTypes = useGraphStore((state) => state.relationshipTypes);

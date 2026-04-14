@@ -26,6 +26,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	useAddContacts,
 	useChats,
@@ -40,7 +41,6 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Chat, ChatMember } from "@/types/chat";
-import { ScrollArea } from "../ui/scroll-area";
 
 export default function ChatTab() {
 	const { data: profile } = useProfile();
@@ -439,7 +439,11 @@ export default function ChatTab() {
 					>
 						<div className="size-8 mr-3 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
 							{chat.cover ? (
-								<img src={chat.cover} alt="" className="w-full h-full object-cover" />
+								<img
+									src={chat.cover}
+									alt=""
+									className="w-full h-full object-cover"
+								/>
 							) : (
 								<Users className="w-3.5 h-3.5 text-muted-foreground" />
 							)}

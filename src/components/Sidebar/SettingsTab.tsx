@@ -4,20 +4,11 @@ import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Download, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 import { useGraphStore } from "@/store/useGraphStore";
-import { THEME_PALETTES, type ThemeColor, useTheme } from "../ThemeProvider";
-import { Label } from "../ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectTrigger,
-	SelectValue,
-} from "../ui/select";
+import ThemeManager from "./ThemeManager";
 
 export default function SettingsTab() {
 	const importData = useGraphStore((state) => state.importData);
@@ -27,43 +18,16 @@ export default function SettingsTab() {
 	const groups = useGraphStore((state) => state.groups);
 	const [session, setSession] = useState<Session | null>(null);
 
-	const { color, setColor } = useTheme();
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data }) => setSession(data.session));
 		supabase.auth.onAuthStateChange((_e, s) => setSession(s));
 	}, []);
+
 	return (
 		<div className="h-full">
-			<div className="p-2 min-h-9 flex flex-col justify-between space-y-2">
-				<Label className="text-xs font-mono uppercase tracking-widest opacity-50">
-					Theme
-				</Label>
-				<Select
-					items={THEME_PALETTES}
-					value={color}
-					onValueChange={(value) => {
-						if (value) setColor(value as ThemeColor);
-					}}
-				>
-					<SelectTrigger className="w-full">
-						<SelectValue placeholder="Select a theme" />
-					</SelectTrigger>
-					<SelectContent alignItemWithTrigger={false}>
-						<SelectGroup>
-							<SelectLabel>Themes</SelectLabel>
-							{THEME_PALETTES.map((theme) => (
-								<SelectItem
-									key={theme.value}
-									value={theme.value}
-									className="cursor-pointer focus:bg-white/10"
-								>
-									{theme.label}
-								</SelectItem>
-							))}
-						</SelectGroup>
-					</SelectContent>
-				</Select>
-			</div>
+			<ThemeManager />
+
+			<Separator />
 			<div className="p-2 min-h-9 flex items-center justify-between">
 				<div>
 					<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
