@@ -1,65 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+	type AvatarQualityTier,
+	buildNetworkLayout,
+	findNodeAtPosition,
+	getAvatarSpriteSpec,
+	getViewportBounds,
+	isCircleVisible,
+	isLinkVisible,
+	type LayoutData,
+	NODE_SIZE,
+} from "@/lib/network-graph";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Badge } from "./ui/badge";
 
-const NODE_SIZE = 20;
-const AVATAR_CACHE_SIZE = 256;
 const GLOW_SPEED = 0.25;
 const GLOW_SPREAD = 0.18;
 const GLOW_STEPS = 40;
 const GLOW_EDGE_FADE_RANGE = 0.12;
 const QUALITY_SETTLE_DELAY_MS = 90;
 const INITIAL_AVATAR_SUPPRESSION_MS = 180;
-
-type AvatarQualityTier = "interactive" | "settled";
-
-interface ComputedNode {
-	id: string;
-	name: string;
-	groupId: string | null;
-	avatar: string | null;
-	x: number;
-	y: number;
-	color: string;
-	initials: string;
-	groupCx: number;
-	groupCy: number;
-}
-
-interface ComputedLink {
-	sourceId: string;
-	targetId: string;
-	source: ComputedNode;
-	target: ComputedNode;
-	typeId: string;
-	color: string;
-	cpX?: number;
-	cpY?: number;
-}
-
-interface ComputedGroup {
-	id: string;
-	name: string;
-	color: string;
-	cx: number;
-	cy: number;
-	radius: number;
-	angle: number;
-}
-
-interface LayoutData {
-	nodes: ComputedNode[];
-	links: ComputedLink[];
-	groups: ComputedGroup[];
-	nodeMap: Map<string, ComputedNode>;
-}
-
-interface ViewportBounds {
-	left: number;
-	right: number;
-	top: number;
-	bottom: number;
-}
 
 interface AvatarSpriteSpec {
 	cacheKey: string;
@@ -95,35 +54,6 @@ type EngineState = {
 
 const avatarCache = new Map<string, HTMLCanvasElement>();
 const avatarLoading = new Set<string>();
-const AVATAR_BUCKETS = [32, 48, 64, 96, 128, 192, 256];
-
-function pickAvatarBucket(targetSize: number) {
-	return (
-		AVATAR_BUCKETS.find((bucket) => bucket >= targetSize) ??
-		AVATAR_BUCKETS[AVATAR_BUCKETS.length - 1]
-	);
-}
-
-function getAvatarSpriteSpec(
-	avatarUrl: string,
-	tier: AvatarQualityTier,
-	scale: number,
-	dpr: number,
-): AvatarSpriteSpec {
-	const screenDiameter =
-		NODE_SIZE * 2 * Math.max(scale, 0.35) * Math.max(dpr, 1);
-	const targetSize =
-		tier === "interactive"
-			? Math.max(32, screenDiameter * 1.15)
-			: Math.max(64, screenDiameter * 2);
-	const size = pickAvatarBucket(Math.min(targetSize, AVATAR_CACHE_SIZE));
-
-	return {
-		cacheKey: `${avatarUrl}|${tier}|${size}`,
-		size,
-	};
-}
-
 function getAvatarSprite(
 	avatarUrl: string,
 	spec: AvatarSpriteSpec,
@@ -217,59 +147,6 @@ function sampleQuadratic(
 		t1 * t1 * sx + 2 * t1 * t * cpX + t * t * ex,
 		t1 * t1 * sy + 2 * t1 * t * cpY + t * t * ey,
 	];
-}
-
-function getViewportBounds(
-	transform: EngineState["transform"],
-	width: number,
-	height: number,
-): ViewportBounds {
-	return {
-		left: -transform.x / transform.k,
-		right: (width - transform.x) / transform.k,
-		top: -transform.y / transform.k,
-		bottom: (height - transform.y) / transform.k,
-	};
-}
-
-function isCircleVisible(
-	bounds: ViewportBounds,
-	x: number,
-	y: number,
-	radius: number,
-) {
-	return !(
-		x + radius < bounds.left ||
-		x - radius > bounds.right ||
-		y + radius < bounds.top ||
-		y - radius > bounds.bottom
-	);
-}
-
-function isLinkVisible(
-	bounds: ViewportBounds,
-	link: ComputedLink,
-	padding: number,
-) {
-	const xs =
-		link.cpX != null
-			? [link.source.x, link.target.x, link.cpX]
-			: [link.source.x, link.target.x];
-	const ys =
-		link.cpY != null
-			? [link.source.y, link.target.y, link.cpY]
-			: [link.source.y, link.target.y];
-	const minX = Math.min(...xs) - padding;
-	const maxX = Math.max(...xs) + padding;
-	const minY = Math.min(...ys) - padding;
-	const maxY = Math.max(...ys) + padding;
-
-	return !(
-		maxX < bounds.left ||
-		minX > bounds.right ||
-		maxY < bounds.top ||
-		minY > bounds.bottom
-	);
 }
 
 function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
@@ -645,134 +522,13 @@ export default function NetworkGraph() {
 	const scheduleRenderRef = useRef<(() => void) | null>(null);
 
 	const layout = useMemo<LayoutData>(() => {
-		const typeMap = new Map(types.map((type) => [type.id, type]));
-		const groupInfoMap = new Map(groups.map((group) => [group.id, group]));
-		const nodes: ComputedNode[] = [];
-		const groupBounds: ComputedGroup[] = [];
-
-		if (networkMode === "global") {
-			const sortedChars = [...allChars].sort((left, right) =>
-				left.name.localeCompare(right.name),
-			);
-			const radius = Math.max(400, sortedChars.length * 20);
-
-			sortedChars.forEach((character, index) => {
-				const group = groupInfoMap.get(character.groupId || "");
-				const angle = (index / sortedChars.length) * 2 * Math.PI - Math.PI / 2;
-
-				nodes.push({
-					id: character.id,
-					name: character.name,
-					groupId: character.groupId,
-					avatar: character.avatar,
-					x: Math.cos(angle) * radius,
-					y: Math.sin(angle) * radius,
-					color: group?.color || "#ffffff",
-					initials: character.name.substring(0, 2).toUpperCase(),
-					groupCx: 0,
-					groupCy: 0,
-				});
-			});
-		} else {
-			const groupMap = new Map<string | null, typeof allChars>();
-
-			for (const character of allChars) {
-				const entries = groupMap.get(character.groupId) || [];
-				entries.push(character);
-				groupMap.set(character.groupId, entries);
-			}
-
-			const sortedGroupIds = Array.from(groupMap.keys());
-			const groupCount = sortedGroupIds.length;
-			const outerRadius = 600;
-
-			sortedGroupIds.forEach((groupId, groupIndex) => {
-				const groupNodes = groupMap.get(groupId) || [];
-				const groupInfo = groupInfoMap.get(groupId || "");
-				const innerRadius = Math.max(80, groupNodes.length * 10);
-				const groupAngle =
-					(groupIndex / groupCount) * 2 * Math.PI - Math.PI / 2;
-				const gCx = groupCount <= 1 ? 0 : Math.cos(groupAngle) * outerRadius;
-				const gCy = groupCount <= 1 ? 0 : Math.sin(groupAngle) * outerRadius;
-
-				groupNodes.forEach((character, nodeIndex) => {
-					const nodeAngle = (nodeIndex / groupNodes.length) * 2 * Math.PI;
-
-					nodes.push({
-						id: character.id,
-						name: character.name,
-						groupId: character.groupId,
-						avatar: character.avatar,
-						x:
-							groupNodes.length === 1
-								? gCx
-								: gCx + Math.cos(nodeAngle) * innerRadius,
-						y:
-							groupNodes.length === 1
-								? gCy
-								: gCy + Math.sin(nodeAngle) * innerRadius,
-						color: groupInfo?.color || "#ffffff",
-						initials: character.name.substring(0, 2).toUpperCase(),
-						groupCx: gCx,
-						groupCy: gCy,
-					});
-				});
-
-				if (groupInfo) {
-					groupBounds.push({
-						id: groupInfo.id,
-						name: groupInfo.name,
-						color: groupInfo.color,
-						cx: gCx,
-						cy: gCy,
-						radius: innerRadius + 40,
-						angle: groupAngle,
-					});
-				}
-			});
-		}
-
-		const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-		const links: ComputedLink[] = [];
-
-		for (const relationship of relationships) {
-			const source = nodeMap.get(relationship.fromId);
-			const target = nodeMap.get(relationship.toId);
-
-			if (!source || !target) {
-				continue;
-			}
-
-			const type = typeMap.get(relationship.typeId);
-			const isCrossGroup =
-				networkMode === "group" ? source.groupId !== target.groupId : true;
-
-			let cpX: number | undefined;
-			let cpY: number | undefined;
-
-			if (isCrossGroup) {
-				const mx = (source.x + target.x) / 2;
-				const my = (source.y + target.y) / 2;
-				const dx = target.x - source.x;
-				const dy = target.y - source.y;
-
-				cpX = mx - dy * 0.25;
-				cpY = my + dx * 0.25;
-			}
-
-			links.push({
-				sourceId: source.id,
-				targetId: target.id,
-				source,
-				target,
-				typeId: relationship.typeId,
-				color: type?.color || "#555",
-				cpX,
-				cpY,
-			});
-		}
-
-		return { nodes, links, groups: groupBounds, nodeMap };
+		return buildNetworkLayout(
+			allChars,
+			relationships,
+			types,
+			groups,
+			networkMode,
+		);
 	}, [allChars, groups, networkMode, relationships, types]);
 
 	useEffect(() => {
@@ -900,18 +656,8 @@ export default function NetworkGraph() {
 				const { x: tx, y: ty, k } = engine.transform;
 				const worldX = (mouseX - tx) / k;
 				const worldY = (mouseY - ty) / k;
-
-				let hitNodeId: string | null = null;
-
-				for (const node of engine.layout.nodes) {
-					const dx = node.x - worldX;
-					const dy = node.y - worldY;
-
-					if (dx * dx + dy * dy <= NODE_SIZE * NODE_SIZE) {
-						hitNodeId = node.id;
-						break;
-					}
-				}
+				const hitNodeId =
+					findNodeAtPosition(engine.layout.nodes, worldX, worldY)?.id ?? null;
 
 				if (engine.hoveredNodeId === hitNodeId) {
 					baseCanvas.style.cursor = hitNodeId ? "pointer" : "default";
