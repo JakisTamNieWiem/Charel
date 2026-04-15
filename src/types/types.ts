@@ -1,3 +1,5 @@
+import type { CharacterStatus } from "@/lib/character-status";
+
 export interface Character {
 	id: string;
 	name: string;
@@ -6,6 +8,7 @@ export interface Character {
 	groupId: string | null;
 	phoneNumber?: string;
 	ownerId: string;
+	status: CharacterStatus;
 }
 
 export interface Group {

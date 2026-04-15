@@ -22,6 +22,7 @@ const characters: Character[] = [
 		avatar: null,
 		groupId: "g1",
 		ownerId: "owner",
+		status: "offline",
 	},
 	{
 		id: "b",
@@ -30,6 +31,7 @@ const characters: Character[] = [
 		avatar: null,
 		groupId: "g2",
 		ownerId: "owner",
+		status: "offline",
 	},
 ];
 

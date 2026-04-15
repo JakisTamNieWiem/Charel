@@ -179,6 +179,7 @@ export default function CharacterTab() {
 									ownerId: "",
 									avatar: null,
 									groupId: null,
+									status: "offline",
 								}
 							: editingCharacter
 					}

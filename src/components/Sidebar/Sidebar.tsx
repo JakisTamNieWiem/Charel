@@ -12,8 +12,17 @@ import {
 	Users,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import CharacterAvatar from "@/components/chat/CharacterAvatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	Sidebar,
 	SidebarContent,
@@ -22,8 +31,16 @@ import {
 	SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useChats } from "@/hooks/use-chats";
+import { useCharacterPresence } from "@/hooks/use-character-presence";
 import { useLatestMessages } from "@/hooks/use-messages";
 import { useProfile } from "@/hooks/use-profile";
+import {
+	CHARACTER_STATUS_VALUES,
+	getCharacterStatusDotClass,
+	getCharacterStatusBadgeClass,
+	getCharacterStatusLabel,
+	type CharacterStatus,
+} from "@/lib/character-status";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
@@ -95,6 +112,15 @@ export default function AppSidebar() {
 	const activeSpeakerId = useChatStore((state) => state.activeSpeakerId);
 
 	const characters = useGraphStore((state) => state.characters);
+	const {
+		getCharacterStatus,
+		isTrackingPresence,
+		isUpdatingStatus,
+		setCharacterStatus,
+	} = useCharacterPresence();
+	const activeSpeaker =
+		characters.find((character) => character.id === activeSpeakerId) ?? null;
+	const activeSpeakerStatus = getCharacterStatus(activeSpeakerId);
 
 	const hasUnread = useMemo(() => {
 		if (!activeSpeakerId || chats.length === 0) return false;
@@ -236,11 +262,78 @@ export default function AppSidebar() {
 										<CloudOff className="w-3 h-3" />
 									)}
 
-									{isSyncing ? "Syncing..." : session ? "Online" : "Offline"}
+									{isSyncing
+										? "Syncing..."
+										: session
+											? "Connected"
+											: "Signed out"}
 								</Button>
 								<ThemeToggle />
 							</div>
 						</div>
+						{activeSpeaker && (
+							<div className="mx-2 rounded-2xl border border-sidebar-border/70 bg-background/55 px-3 py-3 backdrop-blur-sm">
+								<div className="flex items-center justify-between gap-3">
+									<div className="flex min-w-0 items-center gap-3">
+										<CharacterAvatar
+											name={activeSpeaker.name}
+											avatar={activeSpeaker.avatar}
+											status={activeSpeakerStatus}
+											className="size-10"
+											fallbackClassName="text-[10px]"
+										/>
+										<div className="min-w-0">
+											<p className="truncate text-sm font-medium">
+												{activeSpeaker.name}
+											</p>
+											<p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+												Current speaker
+											</p>
+										</div>
+									</div>
+									<Badge
+										variant="outline"
+										className={cn(
+											"h-6 shrink-0 rounded-full px-2 text-[10px] uppercase tracking-[0.18em]",
+											getCharacterStatusBadgeClass(activeSpeakerStatus),
+										)}
+									>
+										{isTrackingPresence && activeSpeakerStatus !== "offline"
+											? "Live"
+											: "Hidden"}
+									</Badge>
+								</div>
+								<div className="mt-3 flex items-center gap-2">
+									<Select
+										value={activeSpeaker.status}
+										onValueChange={(value) =>
+											void setCharacterStatus(
+												activeSpeaker.id,
+												value as CharacterStatus,
+											)
+										}
+										disabled={!session || isUpdatingStatus}
+									>
+										<SelectTrigger className="w-full bg-background/70">
+											<SelectValue placeholder="Set status" />
+										</SelectTrigger>
+										<SelectContent align="end">
+											{CHARACTER_STATUS_VALUES.map((status) => (
+												<SelectItem key={status} value={status}>
+													<span
+														className={cn(
+															"size-2 rounded-full",
+															getCharacterStatusDotClass(status),
+														)}
+													/>
+													{getCharacterStatusLabel(status)}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						)}
 					</SidebarHeader>
 					<div className="px-3">
 						<Separator />

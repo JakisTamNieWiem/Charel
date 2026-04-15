@@ -13,6 +13,7 @@ const graphState = {
 			avatar: null,
 			groupId: "group-1",
 			ownerId: "owner",
+			status: "offline",
 		},
 	],
 	relationships: [],

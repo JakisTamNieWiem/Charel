@@ -1,4 +1,4 @@
-import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import ChatWindow from "@/components/chat/ChatWindow";
@@ -13,12 +13,12 @@ import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Circle, LayoutGrid } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CharacterPresenceProvider } from "@/hooks/use-character-presence";
+import { useUserChatListBroadcast } from "@/hooks/use-chat-realtime";
+import { normalizeCharacterStatus } from "@/lib/character-status";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater";
-import { sendChatNotification } from "@/hooks/use-notifications";
-import { getLocalAvatarPath } from "@/lib/avatar-cache";
-import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
 import { useChatStore } from "./store/useChatStore";
@@ -36,6 +36,7 @@ function App() {
 	const viewMode = useGraphStore((state) => state.viewMode);
 	const networkMode = useGraphStore((state) => state.networkMode);
 	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
+	const activeChatId = useChatStore((state) => state.activeChatId);
 
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
 
@@ -50,6 +51,9 @@ function App() {
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
 			setSession(session);
+			if (session) {
+				void supabase.realtime.setAuth(session.access_token);
+			}
 			setIsAuthResolved(true);
 		});
 
@@ -58,6 +62,9 @@ function App() {
 		} = supabase.auth.onAuthStateChange((_event, session) => {
 			setSession(session);
 			if (session) {
+				void supabase.realtime.setAuth(session.access_token);
+			}
+			if (session) {
 				queryClient.invalidateQueries();
 			}
 			setIsLoaded(false); // Force a reload of data when login state changes
@@ -65,6 +72,8 @@ function App() {
 
 		return () => subscription.unsubscribe();
 	}, [queryClient]);
+
+	useUserChatListBroadcast(session, activeChatId);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -100,7 +109,11 @@ function App() {
 					]);
 
 				useGraphStore.getState().importData({
-					characters: charsRes.data || [],
+					characters:
+						charsRes.data?.map((character) => ({
+							...character,
+							status: normalizeCharacterStatus(character.status),
+						})) || [],
 					groups: groupsRes.data || [],
 					relationships: relsRes.data || [],
 					relationshipTypes: typesRes.data || [],
@@ -243,107 +256,13 @@ function App() {
 						}
 					},
 				)
-				// Listen for Message changes
-				.on(
-					"postgres_changes",
-					{ event: "INSERT", schema: "public", table: "Messages" },
-					async (payload) => {
-						const msg = payload.new as RealtimeMessagePayload;
-						const chatId = msg.chat;
-
-						// Directly inject into the cache so the message appears immediately
-						// without waiting for the invalidation refetch round-trip.
-						queryClient.setQueryData<InfiniteData<Message[], unknown>>(
-							["messages", chatId],
-							(current) => {
-								if (!current || current.pages.length === 0) return current;
-								if (current.pages.flat().some((m) => m.id === msg.id)) return current;
-								const pages = [...current.pages];
-								pages[0] = [...pages[0], msg as Message];
-								return { ...current, pages };
-							},
-						);
-
-						// Invalidate for eventual consistency (fetches character join etc.)
-						queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
-						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
-						queryClient.invalidateQueries({ queryKey: ["chats"] });
-
-						// Send native notification if not active chat or app is not focused
-						if (useChatStore.getState().activeChatId !== chatId || !document.hasFocus()) {
-							const { data } = await supabase
-								.from("Messages")
-								.select("*, character:Characters!characterId(name, avatar)")
-								.eq("id", msg.id)
-								.single();
-
-							if (data) {
-								const charName = data.character?.name || "Someone";
-								const content = (data as Message).content;
-
-								// Skip system messages — they don't need notifications
-								if (content.startsWith("[system]")) return;
-
-								const preview = content.startsWith("[img]")
-									? "sent an image"
-									: content.length > 50
-										? `${content.slice(0, 50)}...`
-										: content;
-
-								// Use group cover if available, otherwise fall back to sender avatar
-								const { data: chatData } = await supabase
-									.from("Chats")
-									.select("isGroup, cover")
-									.eq("id", chatId)
-									.single();
-
-								const avatarUrl =
-									chatData?.isGroup && chatData.cover
-										? chatData.cover
-										: data.character?.avatar;
-
-								const localAvatar = await getLocalAvatarPath(avatarUrl);
-								sendChatNotification({
-									charName,
-									body: preview,
-									avatar: localAvatar,
-								});
-							}
-						}
-					},
-				)
-				.on(
-					"postgres_changes",
-					{ event: "UPDATE", schema: "public", table: "Messages" },
-					(payload) => {
-						const msg = payload.new as RealtimeMessagePayload;
-						queryClient.invalidateQueries({ queryKey: ["messages", msg.chat] });
-						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
-					},
-				)
-				.on(
-					"postgres_changes",
-					{ event: "DELETE", schema: "public", table: "Messages" },
-					() => {
-						queryClient.invalidateQueries({ queryKey: ["messages"] });
-						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
-					},
-				)
-				// Listen for Chat changes
-				.on(
-					"postgres_changes",
-					{ event: "*", schema: "public", table: "Chats" },
-					() => {
-						queryClient.invalidateQueries({ queryKey: ["chats"] });
-					},
-				)
 				.subscribe();
 		}
 
 		return () => {
 			if (channel) supabase.removeChannel(channel);
 		};
-	}, [session, isAuthResolved, setSyncing, queryClient]);
+	}, [session, isAuthResolved, setSyncing]);
 
 	useEffect(() => {
 		const unsubscribe = useGraphStore.subscribe((state, prevState) => {
@@ -385,66 +304,68 @@ function App() {
 				transition={{ duration: 0.8, delay: 0.2 }}
 				className="flex h-screen w-screen bg-sidebar text-foreground font-sans overflow-hidden"
 			>
-				<SidebarProvider
-					defaultOpen={true}
-					style={{ "--sidebar-width": "22rem" } as React.CSSProperties}
-					className="max-h-screen! max-w-screen! pt-6"
-				>
-					<AppSidebar />
-					<SidebarInset
-						className={cn(
-							"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80",
-							viewMode !== "chat" && "bg-dot-grid",
-						)}
+				<CharacterPresenceProvider session={session}>
+					<SidebarProvider
+						defaultOpen={true}
+						style={{ "--sidebar-width": "22rem" } as React.CSSProperties}
+						className="max-h-screen! max-w-screen! pt-6"
 					>
-						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
-							{viewMode === "chat" ? (
-								<ChatWindow />
-							) : viewMode === "network" ? (
-								<>
-									<NetworkGraph />
-									<div className="absolute top-6 right-6 z-10">
-										<Tabs
-											value={networkMode}
-											onValueChange={(v) => setNetworkMode(v)}
-											orientation="vertical"
-										>
-											<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
-												<TabsTrigger
-													value="group"
-													className="h-7 px-3 text-[11px]"
-												>
-													<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
-												</TabsTrigger>
-												<TabsTrigger
-													value="global"
-													className="h-7 px-3 text-[11px]"
-												>
-													<Circle className="w-3 h-3 mr-1.5" /> Global
-												</TabsTrigger>
-											</TabsList>
-										</Tabs>
-									</div>
-								</>
-							) : selectedCharacter ? (
-								<CharacterGraph />
-							) : (
-								<h1 className="p-4 z-10 pointer-events-none">
-									Character not found
-								</h1>
+						<AppSidebar />
+						<SidebarInset
+							className={cn(
+								"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80",
+								viewMode !== "chat" && "bg-dot-grid",
 							)}
-						</main>
-						{editingType && (
-							<TypeModal
-								type={editingType}
-								open={!!editingType}
-								onOpenChange={(open) => {
-									if (!open) setEditingType(null);
-								}}
-							/>
-						)}
-					</SidebarInset>
-				</SidebarProvider>{" "}
+						>
+							<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
+								{viewMode === "chat" ? (
+									<ChatWindow />
+								) : viewMode === "network" ? (
+									<>
+										<NetworkGraph />
+										<div className="absolute top-6 right-6 z-10">
+											<Tabs
+												value={networkMode}
+												onValueChange={(v) => setNetworkMode(v)}
+												orientation="vertical"
+											>
+												<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
+													<TabsTrigger
+														value="group"
+														className="h-7 px-3 text-[11px]"
+													>
+														<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
+													</TabsTrigger>
+													<TabsTrigger
+														value="global"
+														className="h-7 px-3 text-[11px]"
+													>
+														<Circle className="w-3 h-3 mr-1.5" /> Global
+													</TabsTrigger>
+												</TabsList>
+											</Tabs>
+										</div>
+									</>
+								) : selectedCharacter ? (
+									<CharacterGraph />
+								) : (
+									<h1 className="p-4 z-10 pointer-events-none">
+										Character not found
+									</h1>
+								)}
+							</main>
+							{editingType && (
+								<TypeModal
+									type={editingType}
+									open={!!editingType}
+									onOpenChange={(open) => {
+										if (!open) setEditingType(null);
+									}}
+								/>
+							)}
+						</SidebarInset>
+					</SidebarProvider>
+				</CharacterPresenceProvider>
 			</motion.div>
 		</>
 	);

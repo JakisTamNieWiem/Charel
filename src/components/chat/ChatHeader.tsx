@@ -12,6 +12,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+	getCharacterStatusBadgeClass,
+	getCharacterStatusLabel,
+	type CharacterStatus,
+} from "@/lib/character-status";
+import { cn } from "@/lib/utils";
 import type { ChatMember } from "@/types/chat";
 
 interface ChatHeaderProps {
@@ -19,6 +25,7 @@ interface ChatHeaderProps {
 	isGroup: boolean;
 	chatId: string | null;
 	members: ChatMember[];
+	directStatus?: CharacterStatus | null;
 	onShowMembers: () => void;
 	onShowAddMembers: () => void;
 	onShowRename: (currentName: string) => void;
@@ -31,6 +38,7 @@ export default function ChatHeader({
 	isGroup,
 	chatId,
 	members,
+	directStatus,
 	onShowMembers,
 	onShowAddMembers,
 	onShowRename,
@@ -39,7 +47,21 @@ export default function ChatHeader({
 }: ChatHeaderProps) {
 	return (
 		<div className="shrink-0 px-6 py-3 border-b border-white/10 bg-background/60 backdrop-blur-md flex items-center justify-between">
-			<h2 className="font-semibold truncate">{headerName}</h2>
+			<div className="min-w-0">
+				<h2 className="font-semibold truncate">{headerName}</h2>
+				{!isGroup && directStatus && (
+					<div className="mt-1 flex items-center gap-2">
+						<span
+							className={cn(
+								"rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]",
+								getCharacterStatusBadgeClass(directStatus),
+							)}
+						>
+							{getCharacterStatusLabel(directStatus)}
+						</span>
+					</div>
+				)}
+			</div>
 			{isGroup && chatId && (
 				<DropdownMenu>
 					<DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md p-1 text-foreground/60 hover:text-foreground hover:bg-white/10 transition-colors">

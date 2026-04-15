@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { temporal } from "zundo";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { normalizeCharacterStatus } from "@/lib/character-status";
 import { supabase } from "@/lib/supabase";
 // Import your JSON file to use as the default state!
 import type {
@@ -39,7 +40,11 @@ interface GraphState {
 	setNetworkMode: (mode: NetworkMode) => void;
 
 	// --- ACTIONS: CHARACTERS ---
-	addCharacter: (char: Omit<Omit<Character, "id">, "ownerId">) => void;
+	addCharacter: (
+		char: Omit<Character, "id" | "ownerId" | "status"> & {
+			status?: Character["status"];
+		},
+	) => void;
 	updateCharacter: (char: Omit<Character, "ownerId">) => void;
 	deleteCharacter: (id: string) => void;
 
@@ -91,14 +96,24 @@ export const useGraphStore = create<GraphState>()(
 				set((state) => ({
 					characters: [
 						...state.characters,
-						{ ...char, id, ownerId: ownerId ?? "" },
+						{
+							...char,
+							id,
+							ownerId: ownerId ?? "",
+							status: normalizeCharacterStatus(char.status),
+						},
 					],
 				}));
 
 				if (sessionData.session) {
 					const { error } = await supabase
 						.from("Characters")
-						.insert({ ...char, id, ownerId: sessionData.session.user.id })
+						.insert({
+							...char,
+							id,
+							ownerId: sessionData.session.user.id,
+							status: normalizeCharacterStatus(char.status),
+						})
 						.select()
 						.single();
 					if (error) {
@@ -126,6 +141,7 @@ export const useGraphStore = create<GraphState>()(
 							description: char.description,
 							avatar: char.avatar,
 							groupId: char.groupId,
+							status: normalizeCharacterStatus(char.status),
 						})
 						.eq("id", char.id)
 						.select()
@@ -430,7 +446,11 @@ export const useGraphStore = create<GraphState>()(
 			importData: (importedJson: Partial<GraphState>) =>
 				set((state) => ({
 					// Use ?? (nullish coalescing) or || to fall back to the CURRENT state, not an empty array
-					characters: importedJson.characters ?? state.characters,
+					characters:
+						importedJson.characters?.map((character) => ({
+							...character,
+							status: normalizeCharacterStatus(character.status),
+						})) ?? state.characters,
 					relationshipTypes:
 						importedJson.relationshipTypes ?? state.relationshipTypes,
 					relationships: importedJson.relationships ?? state.relationships,

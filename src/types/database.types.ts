@@ -24,6 +24,7 @@ export type Database = {
 					name: string;
 					ownerId: string;
 					phoneNumber: string;
+					status: string;
 				};
 				Insert: {
 					avatar?: string | null;
@@ -34,6 +35,7 @@ export type Database = {
 					name: string;
 					ownerId?: string;
 					phoneNumber?: string;
+					status?: string;
 				};
 				Update: {
 					avatar?: string | null;
@@ -44,6 +46,7 @@ export type Database = {
 					name?: string;
 					ownerId?: string;
 					phoneNumber?: string;
+					status?: string;
 				};
 				Relationships: [];
 			};

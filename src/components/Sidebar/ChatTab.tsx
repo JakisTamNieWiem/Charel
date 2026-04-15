@@ -19,6 +19,7 @@ import {
 	MembersDialog,
 	RenameDialog,
 } from "@/components/chat/GroupDialogs";
+import CharacterAvatar from "@/components/chat/CharacterAvatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,9 +59,14 @@ import {
 	useUpdateChatCover,
 	useUpdateContactNickname,
 } from "@/hooks/use-chats";
+import { useCharacterPresence } from "@/hooks/use-character-presence";
 import { useLatestMessages } from "@/hooks/use-messages";
 import { useUnreadChats } from "@/hooks/use-notifications";
 import { useProfile } from "@/hooks/use-profile";
+import {
+	getCharacterStatusBadgeClass,
+	getCharacterStatusLabel,
+} from "@/lib/character-status";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
@@ -110,6 +116,7 @@ export default function ChatTab() {
 	const { removeChatMember } = useRemoveChatMember();
 	const { updateChatCover } = useUpdateChatCover();
 	const { data: contacts = [] } = useContacts(activeSpeakerId ?? "");
+	const { getCharacterStatus } = useCharacterPresence();
 
 	const characters = useGraphStore((s) => s.characters);
 	const activeChar = characters.find((c) => c.id === activeSpeakerId);
@@ -526,12 +533,14 @@ export default function ChatTab() {
 						<ComboboxList>
 							{(char: (typeof characters)[number]) => (
 								<ComboboxItem key={char.id} value={char.id}>
-									<Avatar className="size-5 shrink-0">
-										<AvatarImage src={char.avatar ?? undefined} />
-										<AvatarFallback className="text-[7px]">
-											{char.name[0]}
-										</AvatarFallback>
-									</Avatar>
+									<CharacterAvatar
+										name={char.name}
+										avatar={char.avatar}
+										status={getCharacterStatus(char.id)}
+										className="size-5 shrink-0"
+										fallbackClassName="text-[7px]"
+										badgeClassName="group-data-[size=default]/avatar:size-2"
+									/>
 									<span className="text-sm">{char.name}</span>
 								</ComboboxItem>
 							)}
@@ -642,6 +651,7 @@ export default function ChatTab() {
 					const isActive = existingChatId
 						? activeChatId === existingChatId
 						: pendingCharacterId === char.id;
+					const status = getCharacterStatus(char.id);
 
 					return (
 						<ContextMenu key={char.id}>
@@ -659,14 +669,26 @@ export default function ChatTab() {
 											: "bg-transparent border-transparent hover:bg-(--sidebar-foreground)/5",
 									)}
 								>
-									<Avatar className="size-10 mr-3 shrink-0">
-										<AvatarImage src={char.avatar ?? undefined} />
-										<AvatarFallback>{char.name[0]}</AvatarFallback>
-									</Avatar>
+									<CharacterAvatar
+										name={char.name}
+										avatar={char.avatar}
+										status={status}
+										className="mr-3 size-10 shrink-0"
+									/>
 									<div className="flex-1 min-w-0">
-										<h3 className="text-sm font-medium truncate">
-											{nicknameMap.get(char.id) ?? char.name}
-										</h3>
+										<div className="flex items-center gap-2">
+											<h3 className="text-sm font-medium truncate">
+												{nicknameMap.get(char.id) ?? char.name}
+											</h3>
+											<span
+												className={cn(
+													"shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.18em]",
+													getCharacterStatusBadgeClass(status),
+												)}
+											>
+												{getCharacterStatusLabel(status)}
+											</span>
+										</div>
 										<p className="text-[10px] opacity-30 truncate">
 											{existingChatId
 												? (getLastMessagePreview(existingChatId) ??
@@ -884,6 +906,7 @@ export default function ChatTab() {
 								{createCandidates.map((char) => {
 									const isSelected = selectedCreateIds.includes(char.id);
 									const existingChatId = directChatMap.get(char.id);
+									const status = getCharacterStatus(char.id);
 									return (
 										<button
 											key={char.id}
@@ -895,14 +918,26 @@ export default function ChatTab() {
 													: "border-transparent hover:border-white/10 hover:bg-white/5",
 											)}
 										>
-											<Avatar className="size-10 shrink-0">
-												<AvatarImage src={char.avatar ?? undefined} />
-												<AvatarFallback>{char.name[0]}</AvatarFallback>
-											</Avatar>
+											<CharacterAvatar
+												name={char.name}
+												avatar={char.avatar}
+												status={status}
+												className="size-10 shrink-0"
+											/>
 											<div className="min-w-0 flex-1">
-												<p className="truncate text-sm font-medium">
-													{nicknameMap.get(char.id) ?? char.name}
-												</p>
+												<div className="flex items-center gap-2">
+													<p className="truncate text-sm font-medium">
+														{nicknameMap.get(char.id) ?? char.name}
+													</p>
+													<span
+														className={cn(
+															"shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.18em]",
+															getCharacterStatusBadgeClass(status),
+														)}
+													>
+														{getCharacterStatusLabel(status)}
+													</span>
+												</div>
 												<p className="truncate text-xs text-muted-foreground">
 													{existingChatId
 														? (getLastMessagePreview(existingChatId) ??

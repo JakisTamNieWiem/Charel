@@ -38,6 +38,7 @@ export interface Profile {
 	userId: string;
 	displayName: string | null;
 	role: "dm" | "player" | null;
+	status: string | null;
 }
 
 /** Shape of a realtime INSERT/UPDATE payload.new for Messages */

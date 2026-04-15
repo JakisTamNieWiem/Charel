@@ -12,6 +12,8 @@ import {
 	useRenameChat,
 	useUpdateChatCover,
 } from "@/hooks/use-chats";
+import { useCharacterPresence } from "@/hooks/use-character-presence";
+import { useActiveChatBroadcast } from "@/hooks/use-chat-realtime";
 import {
 	useDeleteMessage,
 	useEditMessage,
@@ -44,6 +46,8 @@ export default function ChatWindow() {
 	const activeChatId = useChatStore((s) => s.activeChatId);
 	const activeSpeakerId = useChatStore((s) => s.activeSpeakerId);
 	const pendingCharacterId = useChatStore((s) => s.pendingCharacterId);
+	useActiveChatBroadcast(activeChatId);
+	const { getCharacterStatus } = useCharacterPresence();
 
 	const {
 		data: messagesData,
@@ -142,6 +146,17 @@ export default function ChatWindow() {
 	}, [activeChatId]);
 
 	const latestMessage = messages[messages.length - 1] ?? null;
+	const directChatPartner = useMemo(() => {
+		if (!activeChat || activeChat.isGroup) return null;
+		const other = members.find(
+			(member) => member.characterId !== activeSpeakerId,
+		);
+		if (!other) return null;
+		return (
+			characters.find((character) => character.id === other.characterId) ?? null
+		);
+	}, [activeChat, members, activeSpeakerId, characters]);
+	const directPartnerStatus = getCharacterStatus(directChatPartner?.id);
 	const activeMember = useMemo(
 		() =>
 			activeSpeakerId
@@ -317,6 +332,13 @@ export default function ChatWindow() {
 				isGroup={activeChat?.isGroup ?? false}
 				chatId={activeChatId}
 				members={members}
+				directStatus={
+					activeChat?.isGroup
+						? null
+						: directChatPartner
+							? directPartnerStatus
+							: null
+				}
 				onShowMembers={() => setShowMembers(true)}
 				onShowAddMembers={() => setShowAddMembers(true)}
 				onShowRename={(name) => {
@@ -437,7 +459,11 @@ export default function ChatWindow() {
 				onSave={(cover) =>
 					activeChatId &&
 					activeSpeakerId &&
-					updateChatCover({ chatId: activeChatId, cover, characterId: activeSpeakerId })
+					updateChatCover({
+						chatId: activeChatId,
+						cover,
+						characterId: activeSpeakerId,
+					})
 				}
 			/>
 		</div>
