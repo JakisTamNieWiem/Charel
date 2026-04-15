@@ -1,14 +1,24 @@
 import {
+	Check,
+	ImagePlus,
+	MessageCirclePlus,
 	Pencil,
 	Plus,
 	PlusIcon,
 	Search,
+	Trash2,
 	UserPlus,
 	Users,
 	X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+	AddMembersDialog,
+	ChangeCoverDialog,
+	MembersDialog,
+	RenameDialog,
+} from "@/components/chat/GroupDialogs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,18 +30,32 @@ import {
 	ComboboxList,
 } from "@/components/ui/combobox";
 import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuSeparator,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+	useAddChatMembers,
 	useAddContacts,
 	useChats,
 	useContacts,
 	useCreateChat,
+	useDeleteChat,
+	useRemoveChatMember,
+	useRenameChat,
+	useUpdateChatCover,
 	useUpdateContactNickname,
 } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
@@ -41,6 +65,28 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Chat, ChatMember } from "@/types/chat";
+import type { Character } from "@/types/types";
+
+function sortCharactersByConversation(
+	characters: Character[],
+	directChatMap: Map<string, string>,
+	chats: (Chat & { members?: ChatMember[] })[],
+) {
+	return [...characters].sort((a, b) => {
+		const aChatId = directChatMap.get(a.id);
+		const bChatId = directChatMap.get(b.id);
+		const aChat = chats.find((c) => c.id === aChatId);
+		const bChat = chats.find((c) => c.id === bChatId);
+
+		const aTime = aChat?.lastMessageAt;
+		const bTime = bChat?.lastMessageAt;
+
+		if (aTime && bTime) return bTime.localeCompare(aTime);
+		if (aTime) return -1;
+		if (bTime) return 1;
+		return a.name.localeCompare(b.name);
+	});
+}
 
 export default function ChatTab() {
 	const { data: profile } = useProfile();
@@ -58,16 +104,22 @@ export default function ChatTab() {
 	const { createChat } = useCreateChat();
 	const { addContacts } = useAddContacts();
 	const { updateContactNickname } = useUpdateContactNickname();
+	const { deleteChat } = useDeleteChat();
+	const { renameChat } = useRenameChat();
+	const { addChatMembers } = useAddChatMembers();
+	const { removeChatMember } = useRemoveChatMember();
+	const { updateChatCover } = useUpdateChatCover();
 	const { data: contacts = [] } = useContacts(activeSpeakerId ?? "");
 
 	const characters = useGraphStore((s) => s.characters);
 	const activeChar = characters.find((c) => c.id === activeSpeakerId);
+	const activeSpeaker =
+		characters.find((c) => c.id === activeSpeakerId) ?? null;
 	const contactIds = useMemo(
 		() => new Set(contacts.map((contact) => contact.toId)),
 		[contacts],
 	);
 
-	// toId → nickname (only entries that have one)
 	const nicknameMap = useMemo(
 		() =>
 			new Map(
@@ -78,7 +130,6 @@ export default function ChatTab() {
 		[contacts],
 	);
 
-	// toId → full Contact record (for the dialog)
 	const contactMap = useMemo(
 		() => new Map(contacts.map((c) => [c.toId, c])),
 		[contacts],
@@ -88,6 +139,30 @@ export default function ChatTab() {
 		null,
 	);
 	const [editingNicknameValue, setEditingNicknameValue] = useState("");
+	const [search, setSearch] = useState("");
+	const [showNewChat, setShowNewChat] = useState(false);
+	const [showAddContact, setShowAddContact] = useState(false);
+	const [selectedCreateIds, setSelectedCreateIds] = useState<string[]>([]);
+	const [createSearch, setCreateSearch] = useState("");
+	const [newGroupName, setNewGroupName] = useState("");
+	const [contactSearch, setContactSearch] = useState("");
+	const [managedGroupChatId, setManagedGroupChatId] = useState<string | null>(
+		null,
+	);
+	const [showMembers, setShowMembers] = useState(false);
+	const [showRename, setShowRename] = useState(false);
+	const [showAddMembers, setShowAddMembers] = useState(false);
+	const [showChangeCover, setShowChangeCover] = useState(false);
+	const [renameInitial, setRenameInitial] = useState("");
+
+	const isAnon =
+		!profile?.role || (profile.role !== "dm" && profile.role !== "player");
+
+	const resetCreateDialog = () => {
+		setSelectedCreateIds([]);
+		setCreateSearch("");
+		setNewGroupName("");
+	};
 
 	const saveNickname = async (toId: string) => {
 		if (!activeSpeakerId) return;
@@ -100,7 +175,6 @@ export default function ChatTab() {
 		setEditingNicknameValue("");
 	};
 
-	// Default speaker to first character if not set
 	useEffect(() => {
 		if (!activeSpeakerId && characters.length > 0 && profile) {
 			const mine = characters.filter((c) => c.ownerId === profile.userId);
@@ -110,26 +184,12 @@ export default function ChatTab() {
 		}
 	}, [activeSpeakerId, characters, setActiveSpeakerId, profile]);
 
-	const [search, setSearch] = useState("");
-	const [showNewGroup, setShowNewGroup] = useState(false);
-	const [showAddContact, setShowAddContact] = useState(false);
-	const [newGroupName, setNewGroupName] = useState("");
-	const [selectedCharIds, setSelectedCharIds] = useState<string[]>([]);
-
-	const [charSearch, setCharSearch] = useState("");
-	const [contactSearch, setContactSearch] = useState("");
-
-	const isAnon =
-		!profile?.role || (profile.role !== "dm" && profile.role !== "player");
-
-	// Clear active chat when switching speakers to avoid showing another character's messages
 	useEffect(() => {
 		if (!activeSpeakerId) return;
 		setActiveChatId(null);
 		setPendingCharacterId(null);
 	}, [activeSpeakerId, setActiveChatId, setPendingCharacterId]);
 
-	// Build a map: characterId -> existing 1:1 chatId
 	const directChatMap = useMemo(() => {
 		const map = new Map<string, string>();
 		for (const chat of chats) {
@@ -146,23 +206,28 @@ export default function ChatTab() {
 		return map;
 	}, [chats, activeSpeakerId]);
 
+	useEffect(() => {
+		if (!pendingCharacterId) return;
+		const resolvedChatId = directChatMap.get(pendingCharacterId);
+		if (resolvedChatId) {
+			setActiveChatId(resolvedChatId);
+		}
+	}, [pendingCharacterId, directChatMap, setActiveChatId]);
+
 	const contactCharacters = useMemo(
 		() =>
 			characters.filter(
 				(char) =>
 					char.id !== activeSpeakerId &&
 					!!char.phoneNumber?.trim() &&
-					chats.some(
-						(c) =>
-							c.members.length > 0 &&
-							c.members.every(
-								(m) =>
-									m.characterId === char.id ||
-									m.characterId === activeSpeakerId,
-							),
-					),
+					contactIds.has(char.id),
 			),
-		[characters, activeSpeakerId, chats],
+		[characters, activeSpeakerId, contactIds],
+	);
+
+	const sortedContactCharacters = useMemo(
+		() => sortCharactersByConversation(contactCharacters, directChatMap, chats),
+		[contactCharacters, directChatMap, chats],
 	);
 
 	const groupChats = useMemo(
@@ -176,27 +241,12 @@ export default function ChatTab() {
 	);
 
 	const filteredCharacters = useMemo(() => {
-		const sorted = [...contactCharacters].sort((a, b) => {
-			const aChatId = directChatMap.get(a.id);
-			const bChatId = directChatMap.get(b.id);
-			const aChat = chats.find((c) => c.id === aChatId);
-			const bChat = chats.find((c) => c.id === bChatId);
-
-			const aTime = aChat?.lastMessageAt;
-			const bTime = bChat?.lastMessageAt;
-
-			// Characters with messages come first, sorted by newest
-			if (aTime && bTime) return bTime.localeCompare(aTime);
-			if (aTime) return -1;
-			if (bTime) return 1;
-			// Then alphabetical
-			return a.name.localeCompare(b.name);
-		});
-
-		if (!search) return sorted;
+		if (!search) return sortedContactCharacters;
 		const q = search.toLowerCase();
-		return sorted.filter((c) => c.name.toLowerCase().includes(q));
-	}, [contactCharacters, search, chats, directChatMap]);
+		return sortedContactCharacters.filter((c) =>
+			c.name.toLowerCase().includes(q),
+		);
+	}, [sortedContactCharacters, search]);
 
 	const filteredGroups = useMemo(() => {
 		if (!search) return groupChats;
@@ -210,6 +260,43 @@ export default function ChatTab() {
 			});
 		});
 	}, [groupChats, search, characters]);
+
+	const createCandidates = useMemo(() => {
+		if (!createSearch) return sortedContactCharacters;
+		const q = createSearch.toLowerCase();
+		return sortedContactCharacters.filter((char) => {
+			const nickname = nicknameMap.get(char.id)?.toLowerCase();
+			return (
+				char.name.toLowerCase().includes(q) ||
+				!!nickname?.includes(q) ||
+				char.phoneNumber?.toLowerCase().includes(q)
+			);
+		});
+	}, [createSearch, nicknameMap, sortedContactCharacters]);
+
+	const selectedCreateCharacters = useMemo(
+		() =>
+			selectedCreateIds
+				.map((id) => characters.find((char) => char.id === id) ?? null)
+				.filter((char): char is Character => char !== null),
+		[characters, selectedCreateIds],
+	);
+
+	const managedGroupChat = useMemo(
+		() => groupChats.find((chat) => chat.id === managedGroupChatId) ?? null,
+		[groupChats, managedGroupChatId],
+	);
+	const managedGroupMembers = managedGroupChat?.members ?? [];
+
+	useEffect(() => {
+		if (managedGroupChatId && !managedGroupChat) {
+			setManagedGroupChatId(null);
+			setShowMembers(false);
+			setShowRename(false);
+			setShowAddMembers(false);
+			setShowChangeCover(false);
+		}
+	}, [managedGroupChat, managedGroupChatId]);
 
 	const getGroupDisplayName = (chat: Chat & { members?: ChatMember[] }) => {
 		if (chat.name) return chat.name;
@@ -228,13 +315,14 @@ export default function ChatTab() {
 				last.content.match(/^\[system\](.*)\[\/system\]$/s)?.[1] ?? "";
 			return inner;
 		}
-		if (last.content.startsWith("[img]")) return "📷 Image";
+		if (last.content.startsWith("[img]")) return "Image";
 		if (
 			/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|svg|bmp)(?:\?\S*)?/i.test(
 				last.content,
 			)
-		)
-			return "📷 Image";
+		) {
+			return "Image";
+		}
 		return last.content.length > 30
 			? `${last.content.slice(0, 30)}...`
 			: last.content;
@@ -245,7 +333,6 @@ export default function ChatTab() {
 		if (!last) return null;
 		const preview = getLastMessagePreview(chatId);
 		if (!preview) return null;
-		// System messages have no sender
 		if (last.content.startsWith("[system]")) return preview;
 		const senderName =
 			nicknameMap.get(last.characterId) ??
@@ -269,30 +356,73 @@ export default function ChatTab() {
 		}
 	};
 
-	const handleCreateGroup = async () => {
-		if (!activeSpeakerId || selectedCharIds.length < 2) return;
-		const charactersToAdd = characters.filter((c) =>
-			[activeSpeakerId, ...selectedCharIds].includes(c.id),
+	const handleCreateDialogOpenChange = (open: boolean) => {
+		setShowNewChat(open);
+		if (!open) {
+			resetCreateDialog();
+		}
+	};
+
+	const handleToggleCreateSelection = (charId: string) => {
+		setSelectedCreateIds((current) =>
+			current.includes(charId)
+				? current.filter((id) => id !== charId)
+				: [...current, charId],
 		);
+	};
+
+	const handleCreateConversation = async () => {
+		if (!activeSpeakerId || selectedCreateIds.length === 0) return;
+
+		if (selectedCreateIds.length === 1) {
+			handleCharacterClick(selectedCreateIds[0]);
+			handleCreateDialogOpenChange(false);
+			return;
+		}
+
+		if (!activeSpeaker) return;
+
+		const charactersToAdd = [activeSpeaker, ...selectedCreateCharacters];
 		const chatId = await createChat({
-			name: newGroupName || null,
+			name: newGroupName.trim() || null,
 			isGroup: true,
 			characters: charactersToAdd,
 		});
+
 		if (chatId) {
 			setActiveChatId(chatId);
 		}
-		setShowNewGroup(false);
-		setNewGroupName("");
-		setSelectedCharIds([]);
-		setCharSearch("");
+		handleCreateDialogOpenChange(false);
 	};
 
-	const newGroupCharacters = useMemo(() => {
-		if (!charSearch) return contactCharacters;
-		const q = charSearch.toLowerCase();
-		return contactCharacters.filter((c) => c.name.toLowerCase().includes(q));
-	}, [contactCharacters, charSearch]);
+	const handleOpenNicknameEditor = (char: Character) => {
+		setShowAddContact(true);
+		setContactSearch(char.name);
+		setEditingNicknameId(char.id);
+		setEditingNicknameValue(contactMap.get(char.id)?.nickname ?? "");
+	};
+
+	const openGroupAction = (
+		chat: Chat & { members?: ChatMember[] },
+		action: "members" | "add" | "rename" | "cover",
+	) => {
+		setManagedGroupChatId(chat.id);
+		setActiveChatId(chat.id);
+		if (action === "members") {
+			setShowMembers(true);
+			return;
+		}
+		if (action === "add") {
+			setShowAddMembers(true);
+			return;
+		}
+		if (action === "rename") {
+			setRenameInitial(chat.name || getGroupDisplayName(chat));
+			setShowRename(true);
+			return;
+		}
+		setShowChangeCover(true);
+	};
 
 	const availableContacts = useMemo(() => {
 		const sorted = characters
@@ -312,6 +442,13 @@ export default function ChatTab() {
 				char.phoneNumber?.toLowerCase().includes(q),
 		);
 	}, [characters, activeSpeakerId, contactIds, contactSearch]);
+
+	const createActionLabel =
+		selectedCreateIds.length <= 1 ? "Start chat" : "Create group";
+	const createActionDescription =
+		selectedCreateIds.length <= 1
+			? "Choose one contact to jump into a direct conversation."
+			: "Select multiple contacts to spin up a group thread.";
 
 	if (isAnon) {
 		return (
@@ -356,9 +493,9 @@ export default function ChatTab() {
 						<UserPlus className="w-4 h-4" />
 					</Button>
 					<Button
-						onClick={() => setShowNewGroup(true)}
+						onClick={() => handleCreateDialogOpenChange(true)}
 						variant="ghost"
-						title="New group chat"
+						title="Start conversation"
 						disabled={!activeSpeakerId}
 					>
 						<Plus className="w-4 h-4" />
@@ -366,7 +503,6 @@ export default function ChatTab() {
 				</div>
 			</div>
 
-			{/* Character selector */}
 			<div className="px-1 pb-2">
 				<label className="text-[10px] font-mono uppercase tracking-widest opacity-30 mb-1 block">
 					Speaking as
@@ -404,7 +540,6 @@ export default function ChatTab() {
 				</Combobox>
 			</div>
 
-			{/* Search */}
 			<div className="pb-2 mb-3 px-1">
 				<div className="relative">
 					<Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
@@ -417,63 +552,89 @@ export default function ChatTab() {
 				</div>
 			</div>
 
-			{/* Group chats section */}
-			<div className="mb-2">
+			<div className="mb-3">
 				<p className="text-[10px] font-mono uppercase tracking-widest opacity-30 px-1 mb-1">
 					Group Chats ({groupChats.length})
 				</p>
 				{filteredGroups.map((chat) => (
-					<div
-						key={chat.id}
-						onClick={() => setActiveChatId(chat.id)}
-						className={cn(
-							"group/chat px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative",
-							"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
-							activeChatId === chat.id
-								? [
-										"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
-										"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
-									]
-								: "bg-transparent border-transparent hover:bg-(--sidebar-foreground)/5",
-						)}
-					>
-						<div className="size-8 mr-3 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-							{chat.cover ? (
-								<img
-									src={chat.cover}
-									alt=""
-									className="w-full h-full object-cover"
-								/>
-							) : (
-								<Users className="w-3.5 h-3.5 text-muted-foreground" />
-							)}
-						</div>
-						<div className="flex-1 min-w-0">
-							<h3 className="text-sm font-medium truncate">
-								{getGroupDisplayName(chat)}
-							</h3>
-							<p className="text-[10px] opacity-30 truncate">
-								{getGroupLastMessagePreview(chat.id) ?? "No messages yet"}
-							</p>
-						</div>
-						{isChatUnread(chat.id) && (
-							<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
-								<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-								<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-							</span>
-						)}
-					</div>
+					<ContextMenu key={chat.id}>
+						<ContextMenuTrigger className="block">
+							<div
+								onClick={() => setActiveChatId(chat.id)}
+								className={cn(
+									"group/chat px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative",
+									"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
+									activeChatId === chat.id
+										? [
+												"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
+												"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
+											]
+										: "bg-transparent border-transparent hover:bg-(--sidebar-foreground)/5",
+								)}
+							>
+								<div className="size-8 mr-3 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+									{chat.cover ? (
+										<img
+											src={chat.cover}
+											alt=""
+											className="w-full h-full object-cover"
+										/>
+									) : (
+										<Users className="w-3.5 h-3.5 text-muted-foreground" />
+									)}
+								</div>
+								<div className="flex-1 min-w-0">
+									<h3 className="text-sm font-medium truncate">
+										{getGroupDisplayName(chat)}
+									</h3>
+									<p className="text-[10px] opacity-30 truncate">
+										{getGroupLastMessagePreview(chat.id) ?? "No messages yet"}
+									</p>
+								</div>
+								{isChatUnread(chat.id) && (
+									<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
+										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+										<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+									</span>
+								)}
+							</div>
+						</ContextMenuTrigger>
+						<ContextMenuContent>
+							<ContextMenuItem onClick={() => setActiveChatId(chat.id)}>
+								<MessageCirclePlus /> Open chat
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={() => openGroupAction(chat, "members")}>
+								<Users /> View members
+							</ContextMenuItem>
+							<ContextMenuItem onClick={() => openGroupAction(chat, "add")}>
+								<UserPlus /> Add members
+							</ContextMenuItem>
+							<ContextMenuItem onClick={() => openGroupAction(chat, "rename")}>
+								<Pencil /> Rename chat
+							</ContextMenuItem>
+							<ContextMenuItem onClick={() => openGroupAction(chat, "cover")}>
+								<ImagePlus /> Change cover
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem
+								variant="destructive"
+								onClick={() => deleteChat(chat.id)}
+							>
+								<Trash2 /> Delete chat
+							</ContextMenuItem>
+						</ContextMenuContent>
+					</ContextMenu>
 				))}
 			</div>
 
-			{/* Characters (direct messages) */}
 			<div>
 				<p className="text-[10px] font-mono uppercase tracking-widest opacity-30 px-1 mb-1">
-					Chats ({chats.length})
+					Direct Chats ({contactCharacters.length})
 				</p>
-				{chats.length === 0 && (
+				{contactCharacters.length === 0 && (
 					<p className="px-3 py-2 text-xs text-muted-foreground">
-						No contacts for this character yet.
+						Add contacts to start a conversation with this speaker.
 					</p>
 				)}
 				{filteredCharacters.map((char) => {
@@ -483,53 +644,77 @@ export default function ChatTab() {
 						: pendingCharacterId === char.id;
 
 					return (
-						<div
-							key={char.id}
-							onClick={() => handleCharacterClick(char.id)}
-							className={cn(
-								"px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative",
-								"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
-								isActive
-									? [
-											"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
-											"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
-										]
-									: "bg-transparent border-transparent hover:bg-(--sidebar-foreground)/5",
-							)}
-						>
-							<Avatar className="size-10 mr-3 shrink-0">
-								<AvatarImage src={char.avatar ?? undefined} />
-								<AvatarFallback>{char.name[0]}</AvatarFallback>
-							</Avatar>
-							<div className="flex-1 min-w-0">
-								<h3 className="text-sm font-medium truncate">
-									{nicknameMap.get(char.id) ?? char.name}
-								</h3>
-								<p className="text-[10px] opacity-30 truncate">
-									{existingChatId
-										? (getLastMessagePreview(existingChatId) ??
-											"No messages yet")
-										: "No messages yet"}
-								</p>
-							</div>
-							{existingChatId && isChatUnread(existingChatId) && (
-								<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
-									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-									<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-								</span>
-							)}
-						</div>
+						<ContextMenu key={char.id}>
+							<ContextMenuTrigger className="block">
+								<div
+									onClick={() => handleCharacterClick(char.id)}
+									className={cn(
+										"px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative",
+										"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
+										isActive
+											? [
+													"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
+													"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
+												]
+											: "bg-transparent border-transparent hover:bg-(--sidebar-foreground)/5",
+									)}
+								>
+									<Avatar className="size-10 mr-3 shrink-0">
+										<AvatarImage src={char.avatar ?? undefined} />
+										<AvatarFallback>{char.name[0]}</AvatarFallback>
+									</Avatar>
+									<div className="flex-1 min-w-0">
+										<h3 className="text-sm font-medium truncate">
+											{nicknameMap.get(char.id) ?? char.name}
+										</h3>
+										<p className="text-[10px] opacity-30 truncate">
+											{existingChatId
+												? (getLastMessagePreview(existingChatId) ??
+													"No messages yet")
+												: "Ready to start chatting"}
+										</p>
+									</div>
+									{existingChatId && isChatUnread(existingChatId) && (
+										<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
+											<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+											<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+										</span>
+									)}
+								</div>
+							</ContextMenuTrigger>
+							<ContextMenuContent>
+								<ContextMenuItem onClick={() => handleCharacterClick(char.id)}>
+									<MessageCirclePlus />
+									{existingChatId ? "Open chat" : "Start chat"}
+								</ContextMenuItem>
+								<ContextMenuItem onClick={() => handleOpenNicknameEditor(char)}>
+									<Pencil /> Edit nickname
+								</ContextMenuItem>
+								{existingChatId && (
+									<>
+										<ContextMenuSeparator />
+										<ContextMenuItem
+											variant="destructive"
+											onClick={() => deleteChat(existingChatId)}
+										>
+											<Trash2 /> Delete chat
+										</ContextMenuItem>
+									</>
+								)}
+							</ContextMenuContent>
+						</ContextMenu>
 					);
 				})}
 			</div>
 
-			{/* Add Contact Dialog */}
 			<Dialog
 				open={showAddContact}
 				onOpenChange={(open) => {
 					setShowAddContact(open);
 					if (!open) {
 						setContactSearch("");
+						setEditingNicknameId(null);
+						setEditingNicknameValue("");
 					}
 				}}
 			>
@@ -548,7 +733,7 @@ export default function ChatTab() {
 							{availableContacts.length === 0 &&
 								/^\d{9}$/.test(contactSearch) && (
 									<Button
-										variant={"ghost"}
+										variant="ghost"
 										onClick={async () => {
 											const char = characters.find(
 												(c) => c.phoneNumber === contactSearch.trim(),
@@ -640,88 +825,168 @@ export default function ChatTab() {
 				</DialogContent>
 			</Dialog>
 
-			{/* New Group Chat Dialog */}
-			<Dialog open={showNewGroup} onOpenChange={setShowNewGroup}>
-				<DialogContent>
+			<Dialog open={showNewChat} onOpenChange={handleCreateDialogOpenChange}>
+				<DialogContent className="sm:max-w-lg">
 					<DialogHeader>
-						<DialogTitle>New Group Chat</DialogTitle>
+						<DialogTitle>Start Conversation</DialogTitle>
+						<DialogDescription>
+							{activeSpeaker
+								? `Pick contacts for ${activeSpeaker.name}. One selection starts a direct chat; two or more creates a group.`
+								: "Pick contacts to start chatting."}
+						</DialogDescription>
 					</DialogHeader>
-					<div className="space-y-4">
-						<Input
-							placeholder="Group name (optional)"
-							value={newGroupName}
-							onChange={(e) => setNewGroupName(e.target.value)}
-							className="text-sm"
-						/>
-						<div>
-							<label className="text-xs font-mono uppercase tracking-widest opacity-50 mb-2 block">
-								Add Characters
-							</label>
-							<div className="relative mb-2">
-								<Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-								<Input
-									placeholder="Search characters..."
-									value={charSearch}
-									onChange={(e) => setCharSearch(e.target.value)}
-									className="h-7 pl-7 text-xs"
-								/>
-							</div>
-							{selectedCharIds.length > 0 && (
-								<div className="flex flex-wrap gap-1 mb-2">
-									{selectedCharIds.map((id) => {
-										const char = characters.find((c) => c.id === id);
-										if (!char) return null;
-										return (
-											<span
-												key={id}
-												className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-xs"
-											>
-												{char.name}
-												<X
-													className="w-3 h-3 cursor-pointer hover:text-red-400"
-													onClick={() =>
-														setSelectedCharIds((prev) =>
-															prev.filter((cid) => cid !== id),
-														)
-													}
-												/>
-											</span>
-										);
-									})}
+					<div className="flex flex-col gap-4">
+						<div className="rounded-xl border border-white/10 bg-white/5 p-3">
+							<p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+								Mode
+							</p>
+							<div className="mt-2 flex items-center justify-between gap-3">
+								<div>
+									<p className="text-sm font-medium">{createActionLabel}</p>
+									<p className="text-xs text-muted-foreground">
+										{createActionDescription}
+									</p>
 								</div>
-							)}
-							<ScrollArea className="max-h-48 overflow-y-auto space-y-1">
-								{newGroupCharacters
-									.filter((c) => !selectedCharIds.includes(c.id))
-									.map((char) => (
-										<div
-											key={char.id}
-											onClick={() =>
-												setSelectedCharIds((prev) => [...prev, char.id])
-											}
-											className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
-										>
-											<Avatar className="size-6">
-												<AvatarImage src={char.avatar ?? undefined} />
-												<AvatarFallback className="text-[8px]">
-													{char.name[0]}
-												</AvatarFallback>
-											</Avatar>
-											<span className="text-sm truncate">{char.name}</span>
-										</div>
-									))}
-							</ScrollArea>
+								<div className="rounded-full border border-white/10 bg-background/70 px-3 py-1 text-xs font-medium">
+									{selectedCreateIds.length} selected
+								</div>
+							</div>
 						</div>
-						<Button
-							onClick={handleCreateGroup}
-							disabled={selectedCharIds.length < 2}
-							className="w-full"
-						>
-							Create Group Chat
-						</Button>
+						<Input
+							placeholder="Search contacts..."
+							value={createSearch}
+							onChange={(e) => setCreateSearch(e.target.value)}
+							className="h-10"
+						/>
+						{selectedCreateCharacters.length > 0 && (
+							<div className="flex flex-wrap gap-2">
+								{selectedCreateCharacters.map((char) => (
+									<button
+										key={char.id}
+										onClick={() => handleToggleCreateSelection(char.id)}
+										className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs transition-colors hover:bg-white/10"
+									>
+										<span>{nicknameMap.get(char.id) ?? char.name}</span>
+										<X className="w-3 h-3" />
+									</button>
+								))}
+							</div>
+						)}
+						{selectedCreateIds.length > 1 && (
+							<Input
+								placeholder="Group name (optional)"
+								value={newGroupName}
+								onChange={(e) => setNewGroupName(e.target.value)}
+							/>
+						)}
+						<ScrollArea className="max-h-72 rounded-xl border border-white/10 bg-background/40 p-1">
+							<div className="flex flex-col gap-1">
+								{createCandidates.map((char) => {
+									const isSelected = selectedCreateIds.includes(char.id);
+									const existingChatId = directChatMap.get(char.id);
+									return (
+										<button
+											key={char.id}
+											onClick={() => handleToggleCreateSelection(char.id)}
+											className={cn(
+												"flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+												isSelected
+													? "border-primary/40 bg-primary/10"
+													: "border-transparent hover:border-white/10 hover:bg-white/5",
+											)}
+										>
+											<Avatar className="size-10 shrink-0">
+												<AvatarImage src={char.avatar ?? undefined} />
+												<AvatarFallback>{char.name[0]}</AvatarFallback>
+											</Avatar>
+											<div className="min-w-0 flex-1">
+												<p className="truncate text-sm font-medium">
+													{nicknameMap.get(char.id) ?? char.name}
+												</p>
+												<p className="truncate text-xs text-muted-foreground">
+													{existingChatId
+														? (getLastMessagePreview(existingChatId) ??
+															"Open existing direct chat")
+														: "Start a new direct chat"}
+												</p>
+											</div>
+											<div
+												className={cn(
+													"flex size-6 items-center justify-center rounded-full border transition-colors",
+													isSelected
+														? "border-primary bg-primary text-primary-foreground"
+														: "border-white/15 bg-background/70 text-transparent",
+												)}
+											>
+												<Check className="w-3.5 h-3.5" />
+											</div>
+										</button>
+									);
+								})}
+								{createCandidates.length === 0 && (
+									<div className="px-4 py-10 text-center text-sm text-muted-foreground">
+										No contacts match that search.
+									</div>
+								)}
+							</div>
+						</ScrollArea>
 					</div>
+					<DialogFooter>
+						<Button
+							onClick={handleCreateConversation}
+							disabled={selectedCreateIds.length === 0}
+							className="w-full sm:w-auto"
+						>
+							{createActionLabel}
+						</Button>
+					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<MembersDialog
+				open={showMembers}
+				onOpenChange={setShowMembers}
+				members={managedGroupMembers}
+				characters={characters}
+				activeSpeakerId={activeSpeakerId}
+				onRemoveMember={(characterId) =>
+					managedGroupChatId &&
+					removeChatMember({ chatId: managedGroupChatId, characterId })
+				}
+			/>
+			<RenameDialog
+				open={showRename}
+				onOpenChange={setShowRename}
+				initialName={renameInitial}
+				onRename={(name) =>
+					managedGroupChatId && renameChat({ chatId: managedGroupChatId, name })
+				}
+			/>
+			<AddMembersDialog
+				open={showAddMembers}
+				onOpenChange={setShowAddMembers}
+				characters={contactCharacters}
+				existingMemberIds={managedGroupMembers.map((m) => m.characterId)}
+				excludeId={activeSpeakerId}
+				onAdd={(characterIds) =>
+					managedGroupChatId &&
+					addChatMembers({ chatId: managedGroupChatId, characterIds })
+				}
+			/>
+			<ChangeCoverDialog
+				open={showChangeCover}
+				onOpenChange={setShowChangeCover}
+				currentCover={managedGroupChat?.cover ?? null}
+				onSave={(cover) =>
+					managedGroupChatId &&
+					activeSpeakerId &&
+					updateChatCover({
+						chatId: managedGroupChatId,
+						cover,
+						characterId: activeSpeakerId,
+					})
+				}
+			/>
 		</div>
 	);
 }

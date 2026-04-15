@@ -69,7 +69,9 @@ export default function ChatWindow() {
 	const pendingMessages = useChatStore((s) => s.pendingMessages);
 
 	const messages = useMemo(() => {
-		const serverMessages = messagesData?.pages.flat() ?? [];
+		const serverMessages = messagesData
+			? [...messagesData.pages].reverse().flat()
+			: [];
 		const serverIds = new Set(serverMessages.map((m) => m.id));
 		const optimistic = pendingMessages.filter(
 			(m) => m.chat === activeChatId && !serverIds.has(m.id),
@@ -301,6 +303,12 @@ export default function ChatWindow() {
 
 	const speakerName =
 		characters.find((c) => c.id === activeSpeakerId)?.name ?? "character";
+	const isComposerDisabled = !activeSpeakerId || !activeChatId;
+	const composerPlaceholder = !activeSpeakerId
+		? "Select a character to speak as..."
+		: !activeChatId
+			? "Waiting for the direct chat to be created..."
+			: `Message as ${speakerName}...`;
 
 	return (
 		<div className="flex flex-col h-full">
@@ -386,12 +394,8 @@ export default function ChatWindow() {
 					onSend={handleSend}
 					onSendImage={handleSendImage}
 					onSendGif={handleSendGif}
-					disabled={!activeSpeakerId}
-					placeholder={
-						activeSpeakerId
-							? `Message as ${speakerName}...`
-							: "Select a character to speak as..."
-					}
+					disabled={isComposerDisabled}
+					placeholder={composerPlaceholder}
 				/>
 			</div>
 

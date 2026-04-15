@@ -75,8 +75,7 @@ function upsertMessageInPages(
 		};
 	}
 
-	const lastPageIndex = pages.length - 1;
-	pages[lastPageIndex] = [...pages[lastPageIndex], message];
+	pages[0] = [...pages[0], message];
 
 	return {
 		...data,
@@ -91,82 +90,16 @@ export function useSendMessage() {
 
 	const mutation = useMutation<SendMessageResult, Error, SendMessageVariables>({
 		mutationFn: async ({ content, characterId, id }) => {
-			const { activeChatId, pendingCharacterId } = useChatStore.getState();
+			const { activeChatId } = useChatStore.getState();
 			const {
 				data: { session },
 			} = await supabase.auth.getSession();
 			if (!session) throw new Error("No session found. Please log in.");
 
-			let chatId = activeChatId;
-			let shouldAddPendingAfterChatCreation = false;
-
-			// If no chat exists and we have a pending character, create 1:1 chat
-			if (!chatId && pendingCharacterId) {
-				// 1. Create the Chat
-				const { data: newChat, error: chatError } = await supabase
-					.from("Chats")
-					.insert({
-						name: "New Chat", // Provide a default name just in case it's required
-						isGroup: false,
-						ownerId: session.user.id,
-					})
-					.select()
-					.single();
-
-				if (chatError || !newChat) {
-					console.error("Error creating chat:", chatError);
-					throw chatError || new Error("Failed to create chat");
-				}
-
-				chatId = newChat.id;
-
-				// 2. Add members
-				const membersToAdd = [
-					{ chatId, characterId, userId: session.user.id },
-					{ chatId, characterId: pendingCharacterId, userId: session.user.id },
-				];
-
-				// Deduplicate in case of self-chat
-				const uniqueMembers = Array.from(
-					new Set(membersToAdd.map((m) => m.characterId)),
-				).map((cid) => {
-					const m = membersToAdd.find((member) => member.characterId === cid);
-					if (!m)
-						throw new Error("Internal error: member deduplication failed");
-					return m;
-				});
-
-				const { error: memberError } = await supabase
-					.from("ChatsMembers")
-					.insert(uniqueMembers);
-
-				if (memberError) {
-					console.error("Error adding chat members:", memberError);
-					throw memberError;
-				}
-
-				// Update global UI state immediately so subsequent logic sees the new chatId
-				useChatStore.setState({
-					activeChatId: chatId,
-					pendingCharacterId: null,
-				});
-				shouldAddPendingAfterChatCreation = true;
-
-				// Optional: invalidate in background
-				queryClient.invalidateQueries({ queryKey: ["chats"] });
-			}
-
-			if (!chatId) throw new Error("No active chat conversation selected.");
-
-			if (shouldAddPendingAfterChatCreation) {
-				addPendingMessage(
-					createOptimisticMessage({
-						chatId,
-						content,
-						characterId,
-						userId: session.user.id,
-						id,
-					}),
+			const chatId = activeChatId;
+			if (!chatId) {
+				throw new Error(
+					"No active chat conversation selected. Wait for the direct chat to be created before sending a message.",
 				);
 			}
 

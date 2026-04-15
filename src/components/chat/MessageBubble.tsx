@@ -3,6 +3,12 @@ import { useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -48,6 +54,9 @@ export default function MessageBubble({
 		displayName ?? (char && "name" in char ? char.name : "Unknown");
 	const charAvatar = char && "avatar" in char ? char.avatar : null;
 	const isPending = msg._pending;
+	const canManageMessage =
+		!isEditing && !isPending && msg.characterId === activeSpeakerId;
+	const canEditMessage = canManageMessage && !isImageContent(msg.content);
 
 	if (isSystemContent(msg.content)) {
 		return (
@@ -59,7 +68,7 @@ export default function MessageBubble({
 		);
 	}
 
-	return (
+	const bubble = (
 		<div
 			className={`group/msg flex px-2 gap-3 py-1.5 ${isPending ? "opacity-50" : ""} hover:bg-white/5 rounded-md mb-2`}
 		>
@@ -118,14 +127,14 @@ export default function MessageBubble({
 					</div>
 				)}
 			</div>
-			{!isEditing && !isPending && msg.characterId === activeSpeakerId && (
+			{canManageMessage && (
 				<div className="opacity-0 group-hover/msg:opacity-100 shrink-0">
 					<DropdownMenu>
 						<DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md p-1 text-foreground/60 hover:text-foreground hover:bg-white/10 transition-colors">
 							<EllipsisVertical className="w-3.5 h-3.5" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
-							{!isImageContent(msg.content) && (
+							{canEditMessage && (
 								<DropdownMenuItem onClick={onStartEdit}>
 									<Edit2 className="w-3.5 h-3.5 mr-2" /> Edit
 								</DropdownMenuItem>
@@ -141,5 +150,25 @@ export default function MessageBubble({
 				</div>
 			)}
 		</div>
+	);
+
+	if (!canManageMessage) {
+		return bubble;
+	}
+
+	return (
+		<ContextMenu>
+			<ContextMenuTrigger className="block">{bubble}</ContextMenuTrigger>
+			<ContextMenuContent>
+				{canEditMessage && (
+					<ContextMenuItem onClick={onStartEdit}>
+						<Edit2 /> Edit
+					</ContextMenuItem>
+				)}
+				<ContextMenuItem variant="destructive" onClick={onDelete}>
+					<Trash2 /> Delete
+				</ContextMenuItem>
+			</ContextMenuContent>
+		</ContextMenu>
 	);
 }

@@ -259,7 +259,7 @@ function App() {
 								if (!current || current.pages.length === 0) return current;
 								if (current.pages.flat().some((m) => m.id === msg.id)) return current;
 								const pages = [...current.pages];
-								pages[pages.length - 1] = [...pages[pages.length - 1], msg as Message];
+								pages[0] = [...pages[0], msg as Message];
 								return { ...current, pages };
 							},
 						);
