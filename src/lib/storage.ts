@@ -1,12 +1,6 @@
 // src/lib/storage.ts
 
-import {
-	BaseDirectory,
-	exists,
-	mkdir,
-	readTextFile,
-	writeTextFile,
-} from "@tauri-apps/plugin-fs";
+import { getDesktopApi } from "@/lib/desktop";
 import type {
 	Character,
 	Group,
@@ -15,6 +9,7 @@ import type {
 } from "@/types/types";
 
 const FILE_NAME = "graph-data.json";
+const LOCAL_STORAGE_KEY = "charel-graph-data";
 
 export interface JsonData {
 	version: string;
@@ -26,16 +21,22 @@ export interface JsonData {
 
 export async function saveToDisk(data: JsonData) {
 	try {
-		// 1. Check if the AppData folder for our app exists, if not, create it
-		const dirExists = await exists("", { baseDir: BaseDirectory.AppData });
-		if (!dirExists) {
-			await mkdir("", { baseDir: BaseDirectory.AppData });
+		const desktop = getDesktopApi();
+
+		if (desktop) {
+			const dirExists = await desktop.fs.existsAppData("");
+			if (!dirExists) {
+				await desktop.fs.mkdirAppData("");
+			}
+
+			await desktop.fs.writeAppDataTextFile(
+				FILE_NAME,
+				JSON.stringify(data, null, 2),
+			);
+			return;
 		}
 
-		// 2. Write the JSON file
-		await writeTextFile(FILE_NAME, JSON.stringify(data, null, 2), {
-			baseDir: BaseDirectory.AppData,
-		});
+		localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
 	} catch (error) {
 		console.error("Failed to save data to disk:", error);
 	}
@@ -43,18 +44,22 @@ export async function saveToDisk(data: JsonData) {
 
 export async function loadFromDisk() {
 	try {
-		// 1. Check if the file exists
-		const fileExists = await exists(FILE_NAME, {
-			baseDir: BaseDirectory.AppData,
-		});
-		if (!fileExists) {
-			return null; // No saved data yet
+		const desktop = getDesktopApi();
+
+		if (desktop) {
+			const fileExists = await desktop.fs.existsAppData(FILE_NAME);
+			if (!fileExists) {
+				return null;
+			}
+
+			const contents = await desktop.fs.readAppDataTextFile(FILE_NAME);
+			return JSON.parse(contents);
 		}
 
-		// 2. Read and parse the file
-		const contents = await readTextFile(FILE_NAME, {
-			baseDir: BaseDirectory.AppData,
-		});
+		const contents = localStorage.getItem(LOCAL_STORAGE_KEY);
+		if (!contents) {
+			return null;
+		}
 		return JSON.parse(contents);
 	} catch (error) {
 		console.error("Failed to load data from disk:", error);

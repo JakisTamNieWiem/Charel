@@ -1,9 +1,13 @@
-import { relaunch } from "@tauri-apps/plugin-process";
-import { check } from "@tauri-apps/plugin-updater";
+import { getDesktopApi } from "@/lib/desktop";
 
 export async function checkForUpdates() {
 	try {
-		const update = await check();
+		const desktop = getDesktopApi();
+		if (!desktop) {
+			return;
+		}
+
+		const update = await desktop.updater.check();
 
 		if (update) {
 			console.log(`Found update ${update.version} from ${update.date}`);
@@ -14,28 +18,8 @@ export async function checkForUpdates() {
 			);
 
 			if (wantsToUpdate) {
-				let downloaded = 0;
-				let contentLength = 0;
-
-				// Download and install the update
-				await update.downloadAndInstall((event) => {
-					switch (event.event) {
-						case "Started":
-							contentLength = event.data.contentLength || 0;
-							console.log(`Started downloading ${contentLength} bytes`);
-							break;
-						case "Progress":
-							downloaded += event.data.chunkLength;
-							console.log(`Downloaded ${downloaded} / ${contentLength}`);
-							break;
-						case "Finished":
-							console.log("Download finished");
-							break;
-					}
-				});
-
-				// Restart the app!
-				await relaunch();
+				await desktop.updater.downloadAndInstall();
+				await desktop.app.relaunch();
 			}
 		} else {
 			console.log("You are on the latest version.");

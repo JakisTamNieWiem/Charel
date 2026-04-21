@@ -1,5 +1,3 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { Palette, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +13,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { getDesktopApi } from "@/lib/desktop";
 import {
 	applyThemePreview,
 	clearThemePreview,
@@ -85,6 +84,34 @@ function parseImportedThemeFile(contents: string, fallbackValues: ThemeValues) {
 		name: null,
 		values: normalizeThemeValues(parseThemeCss(contents), fallbackValues),
 	};
+}
+
+function readBrowserThemeFile() {
+	return new Promise<{ contents: string; fileName: string } | null>(
+		(resolve) => {
+			const input = document.createElement("input");
+			input.type = "file";
+			input.accept = ".json,.css";
+			input.onchange = () => {
+				const file = input.files?.[0];
+				if (!file) {
+					resolve(null);
+					return;
+				}
+
+				const reader = new FileReader();
+				reader.onload = () => {
+					resolve({
+						contents: String(reader.result ?? ""),
+						fileName: file.name,
+					});
+				};
+				reader.onerror = () => resolve(null);
+				reader.readAsText(file);
+			};
+			input.click();
+		},
+	);
 }
 
 export default function ThemeManager() {
@@ -171,23 +198,35 @@ export default function ThemeManager() {
 
 	const handleImportFile = async () => {
 		try {
-			const selectedPath = await open({
-				title: "Import Custom Theme",
-				multiple: false,
-				filters: [
-					{ name: "Theme Files", extensions: ["json", "css"] },
-					{ name: "JSON Files", extensions: ["json"] },
-					{ name: "CSS Files", extensions: ["css"] },
-				],
-			});
+			const desktop = getDesktopApi();
+			const selectedFile = desktop
+				? await desktop.dialog
+						.openFile({
+							title: "Import Custom Theme",
+							filters: [
+								{ name: "Theme Files", extensions: ["json", "css"] },
+								{ name: "JSON Files", extensions: ["json"] },
+								{ name: "CSS Files", extensions: ["css"] },
+							],
+						})
+						.then(async (selectedPath) => {
+							if (!selectedPath) {
+								return null;
+							}
 
-			if (!selectedPath || typeof selectedPath !== "string") {
+							return {
+								contents: await desktop.fs.readTextFile(selectedPath),
+								fileName: selectedPath,
+							};
+						})
+				: await readBrowserThemeFile();
+
+			if (!selectedFile) {
 				return;
 			}
 
-			const fileContents = await readTextFile(selectedPath);
 			const fallbackName =
-				selectedPath
+				selectedFile.fileName
 					.split(/[\\/]/)
 					.pop()
 					?.replace(/\.(json|css)$/i, "") || "Imported Theme";
@@ -197,7 +236,7 @@ export default function ThemeManager() {
 				customThemes,
 			).values;
 			const importedTheme = parseImportedThemeFile(
-				fileContents,
+				selectedFile.contents,
 				fallbackValues,
 			);
 			const id = `custom-${Date.now()}`;

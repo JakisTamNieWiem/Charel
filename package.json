@@ -3,15 +3,18 @@
   "private": true,
   "version": "2.1.1",
   "type": "module",
+  "main": "dist-electron/main/main.js",
   "scripts": {
     "dev": "vite",
+    "electron:dev": "electron-vite dev",
+    "electron:build": "electron-vite build",
+    "electron:package": "electron-vite build && electron-builder",
     "build": "tsc && vite build",
     "lint": "bunx tsc --noEmit && bunx biome check",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "tauri": "tauri",
     "types": "bunx supabase gen types typescript --project-id kaaekcmhkzjajsnwixxo --schema public > ./src/types/database.types.ts"
   },
   "dependencies": {
@@ -23,19 +26,13 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "^5.96.2",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "~2",
-    "@tauri-apps/plugin-fs": "~2",
-    "@tauri-apps/plugin-notification": "~2",
-    "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-process": "~2",
-    "@tauri-apps/plugin-updater": "~2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "emoji-picker-react": "^4.18.0",
+    "electron-updater": "^6.6.2",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.7.0",
     "motion": "^12.38.0",
@@ -57,23 +54,65 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.2",
     "@biomejs/biome": "2.4.9",
+    "@playwright/test": "^1.54.2",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
-    "@tauri-apps/cli": "^2",
     "@types/d3-force": "^3.0.10",
     "@types/d3-polygon": "^3.0.2",
+    "@types/node": "^24.10.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "@vitest/coverage-v8": "^3.2.4",
     "babel-plugin-react-compiler": "^1.0.0",
+    "electron": "^38.1.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^4.0.0",
     "jsdom": "^26.1.0",
     "supabase": ">=1.8.1",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^3.2.4"
+  },
+  "build": {
+    "appId": "com.jtnw.charel",
+    "productName": "charel",
+    "directories": {
+      "buildResources": "build/icons",
+      "output": "release/electron"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "JakisTamNieWiem",
+        "repo": "Charel"
+      }
+    ],
+    "mac": {
+      "icon": "build/icons/icon.icns",
+      "target": "dmg"
+    },
+    "win": {
+      "icon": "build/icons/icon.ico",
+      "target": "nsis"
+    },
+    "linux": {
+      "icon": "build/icons",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

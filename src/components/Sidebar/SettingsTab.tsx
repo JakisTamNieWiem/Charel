@@ -1,11 +1,10 @@
 import type { Session } from "@supabase/supabase-js";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Download, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { getDesktopApi } from "@/lib/desktop";
 import { supabase } from "@/lib/supabase";
 import { useGraphStore } from "@/store/useGraphStore";
 import ThemeManager from "./ThemeManager";
@@ -22,6 +21,52 @@ export default function SettingsTab() {
 		supabase.auth.getSession().then(({ data }) => setSession(data.session));
 		supabase.auth.onAuthStateChange((_e, s) => setSession(s));
 	}, []);
+
+	const exportData = async () => {
+		const data = {
+			version: "1.0.0",
+			characters: allCharacters,
+			relationshipTypes: relationshipTypes,
+			relationships: relationships,
+			groups: groups,
+		};
+		const contents = JSON.stringify(data, null, 2);
+		const defaultPath = `charel-export-${new Date().toISOString().split("T")[0]}.json`;
+
+		try {
+			const desktop = getDesktopApi();
+
+			if (desktop) {
+				const filePath = await desktop.dialog.saveFile({
+					filters: [
+						{
+							name: "JSON Data",
+							extensions: ["json"],
+						},
+					],
+					defaultPath,
+				});
+
+				if (filePath) {
+					await desktop.fs.writeTextFile(filePath, contents);
+					alert("Data exported successfully!");
+				}
+				return;
+			}
+
+			const url = URL.createObjectURL(
+				new Blob([contents], { type: "application/json" }),
+			);
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = defaultPath;
+			link.click();
+			URL.revokeObjectURL(url);
+		} catch (error) {
+			console.error("Export failed:", error);
+			alert("Failed to export data.");
+		}
+	};
 
 	return (
 		<div className="h-full">
@@ -69,37 +114,7 @@ export default function SettingsTab() {
 					</Button>
 					<Button
 						variant={"ghost"}
-						onClick={async () => {
-							const data = {
-								version: "1.0.0",
-								characters: allCharacters,
-								relationshipTypes: relationshipTypes,
-								relationships: relationships,
-								groups: groups,
-							};
-							try {
-								// 1. Open the native "Save As" OS dialog
-								const filePath = await save({
-									filters: [
-										{
-											name: "JSON Data",
-											extensions: ["json"],
-										},
-									],
-									defaultPath: `charel-export-${new Date().toISOString().split("T")[0]}.json`,
-								});
-
-								// 2. If the user didn't click "Cancel"
-								if (filePath) {
-									// 3. Write the file directly to that exact path
-									await writeTextFile(filePath, JSON.stringify(data, null, 2));
-									alert("Data exported successfully!"); // Optional: replace with a nice Toast notification
-								}
-							} catch (error) {
-								console.error("Export failed:", error);
-								alert("Failed to export data.");
-							}
-						}}
+						onClick={() => void exportData()}
 						className="p-1 hover:bg-white/10 rounded text-[10px] uppercase font-bold flex items-center gap-1"
 					>
 						<Download className="w-3 h-3" /> Export

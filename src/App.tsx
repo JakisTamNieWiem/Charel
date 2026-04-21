@@ -13,11 +13,11 @@ import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Circle, LayoutGrid } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { sendChatNotification } from "@/hooks/use-notifications";
+import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater";
-import { sendChatNotification } from "@/hooks/use-notifications";
-import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
@@ -85,6 +85,7 @@ function App() {
 		if (!isAuthResolved) return;
 		const initData = async () => {
 			setSyncing(true);
+			const minLoadTime = new Promise((resolve) => setTimeout(resolve, 6000)); // Minimum boot sequence time
 			if (session) {
 				const [charsRes, groupsRes, relsRes, typesRes, profileRes] =
 					await Promise.all([
@@ -124,6 +125,8 @@ function App() {
 					useGraphStore.getState().importData(localData);
 				}
 			}
+
+			await minLoadTime;
 			setIsDataLoaded(true); // Data is now in Zustand
 			setSyncing(false);
 			setIsLoaded(true);
@@ -257,9 +260,13 @@ function App() {
 							["messages", chatId],
 							(current) => {
 								if (!current || current.pages.length === 0) return current;
-								if (current.pages.flat().some((m) => m.id === msg.id)) return current;
+								if (current.pages.flat().some((m) => m.id === msg.id))
+									return current;
 								const pages = [...current.pages];
-								pages[pages.length - 1] = [...pages[pages.length - 1], msg as Message];
+								pages[pages.length - 1] = [
+									...pages[pages.length - 1],
+									msg as Message,
+								];
 								return { ...current, pages };
 							},
 						);
@@ -270,7 +277,10 @@ function App() {
 						queryClient.invalidateQueries({ queryKey: ["chats"] });
 
 						// Send native notification if not active chat or app is not focused
-						if (useChatStore.getState().activeChatId !== chatId || !document.hasFocus()) {
+						if (
+							useChatStore.getState().activeChatId !== chatId ||
+							!document.hasFocus()
+						) {
 							const { data } = await supabase
 								.from("Messages")
 								.select("*, character:Characters!characterId(name, avatar)")

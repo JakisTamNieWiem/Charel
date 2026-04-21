@@ -1,5 +1,4 @@
-import { exists, mkdir, writeFile } from "@tauri-apps/plugin-fs";
-import { join, tempDir } from "@tauri-apps/api/path";
+import { getDesktopApi } from "@/lib/desktop";
 
 // In-memory cache: remote URL → local file path (survives the session, not across restarts)
 const cache = new Map<string, string>();
@@ -11,26 +10,36 @@ const cache = new Map<string, string>();
  *
  * Returns null if the URL is empty or the download fails.
  */
-export async function getLocalAvatarPath(url: string | null | undefined): Promise<string | null> {
+export async function getLocalAvatarPath(
+	url: string | null | undefined,
+): Promise<string | null> {
 	if (!url) return null;
-	if (cache.has(url)) return cache.get(url)!;
+	const cachedPath = cache.get(url);
+	if (cachedPath) return cachedPath;
 
 	try {
-		const tmp = await tempDir();
-		const avatarDir = await join(tmp, ".temp", "charel-avatars");
+		const desktop = getDesktopApi();
+		if (!desktop) {
+			return url;
+		}
 
-		if (!(await exists(avatarDir))) {
-			await mkdir(avatarDir, { recursive: true });
+		const tmp = await desktop.path.tempDir();
+		const avatarDir = await desktop.path.join(tmp, ".temp", "charel-avatars");
+
+		if (!(await desktop.fs.pathExists(avatarDir))) {
+			await desktop.fs.mkdir(avatarDir);
 		}
 
 		// Stable filename derived from the URL (no query params, truncated hash)
 		const ext = url.startsWith("data:")
 			? (url.match(/data:image\/(\w+)/)?.[1] ?? "jpg")
 			: (url.split("?")[0].split(".").pop()?.toLowerCase() ?? "jpg");
-		const hash = btoa(encodeURIComponent(url)).replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
-		const filePath = await join(avatarDir, `${hash}.${ext}`);
+		const hash = btoa(encodeURIComponent(url))
+			.replace(/[^a-zA-Z0-9]/g, "")
+			.slice(0, 40);
+		const filePath = await desktop.path.join(avatarDir, `${hash}.${ext}`);
 
-		if (!(await exists(filePath))) {
+		if (!(await desktop.fs.pathExists(filePath))) {
 			if (url.startsWith("data:")) {
 				// Base64 data URL — decode directly, no network request needed
 				const base64 = url.split(",")[1];
@@ -38,12 +47,13 @@ export async function getLocalAvatarPath(url: string | null | undefined): Promis
 				const binary = atob(base64);
 				const bytes = new Uint8Array(binary.length);
 				for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-				await writeFile(filePath, bytes);
+				await desktop.fs.writeFile(filePath, bytes);
 			} else {
 				const response = await fetch(url);
-				if (!response.ok) throw new Error(`Failed to fetch avatar: ${response.status}`);
+				if (!response.ok)
+					throw new Error(`Failed to fetch avatar: ${response.status}`);
 				const buffer = await response.arrayBuffer();
-				await writeFile(filePath, new Uint8Array(buffer));
+				await desktop.fs.writeFile(filePath, new Uint8Array(buffer));
 			}
 		}
 

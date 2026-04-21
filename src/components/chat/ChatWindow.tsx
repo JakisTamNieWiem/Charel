@@ -433,7 +433,11 @@ export default function ChatWindow() {
 				onSave={(cover) =>
 					activeChatId &&
 					activeSpeakerId &&
-					updateChatCover({ chatId: activeChatId, cover, characterId: activeSpeakerId })
+					updateChatCover({
+						chatId: activeChatId,
+						cover,
+						characterId: activeSpeakerId,
+					})
 				}
 			/>
 		</div>

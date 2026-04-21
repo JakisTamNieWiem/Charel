@@ -1,5 +1,4 @@
 import type { Session } from "@supabase/supabase-js";
-import { getVersion } from "@tauri-apps/api/app";
 import {
 	Cloud,
 	CloudOff,
@@ -24,6 +23,7 @@ import {
 import { useChats } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
 import { useProfile } from "@/hooks/use-profile";
+import { getDesktopApi } from "@/lib/desktop";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
@@ -125,7 +125,9 @@ export default function AppSidebar() {
 	useEffect(() => {
 		supabase.auth.getSession().then(({ data }) => setSession(data.session));
 		supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-		getVersion().then((v) => setVersion(`Version: ${v}`));
+		getDesktopApi()
+			?.app.getVersion()
+			.then((v) => setVersion(`Version: ${v}`));
 	}, []);
 
 	const displayName = (() => {

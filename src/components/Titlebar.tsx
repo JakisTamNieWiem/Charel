@@ -1,18 +1,22 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
+import { getDesktopApi } from "@/lib/desktop";
 import { Button } from "./ui/button";
 
 export default function Titlebar() {
-	const appWindow = getCurrentWindow();
+	const desktop = getDesktopApi();
+
+	if (!desktop) {
+		return null;
+	}
+
 	return (
 		<div
-			data-tauri-drag-region
-			onDoubleClick={() => appWindow.toggleMaximize()}
-			className="h-8 px-2 fixed top-0 left-0 right-0 flex justify-end select-none z-10000 bg-transparent"
+			onDoubleClick={() => void desktop.window.toggleMaximize()}
+			className="electron-drag h-8 px-2 fixed top-0 left-0 right-0 flex justify-end select-none z-10000 bg-transparent"
 		>
-			<div className="flex justify-center items-center gap-1">
+			<div className="electron-no-drag flex justify-center items-center gap-1">
 				<Button
-					onClick={() => appWindow.minimize()}
+					onClick={() => void desktop.window.minimize()}
 					variant="ghost"
 					title="minimize"
 					className="size-6 p-1"
@@ -20,7 +24,7 @@ export default function Titlebar() {
 					<Minus />
 				</Button>
 				<Button
-					onClick={() => appWindow.toggleMaximize()}
+					onClick={() => void desktop.window.toggleMaximize()}
 					variant="ghost"
 					title="maximize"
 					className="size-6 p-1"
@@ -28,7 +32,7 @@ export default function Titlebar() {
 					<Square />
 				</Button>
 				<Button
-					onClick={() => appWindow.close()}
+					onClick={() => void desktop.window.close()}
 					variant="destructive"
 					title="close"
 					className="size-6 p-1"

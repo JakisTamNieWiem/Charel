@@ -1,9 +1,5 @@
-import {
-	isPermissionGranted,
-	requestPermission,
-	sendNotification,
-} from "@tauri-apps/plugin-notification";
 import { useCallback } from "react";
+import { getDesktopApi } from "@/lib/desktop";
 import type { Chat, ChatMember, Message } from "@/types/chat";
 
 interface ChatNotificationOptions {
@@ -18,18 +14,21 @@ export async function sendChatNotification({
 	avatar,
 }: ChatNotificationOptions) {
 	try {
-		let granted = await isPermissionGranted();
+		const desktop = getDesktopApi();
+		if (!desktop) {
+			return;
+		}
+
+		let granted = await desktop.notification.isPermissionGranted();
 		if (!granted) {
-			const permission = await requestPermission();
+			const permission = await desktop.notification.requestPermission();
 			granted = permission === "granted";
 		}
 		if (granted) {
-			sendNotification({
+			await desktop.notification.send({
 				title: charName,
 				body,
-				group: "charel-messages",
-				autoCancel: true,
-				attachments: avatar ? [{ id: "avatar", url: avatar }] : undefined,
+				avatar,
 			});
 		}
 	} catch (e) {

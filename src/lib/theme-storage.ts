@@ -1,17 +1,4 @@
-import { isTauri } from "@tauri-apps/api/core";
-import { appDataDir, join } from "@tauri-apps/api/path";
-import {
-	BaseDirectory,
-	exists,
-	mkdir,
-	readDir,
-	readTextFile,
-	remove,
-	type UnwatchFn,
-	watch,
-	writeTextFile,
-} from "@tauri-apps/plugin-fs";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { type DesktopUnwatchFn, getDesktopApi } from "@/lib/desktop";
 import {
 	normalizeCustomThemeCss,
 	normalizeThemeValues,
@@ -35,10 +22,6 @@ const LEGACY_CUSTOM_THEMES_KEY = "app-custom-themes";
 const CUSTOM_THEMES_DIR = "themes";
 const LEGACY_COLLECTION_FILE = `${CUSTOM_THEMES_DIR}/custom-themes.json`;
 const MANAGED_THEME_FILE_PATTERN = /^.+--[^/\\]+\.json$/i;
-
-function isDesktopTauri() {
-	return typeof window !== "undefined" && isTauri();
-}
 
 function slugifyFileName(value: string) {
 	return value
@@ -191,27 +174,29 @@ function sortThemes(themes: StoredCustomTheme[]) {
 }
 
 async function ensureThemesDirectory() {
-	await mkdir(CUSTOM_THEMES_DIR, {
-		baseDir: BaseDirectory.AppData,
-		recursive: true,
-	});
+	const desktop = getDesktopApi();
+	if (!desktop) {
+		return;
+	}
+
+	await desktop.fs.mkdirAppData(CUSTOM_THEMES_DIR);
 }
 
 async function loadThemeFilesFromDirectory() {
-	const entries = await readDir(CUSTOM_THEMES_DIR, {
-		baseDir: BaseDirectory.AppData,
-	});
+	const desktop = getDesktopApi();
+	if (!desktop) {
+		return [];
+	}
+
+	const entries = await desktop.fs.readAppDataDir(CUSTOM_THEMES_DIR);
 
 	const themes = await Promise.all(
 		entries
 			.filter((entry) => entry.isFile && entry.name.endsWith(".json"))
 			.filter((entry) => entry.name !== "custom-themes.json")
 			.map(async (entry) => {
-				const contents = await readTextFile(
+				const contents = await desktop.fs.readAppDataTextFile(
 					`${CUSTOM_THEMES_DIR}/${entry.name}`,
-					{
-						baseDir: BaseDirectory.AppData,
-					},
 				);
 
 				return parseThemePayload(contents);
@@ -224,11 +209,14 @@ async function loadThemeFilesFromDirectory() {
 }
 
 async function writeSeparateThemeFiles(themes: StoredCustomTheme[]) {
+	const desktop = getDesktopApi();
+	if (!desktop) {
+		return;
+	}
+
 	await ensureThemesDirectory();
 
-	const existingEntries = await readDir(CUSTOM_THEMES_DIR, {
-		baseDir: BaseDirectory.AppData,
-	});
+	const existingEntries = await desktop.fs.readAppDataDir(CUSTOM_THEMES_DIR);
 
 	await Promise.all(
 		existingEntries
@@ -236,15 +224,13 @@ async function writeSeparateThemeFiles(themes: StoredCustomTheme[]) {
 			.filter((entry) => entry.name !== "custom-themes.json")
 			.filter((entry) => isManagedThemeFileName(entry.name))
 			.map((entry) =>
-				remove(`${CUSTOM_THEMES_DIR}/${entry.name}`, {
-					baseDir: BaseDirectory.AppData,
-				}),
+				desktop.fs.removeAppDataPath(`${CUSTOM_THEMES_DIR}/${entry.name}`),
 			),
 	);
 
 	await Promise.all(
 		themes.map((theme) =>
-			writeTextFile(
+			desktop.fs.writeAppDataTextFile(
 				`${CUSTOM_THEMES_DIR}/${toThemeFileName(theme)}`,
 				JSON.stringify(
 					{
@@ -255,35 +241,33 @@ async function writeSeparateThemeFiles(themes: StoredCustomTheme[]) {
 					null,
 					2,
 				),
-				{
-					baseDir: BaseDirectory.AppData,
-				},
 			),
 		),
 	);
 }
 
 async function migrateLegacyCollectionFile() {
-	const collectionExists = await exists(LEGACY_COLLECTION_FILE, {
-		baseDir: BaseDirectory.AppData,
-	});
+	const desktop = getDesktopApi();
+	if (!desktop) {
+		return [];
+	}
+
+	const collectionExists = await desktop.fs.existsAppData(
+		LEGACY_COLLECTION_FILE,
+	);
 
 	if (!collectionExists) {
 		return [];
 	}
 
-	const contents = await readTextFile(LEGACY_COLLECTION_FILE, {
-		baseDir: BaseDirectory.AppData,
-	});
+	const contents = await desktop.fs.readAppDataTextFile(LEGACY_COLLECTION_FILE);
 	const themes = parseLegacyThemeCollection(contents);
 
 	if (themes.length > 0) {
 		await writeSeparateThemeFiles(themes);
 	}
 
-	await remove(LEGACY_COLLECTION_FILE, {
-		baseDir: BaseDirectory.AppData,
-	});
+	await desktop.fs.removeAppDataPath(LEGACY_COLLECTION_FILE);
 
 	return themes;
 }
@@ -295,7 +279,7 @@ export function loadLegacyCustomThemes() {
 export async function loadStoredCustomThemes(): Promise<StoredCustomTheme[]> {
 	const legacyThemes = sortThemes(readLegacyThemes());
 
-	if (!isDesktopTauri()) {
+	if (!getDesktopApi()) {
 		return legacyThemes;
 	}
 
@@ -332,7 +316,7 @@ export async function saveStoredCustomThemeSet(
 ): Promise<StoredCustomTheme[]> {
 	const normalizedThemes = sortThemes(themes.map(normalizeTheme));
 
-	if (!isDesktopTauri()) {
+	if (!getDesktopApi()) {
 		writeLegacyThemes(normalizedThemes);
 		return normalizedThemes;
 	}
@@ -355,42 +339,46 @@ export async function saveStoredCustomTheme(
 
 export async function watchStoredCustomThemes(
 	onChange: () => void | Promise<void>,
-): Promise<UnwatchFn | null> {
-	if (!isDesktopTauri()) {
+): Promise<DesktopUnwatchFn | null> {
+	const desktop = getDesktopApi();
+
+	if (!desktop) {
 		return null;
 	}
 
 	await ensureThemesDirectory();
 
-	return watch(
-		CUSTOM_THEMES_DIR,
-		(event) => {
-			if (
-				event.paths.length === 0 ||
-				event.paths.some(
-					(path) =>
-						path.endsWith(".json") || path.endsWith(`/${CUSTOM_THEMES_DIR}`),
-				)
-			) {
-				void onChange();
-			}
-		},
-		{
-			baseDir: BaseDirectory.AppData,
-			delayMs: 150,
-		},
-	);
+	return desktop.fs.watchAppDataPath(CUSTOM_THEMES_DIR, (event) => {
+		if (
+			event.paths.length === 0 ||
+			event.paths.some(
+				(path) =>
+					path.endsWith(".json") ||
+					path.endsWith(`/${CUSTOM_THEMES_DIR}`) ||
+					path.endsWith(`\\${CUSTOM_THEMES_DIR}`),
+			)
+		) {
+			void onChange();
+		}
+	});
 }
 
 export async function openCustomThemesFolder() {
-	if (!isDesktopTauri()) {
-		throw new Error("Custom theme folders are only available in Tauri.");
+	const desktop = getDesktopApi();
+
+	if (!desktop) {
+		throw new Error(
+			"Custom theme folders are only available in the desktop app.",
+		);
 	}
 
 	await ensureThemesDirectory();
 
-	const absoluteThemesDir = await join(await appDataDir(), CUSTOM_THEMES_DIR);
-	await openPath(absoluteThemesDir);
+	const absoluteThemesDir = await desktop.path.join(
+		await desktop.path.appDataDir(),
+		CUSTOM_THEMES_DIR,
+	);
+	await desktop.opener.openPath(absoluteThemesDir);
 
 	return absoluteThemesDir;
 }

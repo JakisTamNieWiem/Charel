@@ -710,6 +710,14 @@
     -webkit-appearance: none;
   }
 
+  .electron-drag {
+    -webkit-app-region: drag;
+  }
+
+  .electron-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
   .bg-dot-grid {
     --grid-transparency: 20%;
     background-image: radial-gradient(
