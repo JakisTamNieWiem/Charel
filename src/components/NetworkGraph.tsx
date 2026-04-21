@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
-	type AvatarQualityTier,
+	Application,
+	Container,
+	type ContainerChild,
+	Graphics,
+	Sprite,
+	Text,
+	type TextOptions,
+	Texture,
+} from "pixi.js";
+import { useEffect, useMemo, useRef } from "react";
+import {
 	buildNetworkLayout,
 	findNodeAtPosition,
-	getAvatarSpriteSpec,
 	getViewportBounds,
 	isCircleVisible,
 	isLinkVisible,
@@ -15,121 +23,73 @@ import { Badge } from "./ui/badge";
 
 const GLOW_SPEED = 0.25;
 const GLOW_SPREAD = 0.18;
-const GLOW_STEPS = 40;
+const GLOW_STEPS = 96;
 const GLOW_EDGE_FADE_RANGE = 0.12;
+const LINK_STRAIGHT_SCREEN_WIDTH = 0.9;
+const LINK_CURVED_SCREEN_WIDTH = 1.2;
 const QUALITY_SETTLE_DELAY_MS = 90;
-const INITIAL_AVATAR_SUPPRESSION_MS = 180;
+const TEXT_TEXTURE_OVERSAMPLE = 1.5;
+const MAX_TEXT_TEXTURE_RESOLUTION = 8;
+const GROUP_LABEL_FONT_SIZE = 22;
+const GROUP_LABEL_OFFSET = 25;
+const NODE_INITIAL_FONT_SIZE = NODE_SIZE * 0.8;
+const NODE_LABEL_FONT_SIZE = 11;
+const NODE_LABEL_OFFSET = 8;
 
-interface AvatarSpriteSpec {
-	cacheKey: string;
-	size: number;
-}
+type ThemeColors = {
+	bg: number;
+	fg: number;
+	card: number;
+};
+
+type PixiLayers = {
+	world: Container;
+	groups: Container;
+	links: Container;
+	fx: Graphics;
+	nodes: Container;
+	labels: Container;
+};
 
 type EngineState = {
+	app: Application | null;
+	layers: PixiLayers | null;
+	canvas: HTMLCanvasElement | null;
 	transform: { x: number; y: number; k: number };
 	width: number;
 	height: number;
-	theme: { bg: string; fg: string; card: string };
+	theme: ThemeColors;
 	hoveredNodeId: string | null;
 	hoveredGroupId: string | null;
 	connectedNodeIds: Set<string>;
 	isDragging: boolean;
 	isInteracting: boolean;
 	hasCentered: boolean;
-	avatarQualityTier: AvatarQualityTier;
 	pointerDownPos: { x: number; y: number };
 	lastPointerPos: { x: number; y: number };
 	layout: LayoutData;
-	baseCanvas: HTMLCanvasElement | null;
-	baseCtx: CanvasRenderingContext2D | null;
-	fxCanvas: HTMLCanvasElement | null;
-	fxCtx: CanvasRenderingContext2D | null;
-	baseDirty: boolean;
+	staticDirty: boolean;
 	fxDirty: boolean;
 	activeEffects: boolean;
 	animFrameId: number;
 	settleTimer: number | null;
-	suppressAvatarFallbacksUntil: number;
 };
 
-const avatarCache = new Map<string, HTMLCanvasElement>();
-const avatarLoading = new Set<string>();
-function getAvatarSprite(
-	avatarUrl: string,
-	spec: AvatarSpriteSpec,
-	onReady: () => void,
-): HTMLCanvasElement | null {
-	const cached = avatarCache.get(spec.cacheKey);
+type AvatarTextureEntry = {
+	texture: Texture | null;
+	loading: boolean;
+	failed: boolean;
+	callbacks: Set<() => void>;
+};
 
-	if (cached) {
-		return cached;
-	}
+const avatarTextureCache = new Map<string, AvatarTextureEntry>();
 
-	if (avatarLoading.has(spec.cacheKey)) {
-		return null;
-	}
-
-	avatarLoading.add(spec.cacheKey);
-
-	const img = new Image();
-	img.crossOrigin = "anonymous";
-	img.src = avatarUrl;
-
-	img.onload = async () => {
-		try {
-			const minSize = Math.min(img.width, img.height);
-			const startX = (img.width - minSize) / 2;
-			const startY = (img.height - minSize) / 2;
-
-			const bitmap = await createImageBitmap(
-				img,
-				startX,
-				startY,
-				minSize,
-				minSize,
-				{
-					resizeWidth: spec.size,
-					resizeHeight: spec.size,
-					resizeQuality: "high",
-				},
-			);
-
-			const canvas = document.createElement("canvas");
-			canvas.width = spec.size;
-			canvas.height = spec.size;
-
-			const ctx = canvas.getContext("2d");
-
-			if (ctx) {
-				ctx.fillStyle = "#ffffff";
-				ctx.beginPath();
-				ctx.arc(spec.size / 2, spec.size / 2, spec.size / 2, 0, 2 * Math.PI);
-				ctx.fill();
-				ctx.globalCompositeOperation = "source-in";
-				ctx.imageSmoothingEnabled = true;
-				ctx.imageSmoothingQuality = "high";
-				ctx.drawImage(bitmap, 0, 0);
-				avatarCache.set(spec.cacheKey, canvas);
-				onReady();
-			}
-		} finally {
-			avatarLoading.delete(spec.cacheKey);
-		}
-	};
-
-	img.onerror = () => {
-		avatarLoading.delete(spec.cacheKey);
-	};
-
-	return null;
+function radialAnchorX(cos: number) {
+	return cos > 0.5 ? 0 : cos < -0.5 ? 1 : 0.5;
 }
 
-function radialTextAlign(cos: number): CanvasTextAlign {
-	return cos > 0.5 ? "left" : cos < -0.5 ? "right" : "center";
-}
-
-function radialTextBaseline(sin: number): CanvasTextBaseline {
-	return sin > 0.5 ? "top" : sin < -0.5 ? "bottom" : "middle";
+function radialAnchorY(sin: number) {
+	return sin > 0.5 ? 0 : sin < -0.5 ? 1 : 0.5;
 }
 
 function sampleQuadratic(
@@ -149,15 +109,368 @@ function sampleQuadratic(
 	];
 }
 
-function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
-	const ctx = engine.baseCtx;
-	const canvas = engine.baseCanvas;
+function sampleLink(
+	link: {
+		source: { x: number; y: number };
+		target: { x: number; y: number };
+		cpX?: number;
+		cpY?: number;
+	},
+	t: number,
+): [number, number] {
+	if (link.cpX != null && link.cpY != null) {
+		return sampleQuadratic(
+			link.source.x,
+			link.source.y,
+			link.cpX,
+			link.cpY,
+			link.target.x,
+			link.target.y,
+			t,
+		);
+	}
 
-	if (!ctx || !canvas || engine.width <= 0 || engine.height <= 0) {
+	return [
+		link.source.x + (link.target.x - link.source.x) * t,
+		link.source.y + (link.target.y - link.source.y) * t,
+	];
+}
+
+function screenWidthToWorld(width: number, scale: number) {
+	return width / Math.max(scale, 0.001);
+}
+
+function drawLinkPath(
+	graphics: Graphics,
+	link: {
+		source: { x: number; y: number };
+		target: { x: number; y: number };
+		cpX?: number;
+		cpY?: number;
+	},
+) {
+	graphics.beginPath();
+	graphics.moveTo(link.source.x, link.source.y);
+
+	if (link.cpX != null && link.cpY != null) {
+		graphics.quadraticCurveTo(link.cpX, link.cpY, link.target.x, link.target.y);
+	} else {
+		graphics.lineTo(link.target.x, link.target.y);
+	}
+
+	return graphics;
+}
+
+function clamp(value: number, min = 0, max = 1) {
+	return Math.min(Math.max(value, min), max);
+}
+
+function srgbChannelToByte(value: number) {
+	const clamped = clamp(value);
+	const srgb =
+		clamped <= 0.0031308
+			? clamped * 12.92
+			: 1.055 * clamped ** (1 / 2.4) - 0.055;
+
+	return Math.round(clamp(srgb) * 255);
+}
+
+function packRgb(red: number, green: number, blue: number) {
+	return (red << 16) + (green << 8) + blue;
+}
+
+function parseHexColor(value: string) {
+	const hex = value.replace("#", "").trim();
+
+	if (hex.length === 3 || hex.length === 4) {
+		return packRgb(
+			Number.parseInt(hex[0] + hex[0], 16),
+			Number.parseInt(hex[1] + hex[1], 16),
+			Number.parseInt(hex[2] + hex[2], 16),
+		);
+	}
+
+	if (hex.length === 6 || hex.length === 8) {
+		return Number.parseInt(hex.slice(0, 6), 16);
+	}
+
+	return null;
+}
+
+function parseRgbColor(value: string) {
+	const match = value.match(/^rgba?\((.+)\)$/i);
+
+	if (!match) {
+		return null;
+	}
+
+	const channels = match[1]
+		.replace(/\//g, " ")
+		.split(/[,\s]+/)
+		.filter(Boolean)
+		.slice(0, 3)
+		.map((channel) => {
+			if (channel.endsWith("%")) {
+				return Math.round((Number.parseFloat(channel) / 100) * 255);
+			}
+
+			return Math.round(Number.parseFloat(channel));
+		});
+
+	if (
+		channels.length < 3 ||
+		channels.some((channel) => Number.isNaN(channel))
+	) {
+		return null;
+	}
+
+	return packRgb(
+		clamp(channels[0], 0, 255),
+		clamp(channels[1], 0, 255),
+		clamp(channels[2], 0, 255),
+	);
+}
+
+function parseOklchColor(value: string) {
+	const match = value.match(/^oklch\((.+)\)$/i);
+
+	if (!match) {
+		return null;
+	}
+
+	const parts = match[1].replace(/\//g, " ").split(/\s+/).filter(Boolean);
+
+	if (parts.length < 3) {
+		return null;
+	}
+
+	const lightness = parts[0].endsWith("%")
+		? Number.parseFloat(parts[0]) / 100
+		: Number.parseFloat(parts[0]);
+	const chroma = Number.parseFloat(parts[1]);
+	const huePart = parts[2];
+	const hue = huePart.endsWith("turn")
+		? Number.parseFloat(huePart) * 360
+		: huePart.endsWith("rad")
+			? Number.parseFloat(huePart) * (180 / Math.PI)
+			: Number.parseFloat(huePart);
+
+	if ([lightness, chroma, hue].some((part) => Number.isNaN(part))) {
+		return null;
+	}
+
+	const hueRadians = (hue * Math.PI) / 180;
+	const a = chroma * Math.cos(hueRadians);
+	const b = chroma * Math.sin(hueRadians);
+	const lPrime = lightness + 0.3963377774 * a + 0.2158037573 * b;
+	const mPrime = lightness - 0.1055613458 * a - 0.0638541728 * b;
+	const sPrime = lightness - 0.0894841775 * a - 1.291485548 * b;
+	const l = lPrime ** 3;
+	const m = mPrime ** 3;
+	const s = sPrime ** 3;
+
+	return packRgb(
+		srgbChannelToByte(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+		srgbChannelToByte(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+		srgbChannelToByte(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+	);
+}
+
+function colorToNumber(value: string | null | undefined, fallback: number) {
+	const color = value?.trim();
+
+	if (!color) {
+		return fallback;
+	}
+
+	if (color.startsWith("#")) {
+		return parseHexColor(color) ?? fallback;
+	}
+
+	if (color.startsWith("oklch(")) {
+		return parseOklchColor(color) ?? fallback;
+	}
+
+	if (color.startsWith("rgb")) {
+		return parseRgbColor(color) ?? fallback;
+	}
+
+	return fallback;
+}
+
+function getTextResolution(scale: number) {
+	const dpr = window.devicePixelRatio || 1;
+
+	return Math.min(
+		Math.max(dpr, dpr * Math.max(scale, 1) * TEXT_TEXTURE_OVERSAMPLE),
+		MAX_TEXT_TEXTURE_RESOLUTION,
+	);
+}
+
+function syncWorldTransform(engine: EngineState) {
+	if (!engine.layers) {
 		return;
 	}
 
-	const dpr = window.devicePixelRatio || 1;
+	engine.layers.world.position.set(engine.transform.x, engine.transform.y);
+	engine.layers.world.scale.set(engine.transform.k);
+}
+
+function clearLayer(layer: Container) {
+	const children = layer.removeChildren();
+
+	for (const child of children) {
+		child.destroy({ children: true });
+	}
+}
+
+function addText(
+	layer: Container,
+	text: string,
+	x: number,
+	y: number,
+	anchorX: number,
+	anchorY: number,
+	renderScale: number,
+	style: TextOptions["style"],
+	alpha = 1,
+) {
+	const label = new Text({
+		text,
+		anchor: { x: anchorX, y: anchorY },
+		resolution: getTextResolution(renderScale),
+		style,
+	});
+
+	label.x = x;
+	label.y = y;
+	label.alpha = alpha;
+	layer.addChild(label);
+
+	return label;
+}
+
+function notifyAvatarTextureReady(entry: AvatarTextureEntry) {
+	const callbacks = Array.from(entry.callbacks);
+
+	entry.callbacks.clear();
+
+	for (const callback of callbacks) {
+		callback();
+	}
+}
+
+function getAvatarTexture(avatarUrl: string, onReady: () => void) {
+	const cached = avatarTextureCache.get(avatarUrl);
+
+	if (cached) {
+		if (cached.loading) {
+			cached.callbacks.add(onReady);
+		}
+
+		return { failed: cached.failed, texture: cached.texture };
+	}
+
+	const entry: AvatarTextureEntry = {
+		texture: null,
+		loading: true,
+		failed: false,
+		callbacks: new Set([onReady]),
+	};
+	const image = new Image();
+	const finish = () => {
+		if (entry.texture || entry.failed) {
+			return;
+		}
+
+		if (!image.naturalWidth || !image.naturalHeight) {
+			entry.loading = false;
+			entry.failed = true;
+			queueMicrotask(() => notifyAvatarTextureReady(entry));
+			return;
+		}
+
+		try {
+			entry.texture = Texture.from(image, true);
+			entry.loading = false;
+		} catch {
+			entry.loading = false;
+			entry.failed = true;
+		}
+
+		queueMicrotask(() => notifyAvatarTextureReady(entry));
+	};
+	const fail = () => {
+		entry.loading = false;
+		entry.failed = true;
+		queueMicrotask(() => notifyAvatarTextureReady(entry));
+	};
+
+	avatarTextureCache.set(avatarUrl, entry);
+	image.decoding = "async";
+
+	if (!avatarUrl.startsWith("data:") && !avatarUrl.startsWith("blob:")) {
+		image.crossOrigin = "anonymous";
+	}
+
+	image.onload = finish;
+	image.onerror = fail;
+	image.src = avatarUrl;
+
+	return { failed: false, texture: null };
+}
+
+function addAvatarSprite(
+	layer: Container,
+	avatarTexture: Texture,
+	x: number,
+	y: number,
+	alpha: number,
+) {
+	try {
+		const diameter = (NODE_SIZE - 1) * 2;
+		const mask = new Graphics()
+			.circle(x, y, NODE_SIZE - 1)
+			.fill({ color: 0xffffff });
+		const sprite = new Sprite(avatarTexture);
+		const fitAvatar = () => {
+			if (sprite.destroyed) {
+				return;
+			}
+
+			const textureWidth = sprite.texture.width || diameter;
+			const textureHeight = sprite.texture.height || diameter;
+			const scale = Math.max(diameter / textureWidth, diameter / textureHeight);
+
+			sprite.scale.set(scale);
+		};
+
+		sprite.anchor.set(0.5);
+		sprite.x = x;
+		sprite.y = y;
+		sprite.alpha = alpha;
+		sprite.mask = mask;
+		fitAvatar();
+
+		layer.addChild(mask, sprite);
+	} catch {
+		// Bad user-provided image data should not take down the graph.
+	}
+}
+
+function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
+	const layers = engine.layers;
+
+	if (!layers || engine.width <= 0 || engine.height <= 0) {
+		return;
+	}
+
+	syncWorldTransform(engine);
+	clearLayer(layers.groups);
+	clearLayer(layers.links);
+	clearLayer(layers.nodes);
+	clearLayer(layers.labels);
+
 	const { x: tx, y: ty, k } = engine.transform;
 	const bounds = getViewportBounds(
 		engine.transform,
@@ -165,15 +478,13 @@ function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
 		engine.height,
 	);
 	const { theme, hoveredNodeId, hoveredGroupId, connectedNodeIds } = engine;
-	const suppressAvatarFallbacks =
-		performance.now() < engine.suppressAvatarFallbacksUntil;
+	const groupGraphics = new Graphics();
+	const linkGraphics = new Graphics();
+	const nodeGraphics = new Graphics();
 
-	ctx.setTransform(1, 0, 0, 1, 0, 0);
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	ctx.save();
-	ctx.scale(dpr, dpr);
-	ctx.translate(tx, ty);
-	ctx.scale(k, k);
+	layers.groups.addChild(groupGraphics);
+	layers.links.addChild(linkGraphics);
+	layers.nodes.addChild(nodeGraphics);
 
 	for (const group of engine.layout.groups) {
 		const isHovered = hoveredGroupId === group.id;
@@ -185,27 +496,32 @@ function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
 			continue;
 		}
 
-		ctx.globalAlpha = isHovered ? 0.15 : 0.035;
-		ctx.fillStyle = group.color;
-		ctx.beginPath();
-		ctx.arc(group.cx, group.cy, group.radius, 0, 2 * Math.PI);
-		ctx.fill();
+		const groupColor = colorToNumber(group.color, 0xffffff);
+
+		groupGraphics
+			.circle(group.cx, group.cy, group.radius)
+			.fill({ color: groupColor, alpha: isHovered ? 0.15 : 0.035 });
 
 		if (isHovered || k > 0.1) {
-			ctx.globalAlpha = isHovered ? 0.9 : 0.4;
-			ctx.fillStyle = group.color;
-			ctx.font = `bold ${Math.min(Math.round(22 / k), 60)}px Inter, sans-serif`;
-
 			const cos = Math.cos(group.angle);
 			const sin = Math.sin(group.angle);
-			const labelDist = group.radius + Math.min(25 / k, 50);
+			const labelDist = group.radius + GROUP_LABEL_OFFSET;
 
-			ctx.textAlign = radialTextAlign(cos);
-			ctx.textBaseline = radialTextBaseline(sin);
-			ctx.fillText(
+			addText(
+				layers.labels,
 				group.name.toUpperCase(),
 				group.cx + labelDist * cos,
 				group.cy + labelDist * sin,
+				radialAnchorX(cos),
+				radialAnchorY(sin),
+				k,
+				{
+					fill: groupColor,
+					fontFamily: "sans-serif",
+					fontSize: GROUP_LABEL_FONT_SIZE,
+					fontWeight: "700",
+				},
+				isHovered ? 0.9 : 0.4,
 			);
 		}
 	}
@@ -225,7 +541,6 @@ function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
 					link.target.groupId === hoveredGroupId),
 		);
 		const isActive = isNodeActive || isGroupActive;
-
 		const opacity =
 			!hoveredNodeId && !hoveredGroupId ? 0.25 : isActive ? 0.8 : 0.02;
 
@@ -233,29 +548,19 @@ function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
 			continue;
 		}
 
-		ctx.globalAlpha = opacity;
-		ctx.strokeStyle = link.color;
-		ctx.lineWidth = link.cpX != null ? 0.6 / k : 0.2 / k;
-		ctx.beginPath();
-		ctx.moveTo(Math.round(link.source.x), Math.round(link.source.y));
+		const linkColor = colorToNumber(link.color, 0x555555);
+		const screenWidth =
+			link.cpX != null ? LINK_CURVED_SCREEN_WIDTH : LINK_STRAIGHT_SCREEN_WIDTH;
 
-		if (link.cpX != null && link.cpY != null) {
-			ctx.quadraticCurveTo(
-				Math.round(link.cpX),
-				Math.round(link.cpY),
-				Math.round(link.target.x),
-				Math.round(link.target.y),
-			);
-		} else {
-			ctx.lineTo(Math.round(link.target.x), Math.round(link.target.y));
-		}
-
-		ctx.stroke();
+		drawLinkPath(linkGraphics, link);
+		linkGraphics.stroke({
+			color: linkColor,
+			alpha: opacity * 0.65,
+			width: screenWidthToWorld(screenWidth, k),
+			cap: "round",
+			join: "round",
+		});
 	}
-
-	ctx.imageSmoothingEnabled = engine.avatarQualityTier === "settled";
-	ctx.imageSmoothingQuality =
-		engine.avatarQualityTier === "settled" ? "high" : "low";
 
 	for (const node of engine.layout.nodes) {
 		const isHovered = node.id === hoveredNodeId;
@@ -272,53 +577,61 @@ function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
 
 		const rx = Math.round(node.x);
 		const ry = Math.round(node.y);
+		const nodeColor = colorToNumber(node.color, 0xffffff);
 
 		if (k < 0.05 && !isHighlighted) {
-			ctx.globalAlpha = 1;
-			ctx.fillStyle = node.color;
-			ctx.beginPath();
-			ctx.arc(rx, ry, 3, 0, 2 * Math.PI);
-			ctx.fill();
+			nodeGraphics.circle(rx, ry, 3).fill({ color: nodeColor, alpha: 1 });
 			continue;
 		}
 
-		ctx.globalAlpha =
+		const nodeAlpha =
 			!hoveredNodeId && !hoveredGroupId ? 1 : isHighlighted ? 1 : 0.05;
 
-		ctx.beginPath();
-		ctx.arc(rx, ry, NODE_SIZE, 0, 2 * Math.PI);
-		ctx.fillStyle = theme.card;
-		ctx.fill();
+		nodeGraphics
+			.circle(rx, ry, NODE_SIZE)
+			.fill({ color: theme.card, alpha: nodeAlpha })
+			.stroke({
+				color: isHovered || isConnected ? theme.fg : nodeColor,
+				alpha: nodeAlpha,
+				width: Math.min(isHovered || isConnected ? 3 / k : 1.5 / k, 4),
+			});
 
-		ctx.lineWidth = Math.min(isHovered || isConnected ? 3 / k : 1.5 / k, 4);
-		ctx.strokeStyle = isHovered || isConnected ? theme.fg : node.color;
-		ctx.stroke();
-
-		const avatarSpec = node.avatar
-			? getAvatarSpriteSpec(node.avatar, engine.avatarQualityTier, k, dpr)
-			: null;
-		const avatarSprite =
-			node.avatar && avatarSpec
-				? getAvatarSprite(node.avatar, avatarSpec, () => {
-						engine.baseDirty = true;
-						scheduleRender();
-					})
-				: null;
-
-		if (avatarSprite) {
-			ctx.drawImage(
-				avatarSprite,
-				rx - NODE_SIZE + 1,
-				ry - NODE_SIZE + 1,
-				(NODE_SIZE - 1) * 2,
-				(NODE_SIZE - 1) * 2,
+		const drawInitials = () => {
+			addText(
+				layers.nodes,
+				node.initials,
+				rx,
+				ry,
+				0.5,
+				0.5,
+				k,
+				{
+					fill: theme.fg,
+					fontFamily: "sans-serif",
+					fontSize: NODE_INITIAL_FONT_SIZE,
+					fontWeight: "700",
+				},
+				nodeAlpha,
 			);
-		} else if (!suppressAvatarFallbacks) {
-			ctx.fillStyle = theme.fg;
-			ctx.font = `bold ${Math.round(NODE_SIZE * 0.8)}px sans-serif`;
-			ctx.textAlign = "center";
-			ctx.textBaseline = "middle";
-			ctx.fillText(node.initials, rx, ry);
+		};
+
+		if (node.avatar) {
+			const avatar = getAvatarTexture(node.avatar, () => {
+				if (!engine.app || !engine.layers) {
+					return;
+				}
+
+				engine.staticDirty = true;
+				scheduleRender?.();
+			});
+
+			if (avatar.texture) {
+				addAvatarSprite(layers.nodes, avatar.texture, rx, ry, nodeAlpha);
+			} else if (avatar.failed) {
+				drawInitials();
+			}
+		} else {
+			drawInitials();
 		}
 
 		if (k > 0.3) {
@@ -327,86 +640,45 @@ function drawBaseLayer(engine: EngineState, scheduleRender: () => void) {
 			const distance = Math.sqrt(dx * dx + dy * dy) || 1;
 			const cos = dx / distance;
 			const sin = dy / distance;
-			const textDist = NODE_SIZE + Math.min(8 / k, 20);
+			const textDist = NODE_SIZE + NODE_LABEL_OFFSET;
 
-			ctx.font = `500 ${Math.min(Math.round(11 / k), 40)}px sans-serif`;
-			ctx.fillStyle = theme.fg;
-			ctx.textAlign = radialTextAlign(cos);
-			ctx.textBaseline = radialTextBaseline(sin);
-			ctx.fillText(node.name, rx + textDist * cos, ry + textDist * sin);
-		}
-	}
-
-	ctx.restore();
-}
-
-function prewarmVisibleAvatarSprites(
-	engine: EngineState,
-	scheduleRender: () => void,
-) {
-	if (engine.width <= 0 || engine.height <= 0) {
-		return;
-	}
-
-	const dpr = window.devicePixelRatio || 1;
-	const bounds = getViewportBounds(
-		engine.transform,
-		engine.width,
-		engine.height,
-	);
-	let requestedSprite = false;
-
-	for (const node of engine.layout.nodes) {
-		if (
-			!node.avatar ||
-			!isCircleVisible(bounds, node.x, node.y, NODE_SIZE + 48)
-		) {
-			continue;
-		}
-
-		for (const tier of ["interactive", "settled"] as const) {
-			const spec = getAvatarSpriteSpec(
-				node.avatar,
-				tier,
-				engine.transform.k,
-				dpr,
+			addText(
+				layers.labels,
+				node.name,
+				rx + textDist * cos,
+				ry + textDist * sin,
+				radialAnchorX(cos),
+				radialAnchorY(sin),
+				k,
+				{
+					fill: theme.fg,
+					fontFamily: "sans-serif",
+					fontSize: NODE_LABEL_FONT_SIZE,
+					fontWeight: "500",
+				},
+				nodeAlpha,
 			);
-
-			if (avatarCache.has(spec.cacheKey)) {
-				continue;
-			}
-
-			requestedSprite = true;
-			getAvatarSprite(node.avatar, spec, () => {
-				engine.baseDirty = true;
-				scheduleRender();
-			});
 		}
 	}
 
-	if (requestedSprite) {
-		engine.suppressAvatarFallbacksUntil =
-			performance.now() + INITIAL_AVATAR_SUPPRESSION_MS;
-	}
+	layers.world.position.set(tx, ty);
+	layers.world.scale.set(k);
 }
 
 function drawFxLayer(engine: EngineState) {
-	const ctx = engine.fxCtx;
-	const canvas = engine.fxCanvas;
+	const layers = engine.layers;
 
-	if (!ctx || !canvas) {
+	if (!layers) {
 		return;
 	}
 
-	ctx.setTransform(1, 0, 0, 1, 0, 0);
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	layers.fx.clear();
 
 	if (!engine.activeEffects || !engine.hoveredNodeId) {
 		return;
 	}
 
-	const dpr = window.devicePixelRatio || 1;
-	const { x: tx, y: ty, k } = engine.transform;
+	const { k } = engine.transform;
 	const hoveredNodeId = engine.hoveredNodeId;
 	const bounds = getViewportBounds(
 		engine.transform,
@@ -415,11 +687,6 @@ function drawFxLayer(engine: EngineState) {
 	);
 	const timeSeconds = performance.now() * 0.001;
 	const glowCenter = (timeSeconds * GLOW_SPEED) % 1;
-
-	ctx.save();
-	ctx.scale(dpr, dpr);
-	ctx.translate(tx, ty);
-	ctx.scale(k, k);
 
 	for (const link of engine.layout.links) {
 		if (hoveredNodeId !== link.sourceId && hoveredNodeId !== link.targetId) {
@@ -430,10 +697,26 @@ function drawFxLayer(engine: EngineState) {
 			continue;
 		}
 
-		const sx = Math.round(link.source.x);
-		const sy = Math.round(link.source.y);
-		const ex = Math.round(link.target.x);
-		const ey = Math.round(link.target.y);
+		const linkColor = colorToNumber(link.color, 0x555555);
+		const segmentPad = 0.35 / GLOW_STEPS;
+
+		drawLinkPath(layers.fx, link);
+		layers.fx.stroke({
+			color: linkColor,
+			alpha: 0.08,
+			width: screenWidthToWorld(6, k),
+			cap: "round",
+			join: "round",
+		});
+
+		drawLinkPath(layers.fx, link);
+		layers.fx.stroke({
+			color: linkColor,
+			alpha: 0.22,
+			width: screenWidthToWorld(1.4, k),
+			cap: "round",
+			join: "round",
+		});
 
 		for (let index = 0; index < GLOW_STEPS - 1; index += 1) {
 			const t0 = index / (GLOW_STEPS - 1);
@@ -454,30 +737,61 @@ function drawFxLayer(engine: EngineState) {
 				continue;
 			}
 
-			const [x0, y0] =
-				link.cpX != null && link.cpY != null
-					? sampleQuadratic(sx, sy, link.cpX, link.cpY, ex, ey, t0)
-					: [sx + (ex - sx) * t0, sy + (ey - sy) * t0];
-			const [x1, y1] =
-				link.cpX != null && link.cpY != null
-					? sampleQuadratic(sx, sy, link.cpX, link.cpY, ex, ey, t1)
-					: [sx + (ex - sx) * t1, sy + (ey - sy) * t1];
+			const [x0, y0] = sampleLink(link, Math.max(0, t0 - segmentPad));
+			const [x1, y1] = sampleLink(link, Math.min(1, t1 + segmentPad));
 
-			ctx.beginPath();
-			ctx.moveTo(x0, y0);
-			ctx.lineTo(x1, y1);
-			ctx.strokeStyle = link.color;
-			ctx.lineWidth = Math.max(3 / k, 1);
-			ctx.globalAlpha = glow * 0.5;
-			ctx.shadowColor = link.color;
-			ctx.shadowBlur = Math.max((25 * glow) / k, 8 * glow);
-			ctx.stroke();
+			layers.fx
+				.beginPath()
+				.moveTo(x0, y0)
+				.lineTo(x1, y1)
+				.stroke({
+					color: linkColor,
+					alpha: glow * 0.14,
+					width: screenWidthToWorld(5.5, k),
+					cap: "butt",
+					join: "round",
+				})
+				.beginPath()
+				.moveTo(x0, y0)
+				.lineTo(x1, y1)
+				.stroke({
+					color: linkColor,
+					alpha: glow * 0.6,
+					width: screenWidthToWorld(1.7, k),
+					cap: "butt",
+					join: "round",
+				});
 		}
 	}
+}
 
-	ctx.shadowColor = "transparent";
-	ctx.shadowBlur = 0;
-	ctx.restore();
+function createLayers() {
+	const world = new Container();
+	const groups = new Container();
+	const links = new Container();
+	const fx = new Graphics();
+	const nodes = new Container();
+	const labels = new Container();
+
+	world.addChild(groups, links, fx, nodes, labels);
+
+	return { world, groups, links, fx, nodes, labels };
+}
+
+function destroyLayers(layers: PixiLayers) {
+	const children: ContainerChild[] = [
+		layers.groups,
+		layers.links,
+		layers.fx,
+		layers.nodes,
+		layers.labels,
+	];
+
+	for (const child of children) {
+		child.destroy({ children: true });
+	}
+
+	layers.world.destroy({ children: true });
 }
 
 export default function NetworkGraph() {
@@ -487,19 +801,23 @@ export default function NetworkGraph() {
 	const groups = useGraphStore((state) => state.groups);
 	const networkMode = useGraphStore((state) => state.networkMode);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
-
+	const containerRef = useRef<HTMLDivElement | null>(null);
+	const canvasRef = useRef<HTMLCanvasElement | null>(null);
+	const scheduleRenderRef = useRef<(() => void) | null>(null);
 	const engineRef = useRef<EngineState>({
+		app: null,
+		layers: null,
+		canvas: null,
 		transform: { x: 0, y: 0, k: 0.5 },
 		width: 0,
 		height: 0,
-		theme: { bg: "#000", fg: "#fff", card: "#22" },
+		theme: { bg: 0x000000, fg: 0xffffff, card: 0x222222 },
 		hoveredNodeId: null,
 		hoveredGroupId: null,
 		connectedNodeIds: new Set<string>(),
 		isDragging: false,
 		isInteracting: false,
 		hasCentered: false,
-		avatarQualityTier: "settled",
 		pointerDownPos: { x: 0, y: 0 },
 		lastPointerPos: { x: 0, y: 0 },
 		layout: {
@@ -508,18 +826,12 @@ export default function NetworkGraph() {
 			groups: [],
 			nodeMap: new Map(),
 		},
-		baseCanvas: null,
-		baseCtx: null,
-		fxCanvas: null,
-		fxCtx: null,
-		baseDirty: true,
+		staticDirty: true,
 		fxDirty: true,
 		activeEffects: false,
 		animFrameId: 0,
 		settleTimer: null,
-		suppressAvatarFallbacksUntil: 0,
 	});
-	const scheduleRenderRef = useRef<(() => void) | null>(null);
 
 	const layout = useMemo<LayoutData>(() => {
 		return buildNetworkLayout(
@@ -533,305 +845,372 @@ export default function NetworkGraph() {
 
 	useEffect(() => {
 		const engine = engineRef.current;
+
 		engine.layout = layout;
-		engine.baseDirty = true;
+		engine.staticDirty = true;
 		engine.fxDirty = true;
-		if (scheduleRenderRef.current) {
-			prewarmVisibleAvatarSprites(engine, scheduleRenderRef.current);
-		}
 		scheduleRenderRef.current?.();
 	}, [layout]);
 
-	const containerRef = useCallback(
-		(element: HTMLDivElement | null) => {
-			if (!element) {
+	useEffect(() => {
+		const element = containerRef.current;
+		const canvas = canvasRef.current;
+
+		if (!element || !canvas) {
+			return;
+		}
+
+		const engine = engineRef.current;
+		const app = new Application();
+		const layers = createLayers();
+		let disposed = false;
+		let appInitialized = false;
+		let layersAddedToStage = false;
+		let layersDestroyed = false;
+		let resizeObserver: ResizeObserver | null = null;
+		let themeObserver: MutationObserver | null = null;
+
+		const safeDestroyLayers = () => {
+			if (layersDestroyed || layersAddedToStage) {
 				return;
 			}
 
-			const engine = engineRef.current;
-			const baseCanvas = element.querySelector<HTMLCanvasElement>(
-				"canvas[data-layer='base']",
-			);
-			const fxCanvas = element.querySelector<HTMLCanvasElement>(
-				"canvas[data-layer='fx']",
-			);
+			layersDestroyed = true;
+			destroyLayers(layers);
+		};
 
-			if (!baseCanvas || !fxCanvas) {
+		const safeDestroyApp = () => {
+			if (!appInitialized) {
 				return;
 			}
 
-			engine.baseCanvas = baseCanvas;
-			engine.fxCanvas = fxCanvas;
-			engine.baseCtx = baseCanvas.getContext("2d");
-			engine.fxCtx = fxCanvas.getContext("2d");
+			if (!layersAddedToStage) {
+				safeDestroyLayers();
+			}
 
-			const scheduleRender = () => {
-				if (engine.animFrameId) {
-					return;
+			app.destroy({ removeView: false }, { children: true });
+		};
+
+		const markDirty = (staticLayer = true, fxLayer = true) => {
+			if (staticLayer) {
+				engine.staticDirty = true;
+			}
+
+			if (fxLayer) {
+				engine.fxDirty = true;
+			}
+
+			scheduleRenderRef.current?.();
+		};
+
+		const recomputeConnectedNodeIds = () => {
+			engine.connectedNodeIds.clear();
+
+			if (!engine.hoveredNodeId) {
+				return;
+			}
+
+			for (const link of engine.layout.links) {
+				if (link.sourceId === engine.hoveredNodeId) {
+					engine.connectedNodeIds.add(link.targetId);
 				}
 
-				engine.animFrameId = window.requestAnimationFrame(() => {
-					engine.animFrameId = 0;
+				if (link.targetId === engine.hoveredNodeId) {
+					engine.connectedNodeIds.add(link.sourceId);
+				}
+			}
+		};
 
-					if (engine.baseDirty) {
-						drawBaseLayer(engine, scheduleRender);
-						engine.baseDirty = false;
-					}
+		const syncEffectState = () => {
+			const nextActiveEffects =
+				Boolean(engine.hoveredNodeId) && !engine.isInteracting;
 
-					if (engine.fxDirty || engine.activeEffects) {
-						drawFxLayer(engine);
-						engine.fxDirty = false;
-					}
+			if (engine.activeEffects !== nextActiveEffects) {
+				engine.activeEffects = nextActiveEffects;
+				engine.fxDirty = true;
+			}
+		};
 
-					if (engine.activeEffects) {
-						scheduleRender();
-					}
-				});
-			};
+		const scheduleRender = () => {
+			if (engine.animFrameId) {
+				return;
+			}
 
-			scheduleRenderRef.current = scheduleRender;
+			engine.animFrameId = window.requestAnimationFrame(() => {
+				engine.animFrameId = 0;
 
-			const markDirty = (base = true, fx = true) => {
-				if (base) {
-					engine.baseDirty = true;
+				if (engine.staticDirty) {
+					drawStaticScene(engine, scheduleRender);
+					engine.staticDirty = false;
+				} else {
+					syncWorldTransform(engine);
 				}
 
-				if (fx) {
-					engine.fxDirty = true;
+				if (engine.fxDirty || engine.activeEffects) {
+					drawFxLayer(engine);
+					engine.fxDirty = false;
 				}
 
-				scheduleRender();
-			};
+				engine.app?.render();
 
-			const recomputeConnectedNodeIds = () => {
-				engine.connectedNodeIds.clear();
-
-				if (!engine.hoveredNodeId) {
-					return;
+				if (engine.activeEffects) {
+					scheduleRender();
 				}
+			});
+		};
 
-				for (const link of engine.layout.links) {
-					if (link.sourceId === engine.hoveredNodeId) {
-						engine.connectedNodeIds.add(link.targetId);
-					}
+		const scheduleSettledQuality = () => {
+			if (engine.settleTimer !== null) {
+				window.clearTimeout(engine.settleTimer);
+			}
 
-					if (link.targetId === engine.hoveredNodeId) {
-						engine.connectedNodeIds.add(link.sourceId);
-					}
-				}
-			};
-
-			const syncEffectState = () => {
-				engine.activeEffects =
-					Boolean(engine.hoveredNodeId) && !engine.isInteracting;
-			};
-
-			const scheduleSettledQuality = () => {
-				if (engine.settleTimer !== null) {
-					window.clearTimeout(engine.settleTimer);
-				}
-
-				engine.settleTimer = window.setTimeout(() => {
-					engine.settleTimer = null;
-					engine.isInteracting = false;
-					engine.avatarQualityTier = "settled";
-					syncEffectState();
-					markDirty(true, true);
-				}, QUALITY_SETTLE_DELAY_MS);
-			};
-
-			const startInteraction = () => {
-				if (engine.settleTimer !== null) {
-					window.clearTimeout(engine.settleTimer);
-					engine.settleTimer = null;
-				}
-
-				engine.isInteracting = true;
-				engine.avatarQualityTier = "interactive";
+			engine.settleTimer = window.setTimeout(() => {
+				engine.settleTimer = null;
+				engine.isInteracting = false;
 				syncEffectState();
 				markDirty(true, true);
-			};
+			}, QUALITY_SETTLE_DELAY_MS);
+		};
 
-			const updateHoverState = (mouseX: number, mouseY: number) => {
-				const { x: tx, y: ty, k } = engine.transform;
-				const worldX = (mouseX - tx) / k;
-				const worldY = (mouseY - ty) / k;
-				const hitNodeId =
-					findNodeAtPosition(engine.layout.nodes, worldX, worldY)?.id ?? null;
+		const startInteraction = () => {
+			if (engine.settleTimer !== null) {
+				window.clearTimeout(engine.settleTimer);
+				engine.settleTimer = null;
+			}
 
-				if (engine.hoveredNodeId === hitNodeId) {
-					baseCanvas.style.cursor = hitNodeId ? "pointer" : "default";
-					return;
-				}
+			engine.isInteracting = true;
+			syncEffectState();
+			markDirty(false, false);
+		};
 
-				engine.hoveredNodeId = hitNodeId;
-				recomputeConnectedNodeIds();
-				syncEffectState();
-				baseCanvas.style.cursor = hitNodeId ? "pointer" : "default";
-				markDirty(true, true);
-			};
+		const updateHoverState = (mouseX: number, mouseY: number) => {
+			const { x: tx, y: ty, k } = engine.transform;
+			const worldX = (mouseX - tx) / k;
+			const worldY = (mouseY - ty) / k;
+			const hitNodeId =
+				findNodeAtPosition(engine.layout.nodes, worldX, worldY)?.id ?? null;
 
-			const updateTheme = () => {
-				const styles = getComputedStyle(document.documentElement);
-				engine.theme = {
-					bg: styles.getPropertyValue("--background").trim(),
-					fg: styles.getPropertyValue("--foreground").trim(),
-					card: styles.getPropertyValue("--card").trim(),
-				};
-				markDirty(true, false);
-			};
+			if (engine.hoveredNodeId === hitNodeId) {
+				canvas.style.cursor = hitNodeId ? "pointer" : "default";
+				return;
+			}
 
-			const getEventPos = (event: MouseEvent | PointerEvent | WheelEvent) => {
-				const rect = baseCanvas.getBoundingClientRect();
-
-				return { x: event.clientX - rect.left, y: event.clientY - rect.top };
-			};
-
-			const onWheel = (event: WheelEvent) => {
-				event.preventDefault();
-				startInteraction();
-
-				const pos = getEventPos(event);
-				const { x, y, k } = engine.transform;
-				const scaleAdjustment = Math.exp(-event.deltaY * 0.002);
-				const nextScale = Math.min(Math.max(k * scaleAdjustment, 0.03), 4);
-
-				engine.transform.x = pos.x - (pos.x - x) * (nextScale / k);
-				engine.transform.y = pos.y - (pos.y - y) * (nextScale / k);
-				engine.transform.k = nextScale;
-
-				markDirty(true, true);
-				scheduleSettledQuality();
-			};
-
-			const onPointerDown = (event: PointerEvent) => {
-				engine.isDragging = true;
-				startInteraction();
-				engine.lastPointerPos = { x: event.clientX, y: event.clientY };
-				engine.pointerDownPos = getEventPos(event);
-
-				baseCanvas.setPointerCapture(event.pointerId);
-				baseCanvas.style.cursor = "grabbing";
-			};
-
-			const onPointerMove = (event: PointerEvent) => {
-				if (engine.isDragging) {
-					const dx = event.clientX - engine.lastPointerPos.x;
-					const dy = event.clientY - engine.lastPointerPos.y;
-
-					engine.transform.x += dx;
-					engine.transform.y += dy;
-					engine.lastPointerPos = { x: event.clientX, y: event.clientY };
-					markDirty(true, false);
-					return;
-				}
-
-				const pos = getEventPos(event);
-				updateHoverState(pos.x, pos.y);
-			};
-
-			const endPointerInteraction = (event: PointerEvent) => {
-				engine.isDragging = false;
-				baseCanvas.releasePointerCapture(event.pointerId);
-
-				const pos = getEventPos(event);
-				const dx = pos.x - engine.pointerDownPos.x;
-				const dy = pos.y - engine.pointerDownPos.y;
-
-				updateHoverState(pos.x, pos.y);
-
-				if (dx * dx + dy * dy < 25 && engine.hoveredNodeId) {
-					setSelectedCharId(engine.hoveredNodeId);
-				}
-
-				scheduleSettledQuality();
-			};
-
-			const onPointerLeave = () => {
-				if (engine.isDragging) {
-					return;
-				}
-
-				if (engine.hoveredNodeId !== null) {
-					engine.hoveredNodeId = null;
-					engine.connectedNodeIds.clear();
-					syncEffectState();
-					baseCanvas.style.cursor = "default";
-					markDirty(true, true);
-				}
-			};
-
-			const resizeObserver = new ResizeObserver((entries) => {
-				const rect = entries[0].contentRect;
-				const dpr = window.devicePixelRatio || 1;
-
-				engine.width = rect.width;
-				engine.height = rect.height;
-
-				for (const canvas of [baseCanvas, fxCanvas]) {
-					canvas.width = rect.width * dpr;
-					canvas.height = rect.height * dpr;
-					canvas.style.width = `${rect.width}px`;
-					canvas.style.height = `${rect.height}px`;
-				}
-
-				if (!engine.hasCentered) {
-					engine.transform.x = rect.width / 2;
-					engine.transform.y = rect.height / 2;
-					engine.hasCentered = true;
-				}
-
-				prewarmVisibleAvatarSprites(engine, scheduleRender);
-				markDirty(true, true);
-			});
-
-			resizeObserver.observe(element);
-			updateTheme();
-
-			const themeObserver = new MutationObserver(updateTheme);
-			themeObserver.observe(document.documentElement, {
-				attributes: true,
-				attributeFilter: ["class"],
-			});
-
-			baseCanvas.addEventListener("wheel", onWheel, { passive: false });
-			baseCanvas.addEventListener("pointerdown", onPointerDown);
-			baseCanvas.addEventListener("pointermove", onPointerMove);
-			baseCanvas.addEventListener("pointerup", endPointerInteraction);
-			baseCanvas.addEventListener("pointercancel", endPointerInteraction);
-			baseCanvas.addEventListener("pointerleave", onPointerLeave);
-
+			engine.hoveredNodeId = hitNodeId;
+			recomputeConnectedNodeIds();
+			syncEffectState();
+			canvas.style.cursor = hitNodeId ? "pointer" : "default";
 			markDirty(true, true);
+		};
 
-			return () => {
-				if (engine.settleTimer !== null) {
-					window.clearTimeout(engine.settleTimer);
-					engine.settleTimer = null;
-				}
+		const updateTheme = () => {
+			const styles = getComputedStyle(document.documentElement);
 
-				if (engine.animFrameId) {
-					window.cancelAnimationFrame(engine.animFrameId);
-					engine.animFrameId = 0;
-				}
-
-				resizeObserver.disconnect();
-				themeObserver.disconnect();
-				baseCanvas.removeEventListener("wheel", onWheel);
-				baseCanvas.removeEventListener("pointerdown", onPointerDown);
-				baseCanvas.removeEventListener("pointermove", onPointerMove);
-				baseCanvas.removeEventListener("pointerup", endPointerInteraction);
-				baseCanvas.removeEventListener("pointercancel", endPointerInteraction);
-				baseCanvas.removeEventListener("pointerleave", onPointerLeave);
-
-				engine.baseCanvas = null;
-				engine.baseCtx = null;
-				engine.fxCanvas = null;
-				engine.fxCtx = null;
-				scheduleRenderRef.current = null;
+			engine.theme = {
+				bg: colorToNumber(
+					styles.getPropertyValue("--background"),
+					engine.theme.bg,
+				),
+				fg: colorToNumber(styles.getPropertyValue("--foreground"), 0xffffff),
+				card: colorToNumber(styles.getPropertyValue("--card"), 0x222222),
 			};
-		},
-		[setSelectedCharId],
-	);
+			markDirty(true, false);
+		};
+
+		const getEventPos = (event: MouseEvent | PointerEvent | WheelEvent) => {
+			const rect = canvas.getBoundingClientRect();
+
+			return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+		};
+
+		const onWheel = (event: WheelEvent) => {
+			event.preventDefault();
+			startInteraction();
+
+			const pos = getEventPos(event);
+			const { x, y, k } = engine.transform;
+			const scaleAdjustment = Math.exp(-event.deltaY * 0.002);
+			const nextScale = Math.min(Math.max(k * scaleAdjustment, 0.03), 4);
+
+			engine.transform.x = pos.x - (pos.x - x) * (nextScale / k);
+			engine.transform.y = pos.y - (pos.y - y) * (nextScale / k);
+			engine.transform.k = nextScale;
+
+			markDirty(false, false);
+			scheduleSettledQuality();
+		};
+
+		const onPointerDown = (event: PointerEvent) => {
+			engine.isDragging = true;
+			startInteraction();
+			engine.lastPointerPos = { x: event.clientX, y: event.clientY };
+			engine.pointerDownPos = getEventPos(event);
+
+			canvas.setPointerCapture(event.pointerId);
+			canvas.style.cursor = "grabbing";
+		};
+
+		const onPointerMove = (event: PointerEvent) => {
+			if (engine.isDragging) {
+				const dx = event.clientX - engine.lastPointerPos.x;
+				const dy = event.clientY - engine.lastPointerPos.y;
+
+				engine.transform.x += dx;
+				engine.transform.y += dy;
+				engine.lastPointerPos = { x: event.clientX, y: event.clientY };
+				markDirty(false, false);
+				return;
+			}
+
+			const pos = getEventPos(event);
+			updateHoverState(pos.x, pos.y);
+		};
+
+		const endPointerInteraction = (event: PointerEvent) => {
+			engine.isDragging = false;
+
+			try {
+				canvas.releasePointerCapture(event.pointerId);
+			} catch {
+				// Some browsers release capture automatically on cancellation.
+			}
+
+			const pos = getEventPos(event);
+			const dx = pos.x - engine.pointerDownPos.x;
+			const dy = pos.y - engine.pointerDownPos.y;
+
+			updateHoverState(pos.x, pos.y);
+
+			if (dx * dx + dy * dy < 25 && engine.hoveredNodeId) {
+				setSelectedCharId(engine.hoveredNodeId);
+			}
+
+			scheduleSettledQuality();
+		};
+
+		const onPointerLeave = () => {
+			if (engine.isDragging) {
+				return;
+			}
+
+			if (engine.hoveredNodeId !== null) {
+				engine.hoveredNodeId = null;
+				engine.connectedNodeIds.clear();
+				syncEffectState();
+				canvas.style.cursor = "default";
+				markDirty(true, true);
+			}
+		};
+
+		scheduleRenderRef.current = scheduleRender;
+		engine.canvas = canvas;
+		engine.layers = layers;
+
+		app
+			.init({
+				canvas,
+				preference: ["webgpu", "webgl", "canvas"],
+				antialias: true,
+				autoDensity: true,
+				autoStart: false,
+				backgroundAlpha: 0,
+				powerPreference: "high-performance",
+				resolution: window.devicePixelRatio || 1,
+			})
+			.then(() => {
+				appInitialized = true;
+
+				if (disposed) {
+					safeDestroyApp();
+					return;
+				}
+
+				engine.app = app;
+				app.stage.addChild(layers.world);
+				layersAddedToStage = true;
+
+				resizeObserver = new ResizeObserver((entries) => {
+					const rect = entries[0].contentRect;
+					const width = Math.max(rect.width, 1);
+					const height = Math.max(rect.height, 1);
+					const resolution = window.devicePixelRatio || 1;
+
+					engine.width = width;
+					engine.height = height;
+					app.renderer.resize(width, height, resolution);
+					canvas.style.width = `${width}px`;
+					canvas.style.height = `${height}px`;
+
+					if (!engine.hasCentered) {
+						engine.transform.x = width / 2;
+						engine.transform.y = height / 2;
+						engine.hasCentered = true;
+					}
+
+					markDirty(true, true);
+				});
+				resizeObserver.observe(element);
+
+				themeObserver = new MutationObserver(updateTheme);
+				themeObserver.observe(document.documentElement, {
+					attributes: true,
+					attributeFilter: ["class"],
+				});
+
+				updateTheme();
+				canvas.addEventListener("wheel", onWheel, { passive: false });
+				canvas.addEventListener("pointerdown", onPointerDown);
+				canvas.addEventListener("pointermove", onPointerMove);
+				canvas.addEventListener("pointerup", endPointerInteraction);
+				canvas.addEventListener("pointercancel", endPointerInteraction);
+				canvas.addEventListener("pointerleave", onPointerLeave);
+				markDirty(true, true);
+			})
+			.catch(() => {
+				engine.app = null;
+				engine.layers = null;
+			});
+
+		return () => {
+			disposed = true;
+
+			if (engine.settleTimer !== null) {
+				window.clearTimeout(engine.settleTimer);
+				engine.settleTimer = null;
+			}
+
+			if (engine.animFrameId) {
+				window.cancelAnimationFrame(engine.animFrameId);
+				engine.animFrameId = 0;
+			}
+
+			resizeObserver?.disconnect();
+			themeObserver?.disconnect();
+			canvas.removeEventListener("wheel", onWheel);
+			canvas.removeEventListener("pointerdown", onPointerDown);
+			canvas.removeEventListener("pointermove", onPointerMove);
+			canvas.removeEventListener("pointerup", endPointerInteraction);
+			canvas.removeEventListener("pointercancel", endPointerInteraction);
+			canvas.removeEventListener("pointerleave", onPointerLeave);
+			canvas.style.cursor = "default";
+
+			if (engine.app === app) {
+				engine.app = null;
+			}
+
+			if (engine.layers === layers) {
+				engine.layers = null;
+			}
+
+			engine.canvas = null;
+			scheduleRenderRef.current = null;
+
+			if (appInitialized) {
+				safeDestroyApp();
+			} else {
+				safeDestroyLayers();
+			}
+		};
+	}, [setSelectedCharId]);
 
 	return (
 		<div
@@ -839,12 +1218,10 @@ export default function NetworkGraph() {
 			ref={containerRef}
 		>
 			<canvas
-				className="absolute inset-0 block pointer-events-auto"
-				data-layer="base"
-			/>
-			<canvas
-				className="pointer-events-none absolute inset-0 block"
-				data-layer="fx"
+				aria-label="Network graph"
+				className="absolute inset-0 block h-full w-full pointer-events-auto"
+				data-layer="pixi"
+				ref={canvasRef}
 			/>
 
 			{networkMode === "group" && (
@@ -852,31 +1229,7 @@ export default function NetworkGraph() {
 					{groups.map((group) => (
 						<div
 							key={group.id}
-							className="flex cursor-pointer items-center gap-2 rounded-full border border-foreground/5 bg-card/40 px-3 py-1.5 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
-							onMouseEnter={() => {
-								const engine = engineRef.current;
-
-								if (engine.hoveredGroupId === group.id) {
-									return;
-								}
-
-								engine.hoveredGroupId = group.id;
-								engine.baseDirty = true;
-								engine.fxDirty = true;
-								scheduleRenderRef.current?.();
-							}}
-							onMouseLeave={() => {
-								const engine = engineRef.current;
-
-								if (engine.hoveredGroupId === null) {
-									return;
-								}
-
-								engine.hoveredGroupId = null;
-								engine.baseDirty = true;
-								engine.fxDirty = true;
-								scheduleRenderRef.current?.();
-							}}
+							className="flex cursor-default items-center gap-2 rounded-full border border-foreground/5 bg-card/40 px-3 py-1.5 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
 						>
 							<div
 								className="h-2 w-2 rounded-full"
