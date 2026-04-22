@@ -17,8 +17,8 @@ const defaultData = {
 	groups: [] as Group[],
 	relationshipTypes: [] as RelationshipType[],
 };
-type ViewMode = "character" | "network" | "chat";
-type NetworkMode = "group" | "global";
+type ViewMode = "character" | "network" | "chat" | "link";
+type NetworkMode = "group" | "groups" | "global";
 
 interface GraphState {
 	// --- LOAD STATE ---
@@ -32,11 +32,20 @@ interface GraphState {
 	selectedCharId: string | null;
 	viewMode: ViewMode;
 	networkMode: NetworkMode;
+	linkViewSourceId: string | null;
+	linkViewTargetId: string | null;
+	linkViewTypeId: string | null;
 
 	// --- ACTIONS: UI ---
 	setSelectedCharId: (id: string | null) => void;
 	setViewMode: (mode: ViewMode) => void;
 	setNetworkMode: (mode: NetworkMode) => void;
+	setLinkViewSelection: (selection: {
+		sourceId?: string | null;
+		targetId?: string | null;
+		typeId?: string | null;
+	}) => void;
+	randomizeLinkView: () => void;
 
 	// --- ACTIONS: CHARACTERS ---
 	addCharacter: (char: Omit<Omit<Character, "id">, "ownerId">) => void;
@@ -74,11 +83,54 @@ export const useGraphStore = create<GraphState>()(
 			selectedCharId: null,
 			viewMode: "character" as ViewMode,
 			networkMode: "group" as NetworkMode,
+			linkViewSourceId: null,
+			linkViewTargetId: null,
+			linkViewTypeId: null,
 
 			// --- UI ---
 			setSelectedCharId: (id) => set({ selectedCharId: id }),
 			setViewMode: (mode) => set({ viewMode: mode }),
 			setNetworkMode: (mode) => set({ networkMode: mode }),
+			setLinkViewSelection: ({ sourceId, targetId, typeId }) =>
+				set((state) => ({
+					linkViewSourceId:
+						sourceId === undefined ? state.linkViewSourceId : sourceId,
+					linkViewTargetId:
+						targetId === undefined ? state.linkViewTargetId : targetId,
+					linkViewTypeId: typeId === undefined ? state.linkViewTypeId : typeId,
+				})),
+			randomizeLinkView: () => {
+				const { characters, linkViewTypeId, relationships, relationshipTypes } =
+					get();
+				const activeTypeId = linkViewTypeId ?? relationshipTypes[0]?.id ?? null;
+				const characterIds = new Set(
+					characters.map((character) => character.id),
+				);
+				const eligibleRelationships = relationships.filter(
+					(relationship) =>
+						relationship.typeId === activeTypeId &&
+						characterIds.has(relationship.fromId) &&
+						characterIds.has(relationship.toId),
+				);
+
+				if (!activeTypeId || eligibleRelationships.length === 0) {
+					set({
+						linkViewTypeId: activeTypeId,
+					});
+					return;
+				}
+
+				const relationship =
+					eligibleRelationships[
+						Math.floor(Math.random() * eligibleRelationships.length)
+					];
+
+				set({
+					linkViewSourceId: relationship.fromId,
+					linkViewTargetId: relationship.toId,
+					linkViewTypeId: activeTypeId,
+				});
+			},
 
 			// --- CHARACTERS ---
 			addCharacter: async (char) => {

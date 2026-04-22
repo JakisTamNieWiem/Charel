@@ -261,12 +261,10 @@ export default function ChatWindow() {
 	// Empty state
 	if (!activeChatId && !pendingCharacter) {
 		return (
-			<div className="flex-1 flex items-center justify-center text-muted-foreground">
-				<div className="text-center">
-					<p className="text-lg font-medium mb-1">No chat selected</p>
-					<p className="text-xs opacity-60">
-						Pick a conversation from the sidebar
-					</p>
+			<div className="chat-empty-state">
+				<div>
+					<p>No chat selected</p>
+					<span>Pick a conversation from the sidebar</span>
 				</div>
 			</div>
 		);
@@ -286,6 +284,23 @@ export default function ChatWindow() {
 		}
 		return activeChat.name || "Chat";
 	})();
+	const headerAvatar = (() => {
+		if (pendingCharacter) return pendingCharacter.avatar;
+		if (!activeChat) return null;
+		if (activeChat.isGroup) return activeChat.cover;
+		const other = members.find((m) => m.characterId !== activeSpeakerId);
+		const char = characters.find((c) => c.id === other?.characterId);
+		return char?.avatar ?? null;
+	})();
+	const headerSubtitle = (() => {
+		if (pendingCharacter) return "New direct conversation";
+		if (activeChat?.isGroup) {
+			return `${members.length} ${members.length === 1 ? "member" : "members"}`;
+		}
+		const other = members.find((m) => m.characterId !== activeSpeakerId);
+		const char = characters.find((c) => c.id === other?.characterId);
+		return char?.phoneNumber?.trim() || "Direct conversation";
+	})();
 
 	// Group messages by date
 	const groupedMessages: { date: string; msgs: Message[] }[] = [];
@@ -303,9 +318,11 @@ export default function ChatWindow() {
 		characters.find((c) => c.id === activeSpeakerId)?.name ?? "character";
 
 	return (
-		<div className="flex flex-col h-full">
+		<div className="chat-window">
 			<ChatHeader
 				headerName={headerName}
+				subtitle={headerSubtitle}
+				avatarUrl={headerAvatar}
 				isGroup={activeChat?.isGroup ?? false}
 				chatId={activeChatId}
 				members={members}
@@ -323,33 +340,29 @@ export default function ChatWindow() {
 			<div
 				key={activeChatId ?? pendingCharacterId ?? "chat-scroll"}
 				ref={scrollRef}
-				className="flex-1 overflow-y-auto no-scrollbar"
+				className="chat-scroll no-scrollbar"
 				style={{ overflowAnchor: "none" }}
 			>
-				<div ref={messagesContentRef} className="px-6 py-4 space-y-1">
+				<div ref={messagesContentRef} className="chat-message-list">
 					{isFetchingNextPage && (
-						<div className="flex justify-center py-4">
+						<div className="chat-loader-row">
 							<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
 						</div>
 					)}
 					{hasNextPage && !isFetchingNextPage && (
-						<div className="flex justify-center py-2">
+						<div className="chat-loader-row">
 							<button
 								onClick={() => fetchNextPage()}
-								className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+								className="chat-load-more"
 							>
 								Load older messages
 							</button>
 						</div>
 					)}
 					{groupedMessages.map((group) => (
-						<div key={group.date}>
-							<div className="flex items-center gap-3 my-4">
-								<div className="flex-1 h-px bg-white/10" />
-								<span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground shrink-0">
-									{formatDateHeader(group.msgs[0].created_at)}
-								</span>
-								<div className="flex-1 h-px bg-white/10" />
+						<div key={group.date} className="chat-date-group">
+							<div className="chat-date-divider">
+								<span>{formatDateHeader(group.msgs[0].created_at)}</span>
 							</div>
 							{group.msgs.map((msg) => (
 								<MessageBubble
@@ -379,7 +392,7 @@ export default function ChatWindow() {
 			</div>
 
 			{/* Input area */}
-			<div className="shrink-0 px-6 py-3 border-t border-white/10 bg-background/60 backdrop-blur-md">
+			<div className="chat-input-shell">
 				<ChatInput
 					draft={draft}
 					onDraftChange={setDraft}

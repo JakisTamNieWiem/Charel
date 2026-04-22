@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
 	Sidebar,
 	SidebarContent,
@@ -45,11 +44,15 @@ type SidebarTab =
 	| "settings"
 	| "chat";
 
+type SidebarViewMode = "character" | "network" | "chat" | "link";
+type SidebarNetworkMode = "group" | "groups" | "global";
+type RestorableNetworkMode = Exclude<SidebarNetworkMode, "groups">;
+
 const navItems: {
 	value: SidebarTab;
 	icon: React.ElementType;
 	title: string;
-	viewMode: "character" | "network" | "chat";
+	viewMode: SidebarViewMode;
 }[] = [
 	{
 		value: "characters",
@@ -68,7 +71,7 @@ const navItems: {
 		value: "types",
 		icon: Link,
 		title: "Relationship Types",
-		viewMode: "character",
+		viewMode: "link",
 	},
 	{ value: "chat", icon: MessageCircle, title: "Chat", viewMode: "chat" },
 	{
@@ -79,14 +82,42 @@ const navItems: {
 	},
 ];
 
+function defaultTabForViewMode(
+	viewMode: SidebarViewMode,
+	networkMode: SidebarNetworkMode,
+): SidebarTab {
+	if (viewMode === "network" && networkMode === "groups") return "groups";
+	if (viewMode === "network") return "network";
+	if (viewMode === "link") return "types";
+	if (viewMode === "chat") return "chat";
+	return "characters";
+}
+
+function tabMatchesViewMode(tab: SidebarTab, viewMode: SidebarViewMode) {
+	return navItems.some(
+		(item) => item.value === tab && item.viewMode === viewMode,
+	);
+}
+
 export default function AppSidebar() {
+	const viewMode = useGraphStore((state) => state.viewMode);
 	const setViewMode = useGraphStore((state) => state.setViewMode);
+	const networkMode = useGraphStore(
+		(state) => state.networkMode,
+	) as SidebarNetworkMode;
+	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
+	const randomizeLinkView = useGraphStore((state) => state.randomizeLinkView);
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
 	const isSyncing = useGraphStore((state) => state.isSyncing);
 	const [session, setSession] = useState<Session | null>(null);
-	const [activeTab, setActiveTab] = useState<SidebarTab>("characters");
+	const lastNetworkModeRef = useRef<RestorableNetworkMode>(
+		networkMode === "groups" ? "group" : networkMode,
+	);
+	const [activeTab, setActiveTab] = useState<SidebarTab>(() =>
+		defaultTabForViewMode(viewMode, networkMode),
+	);
 
-	const [version, setVersion] = useState<string>("");
+	const [version, setVersion] = useState<string>("v1.0.0");
 
 	const { data: profile } = useProfile();
 	const { data: chats = [] } = useChats();
@@ -123,108 +154,144 @@ export default function AppSidebar() {
 	const contentRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
+		if (networkMode !== "groups") {
+			lastNetworkModeRef.current = networkMode;
+		}
+	}, [networkMode]);
+
+	useEffect(() => {
+		if (activeTab === "types") {
+			randomizeLinkView();
+		}
+	}, [activeTab, randomizeLinkView]);
+
+	useEffect(() => {
+		const defaultTab = defaultTabForViewMode(viewMode, networkMode);
+
+		setActiveTab((currentTab) => {
+			if (!tabMatchesViewMode(currentTab, viewMode)) {
+				return defaultTab;
+			}
+
+			if (viewMode === "network") {
+				return defaultTab;
+			}
+
+			return currentTab;
+		});
+	}, [networkMode, viewMode]);
+
+	useEffect(() => {
 		supabase.auth.getSession().then(({ data }) => setSession(data.session));
 		supabase.auth.onAuthStateChange((_e, s) => setSession(s));
 		getDesktopApi()
 			?.app.getVersion()
-			.then((v) => setVersion(`Version: ${v}`));
+			.then((v) => setVersion(`v${v}`));
 	}, []);
 
 	const displayName = (() => {
-		if (profile?.displayName) {
-			return profile.displayName;
-		} else if (session?.user.email) {
-			return (
-				session.user.email?.split("@")[0][0].toUpperCase() +
-				session.user.email?.split("@")[0].slice(1)
-			);
-		} else return "Charel";
+		if (profile?.displayName) return profile.displayName;
+		if (session?.user.email) {
+			const emailName = session.user.email.split("@")[0];
+			return emailName[0].toUpperCase() + emailName.slice(1);
+		}
+		return "GUEST";
 	})();
 
 	const roleBadge = (() => {
-		if (profile?.role === "dm") {
-			return (
-				<span className="font-mono tracking-normal mt-1 text-sm text-muted-foreground">
-					DM
-				</span>
-			);
-		} else if (profile?.role === "player") {
-			return (
-				<span className="font-mono tracking-normal mt-1 text-sm text-muted-foreground">
-					Player
-				</span>
-			);
-		} else
-			return (
-				<span className="font-mono tracking-normal mt-1 text-sm text-muted-foreground">
-					Anon
-				</span>
-			);
+		if (profile?.role === "dm") return "SYSTEM_ADMIN";
+		if (profile?.role === "player") return "AUTHORIZED_USER";
+		return "GUEST_ACCESS";
 	})();
 
 	return (
-		<Sidebar variant="inset" collapsible="icon" className="pt-0 z-45 pl-0">
-			<div className="h-full flex flex-row gap-0">
-				<div className="flex flex-col h-full border-r border-sidebar-border bg-sidebar shrink-0 w-(--sidebar-width-icon)">
-					<div className="flex flex-col justify-center gap-2 py-2 px-1 flex-1">
-						{navItems.map(({ value, icon: Icon, title, viewMode }) => (
-							<Button
-								key={value}
-								variant="ghost"
-								title={title}
-								onClick={() => {
-									setActiveTab(value);
-									setViewMode(viewMode);
-									contentRef.current?.scrollTo(0, 0);
-								}}
-								className={cn(
-									"inline-flex items-center justify-center rounded-md px-2 py-1 transition-all [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 relative",
-									activeTab === value
-										? "text-foreground bg-background shadow-sm dark:bg-input/30"
-										: "text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground",
-								)}
-							>
-								<Icon className="w-4 h-4" />
-								{value === "chat" && hasUnread && (
-									<span className="absolute top-1 right-1 flex h-2 w-2">
-										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-										<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-									</span>
-								)}
-							</Button>
-						))}
+		<Sidebar
+			variant="sidebar"
+			collapsible="icon"
+			className="pt-0 z-[45] pl-0 border-r-0"
+		>
+			<div className="h-full flex flex-row bg-sidebar">
+				{/* Left Navigation Rail */}
+				<div className="flex flex-col h-full bg-card/50 border-r border-border shrink-0 w-[var(--sidebar-width-icon)] z-20 shadow-[4px_0_24px_rgba(0,0,0,0.05)]">
+					<div className="flex flex-col items-center gap-4 py-6 flex-1">
+						{navItems.map(({ value, icon: Icon, title, viewMode }) => {
+							const isActive = activeTab === value;
+							return (
+								<button
+									key={value}
+									title={title}
+									onClick={() => {
+										setActiveTab(value);
+										setViewMode(viewMode);
+										if (value === "groups") {
+											setNetworkMode("groups");
+										} else if (value === "network") {
+											setNetworkMode(lastNetworkModeRef.current);
+										}
+										contentRef.current?.scrollTo(0, 0);
+									}}
+									className={cn(
+										"relative group flex items-center justify-center w-10 h-10 transition-all duration-500",
+										isActive
+											? "text-primary"
+											: "text-muted-foreground hover:text-foreground",
+									)}
+								>
+									<Icon
+										className={cn(
+											"w-5 h-5 transition-all duration-500 relative z-10",
+											isActive &&
+												"scale-110 drop-shadow-[0_0_8px_rgba(var(--primary),0.8)]",
+										)}
+										strokeWidth={isActive ? 2 : 1.5}
+									/>
+
+									{value === "chat" && hasUnread && (
+										<span className="absolute top-2 right-2 flex h-2 w-2 z-20">
+											<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+											<span className="relative inline-flex rounded-full h-2 w-2 bg-destructive border-[1.5px] border-background" />
+										</span>
+									)}
+								</button>
+							);
+						})}
 					</div>
-					<div className="py-2 px-1">
-						<SidebarTrigger
-							variant="ghost"
-							className="w-full inline-flex items-center justify-center rounded-md px-2 py-1 text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground cursor-pointer"
-						/>
+					<div className="py-4 flex justify-center border-t border-border/50">
+						<SidebarTrigger className="w-10 h-10 hover:bg-secondary/80 rounded-xl transition-colors" />
 					</div>
 				</div>
 
-				<div className="flex flex-col flex-1 min-w-0 overflow-hidden group-data-[state=collapsed]:hidden">
-					<SidebarHeader className="p-2 pb-4 pt-8 gap-4">
-						<div className="w-full flex justify-between items-center">
-							<div className="flex gap-2 items-center px-2">
-								<div className="flex flex-col">
+				{/* Main Sidebar Content Area */}
+				<div className="flex flex-col flex-1 min-w-0 overflow-hidden group-data-[state=collapsed]:hidden bg-sidebar/30 relative z-10 shadow-[8px_0_24px_rgba(0,0,0,0.02)]">
+					<SidebarHeader className="p-0 border-b border-border/40 bg-background/40 backdrop-blur-md">
+						<div className="flex flex-col p-6 gap-6 relative overflow-hidden">
+							<div className="flex justify-between items-start z-10">
+								<div className="flex flex-col gap-1">
 									<h1
 										title={version}
-										className="text-3xl font-black leading-none tracking-tighter serif self-end"
+										className="text-2xl font-black tracking-tighter uppercase text-foreground"
 									>
 										{displayName}
 									</h1>
-									{roleBadge}
+									<div className="flex items-center gap-2">
+										<span className="inline-block w-1.5 h-1.5 bg-primary rounded-sm" />
+										<span className="font-mono text-[10px] tracking-widest uppercase text-muted-foreground font-semibold">
+											{roleBadge}
+										</span>
+									</div>
 								</div>
 							</div>
-							<div className="flex flex-col">
+
+							<div className="flex items-center justify-between z-10 bg-secondary/30 rounded-lg p-2 border border-border/50">
 								<Button
 									variant="ghost"
+									size="sm"
 									disabled={isSyncing}
 									className={cn(
-										"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest transition-all z-150",
+										"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest h-7 px-2",
 										session
-											? "text-emerald-400 dark:text-emerald-600"
-											: "text-red-500 dark:text-red-400",
+											? "text-primary hover:text-primary/80"
+											: "text-destructive hover:text-destructive/80",
 									)}
 									onClick={() =>
 										session ? supabase.auth.signOut() : setLoginModalOpen(true)
@@ -237,18 +304,16 @@ export default function AppSidebar() {
 									) : (
 										<CloudOff className="w-3 h-3" />
 									)}
-
-									{isSyncing ? "Syncing..." : session ? "Online" : "Offline"}
+									{isSyncing ? "SYNCING" : session ? "CONNECTED" : "OFFLINE"}
 								</Button>
+								<div className="h-4 w-px bg-border/50 mx-1" />
 								<ThemeToggle />
 							</div>
 						</div>
 					</SidebarHeader>
-					<div className="px-3">
-						<Separator />
-					</div>
-					<SidebarContent ref={contentRef}>
-						<SidebarGroup className="pt-0 pr-0">
+
+					<SidebarContent ref={contentRef} className="px-3 pt-0 pb-4">
+						<SidebarGroup className="p-0">
 							{activeTab === "characters" && <CharacterTab />}
 							{activeTab === "network" && <NetworkTab />}
 							{activeTab === "groups" && <GroupsTab />}

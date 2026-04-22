@@ -48,52 +48,47 @@ export default function MessageBubble({
 		displayName ?? (char && "name" in char ? char.name : "Unknown");
 	const charAvatar = char && "avatar" in char ? char.avatar : null;
 	const isPending = msg._pending;
+	const isOwn = msg.characterId === activeSpeakerId;
 
 	if (isSystemContent(msg.content)) {
 		return (
-			<div className="flex items-center gap-3 my-2 px-2">
-				<div className="flex-1 h-px bg-white/10" />
+			<div className="chat-system-message">
 				<MessageContent content={msg.content} />
-				<div className="flex-1 h-px bg-white/10" />
 			</div>
 		);
 	}
 
 	return (
 		<div
-			className={`group/msg flex px-2 gap-3 py-1.5 ${isPending ? "opacity-50" : ""} hover:bg-white/5 rounded-md mb-2`}
+			className={`chat-message group/msg ${isOwn ? "is-own" : ""} ${
+				isPending ? "is-pending" : ""
+			}`}
 		>
-			<Avatar className="size-11 shrink-0 mt-0.5">
+			<Avatar className="chat-message-avatar">
 				<AvatarImage src={charAvatar ?? undefined} />
 				<AvatarFallback className="text-[10px]">{charName[0]}</AvatarFallback>
 			</Avatar>
-			<div className="flex-1 min-w-0">
-				<div className="flex items-baseline gap-2">
-					<span className="text-md font-semibold">{charName}</span>
+			<div className="chat-message-body">
+				<div className="chat-message-meta">
+					<span className="chat-message-name">{charName}</span>
 					{isPending ? (
-						<span className="text-[10px] text-muted-foreground italic">
-							sending...
-						</span>
+						<span className="chat-message-state">sending...</span>
 					) : (
-						<span className="text-[10px] text-muted-foreground">
+						<span className="chat-message-time">
 							{new Date(msg.created_at).toLocaleTimeString([], {
 								hour: "2-digit",
 								minute: "2-digit",
 							})}
 						</span>
 					)}
-					{msg.edited_at && (
-						<span className="text-[9px] text-muted-foreground italic">
-							(edited)
-						</span>
-					)}
+					{msg.edited_at && <span className="chat-message-state">edited</span>}
 				</div>
 				{isEditing ? (
-					<div ref={editRef} className="mt-1 space-y-2">
+					<div ref={editRef} className="chat-message-edit">
 						<Textarea
 							value={editContent}
 							onChange={(e) => onEditContentChange(e.target.value)}
-							className="text-sm min-h-[60px] bg-white/5"
+							className="chat-message-editarea"
 							onKeyDown={(e) => {
 								if (e.key === "Enter" && !e.shiftKey) {
 									e.preventDefault();
@@ -103,7 +98,7 @@ export default function MessageBubble({
 							}}
 							autoFocus
 						/>
-						<div className="flex gap-1">
+						<div className="chat-message-edit-actions">
 							<Button size="sm" variant="ghost" onClick={onConfirmEdit}>
 								<Check className="w-3 h-3 mr-1" /> Save
 							</Button>
@@ -113,15 +108,15 @@ export default function MessageBubble({
 						</div>
 					</div>
 				) : (
-					<div className="mt-0.5">
+					<div className="chat-message-content">
 						<MessageContent content={msg.content} />
 					</div>
 				)}
 			</div>
-			{!isEditing && !isPending && msg.characterId === activeSpeakerId && (
-				<div className="opacity-0 group-hover/msg:opacity-100 shrink-0">
+			{!isEditing && !isPending && isOwn && (
+				<div className="chat-message-actions">
 					<DropdownMenu>
-						<DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md p-1 text-foreground/60 hover:text-foreground hover:bg-white/10 transition-colors">
+						<DropdownMenuTrigger className="chat-message-menu">
 							<EllipsisVertical className="w-3.5 h-3.5" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">

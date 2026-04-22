@@ -1,7 +1,16 @@
 import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import CharacterGraph from "@/components/CharacterGraph";
 import ChatWindow from "@/components/chat/ChatWindow";
+import GraphLoadingOverlay from "@/components/GraphLoadingOverlay";
+import LinkView from "@/components/LinkView";
 import NetworkGraph from "@/components/NetworkGraph";
 import AppSidebar from "@/components/Sidebar/Sidebar";
 import TypeModal from "@/components/TypeModal";
@@ -13,7 +22,10 @@ import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { Circle, LayoutGrid } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { sendChatNotification } from "@/hooks/use-notifications";
+import {
+	getMessageNotificationPreview,
+	sendChatNotification,
+} from "@/hooks/use-notifications";
 import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
@@ -22,6 +34,8 @@ import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
 import { useChatStore } from "./store/useChatStore";
+
+const GRAPH_LOADER_MIN_MS = 1000;
 
 function App() {
 	// Supabase
@@ -36,6 +50,17 @@ function App() {
 	const viewMode = useGraphStore((state) => state.viewMode);
 	const networkMode = useGraphStore((state) => state.networkMode);
 	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
+	const characterCount = useGraphStore((state) => state.characters.length);
+	const relationshipCount = useGraphStore(
+		(state) => state.relationships.length,
+	);
+	const relationshipTypeCount = useGraphStore(
+		(state) => state.relationshipTypes.length,
+	);
+	const groupCount = useGraphStore((state) => state.groups.length);
+	const pendingChatCount = useChatStore(
+		(state) => state.pendingMessages.length,
+	);
 
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
 
@@ -276,10 +301,10 @@ function App() {
 						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
 						queryClient.invalidateQueries({ queryKey: ["chats"] });
 
-						// Send native notification if not active chat or app is not focused
+						// Send native notification for incoming user messages.
 						if (
-							useChatStore.getState().activeChatId !== chatId ||
-							!document.hasFocus()
+							msg.userId !== session.user.id &&
+							!msg.content.startsWith("[system]")
 						) {
 							const { data } = await supabase
 								.from("Messages")
@@ -294,25 +319,10 @@ function App() {
 								// Skip system messages — they don't need notifications
 								if (content.startsWith("[system]")) return;
 
-								const preview = content.startsWith("[img]")
-									? "sent an image"
-									: content.length > 50
-										? `${content.slice(0, 50)}...`
-										: content;
-
-								// Use group cover if available, otherwise fall back to sender avatar
-								const { data: chatData } = await supabase
-									.from("Chats")
-									.select("isGroup, cover")
-									.eq("id", chatId)
-									.single();
-
-								const avatarUrl =
-									chatData?.isGroup && chatData.cover
-										? chatData.cover
-										: data.character?.avatar;
-
-								const localAvatar = await getLocalAvatarPath(avatarUrl);
+								const preview = getMessageNotificationPreview(content);
+								const localAvatar = await getLocalAvatarPath(
+									data.character?.avatar,
+								);
 								sendChatNotification({
 									charName,
 									body: preview,
@@ -382,6 +392,93 @@ function App() {
 
 	// Prevent rendering the app until data is loaded from disk to prevent flashing
 	const appReady = isDataLoaded;
+	const graphLoadKey = useMemo(() => {
+		if (viewMode === "network") {
+			return networkMode === "groups" ? "network:groups" : "network";
+		}
+
+		if (viewMode === "link") {
+			return "link";
+		}
+
+		if (viewMode === "chat") {
+			return "chat";
+		}
+
+		if (viewMode === "character" && selectedCharacter) {
+			return "character";
+		}
+
+		return null;
+	}, [networkMode, selectedCharacter, viewMode]);
+	const [loadingGraphKey, setLoadingGraphKey] = useState<string | null>(null);
+	const graphLoaderStartedAtRef = useRef(0);
+	const graphLoaderTimeoutRef = useRef<number | null>(null);
+	const isGraphLoading = Boolean(
+		graphLoadKey && loadingGraphKey === graphLoadKey,
+	);
+
+	useLayoutEffect(() => {
+		if (graphLoaderTimeoutRef.current !== null) {
+			window.clearTimeout(graphLoaderTimeoutRef.current);
+			graphLoaderTimeoutRef.current = null;
+		}
+
+		if (!appReady || !graphLoadKey) {
+			setLoadingGraphKey(null);
+			return;
+		}
+
+		graphLoaderStartedAtRef.current = performance.now();
+		setLoadingGraphKey(graphLoadKey);
+
+		if (graphLoadKey === "link" || graphLoadKey === "chat") {
+			graphLoaderTimeoutRef.current = window.setTimeout(() => {
+				graphLoaderTimeoutRef.current = null;
+				setLoadingGraphKey((currentKey) =>
+					currentKey === graphLoadKey ? null : currentKey,
+				);
+			}, GRAPH_LOADER_MIN_MS);
+		}
+	}, [appReady, graphLoadKey]);
+
+	useEffect(() => {
+		return () => {
+			if (graphLoaderTimeoutRef.current !== null) {
+				window.clearTimeout(graphLoaderTimeoutRef.current);
+			}
+		};
+	}, []);
+
+	const handleGraphReady = useCallback((readyKey: string | null) => {
+		if (!readyKey) {
+			return;
+		}
+
+		const elapsed = performance.now() - graphLoaderStartedAtRef.current;
+		const remaining = Math.max(0, GRAPH_LOADER_MIN_MS - elapsed);
+		const clearMatchingLoader = () => {
+			setLoadingGraphKey((currentKey) =>
+				currentKey === readyKey ? null : currentKey,
+			);
+		};
+
+		if (graphLoaderTimeoutRef.current !== null) {
+			window.clearTimeout(graphLoaderTimeoutRef.current);
+			graphLoaderTimeoutRef.current = null;
+		}
+
+		if (remaining > 0) {
+			graphLoaderTimeoutRef.current = window.setTimeout(() => {
+				graphLoaderTimeoutRef.current = null;
+				clearMatchingLoader();
+			}, remaining);
+			return;
+		}
+
+		clearMatchingLoader();
+	}, []);
+
 	return (
 		<>
 			<AnimatePresence mode="wait">
@@ -398,50 +495,89 @@ function App() {
 				<SidebarProvider
 					defaultOpen={true}
 					style={{ "--sidebar-width": "22rem" } as React.CSSProperties}
-					className="max-h-screen! max-w-screen! pt-6"
+					className="max-h-screen! max-w-screen! pt-8"
 				>
 					<AppSidebar />
 					<SidebarInset
 						className={cn(
-							"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80",
+							"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! ring-0 border border-border/30 rounded-2xl ml-8 mb-8 mr-8 after:content-[''] after:absolute after:inset-0 after:rounded-2xl after:shadow-[inset_0_0_30px_rgba(0,0,0,0.1)] after:pointer-events-none after:z-[100]",
+							viewMode === "chat" && "shadow-2xl",
 							viewMode !== "chat" && "bg-dot-grid",
 						)}
 					>
 						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
-							{viewMode === "chat" ? (
-								<ChatWindow />
-							) : viewMode === "network" ? (
+							{appReady && (
 								<>
-									<NetworkGraph />
-									<div className="absolute top-6 right-6 z-10">
-										<Tabs
-											value={networkMode}
-											onValueChange={(v) => setNetworkMode(v)}
-											orientation="vertical"
-										>
-											<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
-												<TabsTrigger
-													value="group"
-													className="h-7 px-3 text-[11px]"
-												>
-													<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
-												</TabsTrigger>
-												<TabsTrigger
-													value="global"
-													className="h-7 px-3 text-[11px]"
-												>
-													<Circle className="w-3 h-3 mr-1.5" /> Global
-												</TabsTrigger>
-											</TabsList>
-										</Tabs>
-									</div>
+									{viewMode === "chat" ? (
+										<ChatWindow />
+									) : viewMode === "link" ? (
+										<LinkView />
+									) : viewMode === "network" ? (
+										<>
+											<NetworkGraph
+												onReady={() => handleGraphReady(graphLoadKey)}
+											/>
+											{networkMode !== "groups" && (
+												<div className="absolute top-6 right-6 z-10">
+													<Tabs
+														value={networkMode}
+														onValueChange={(v) => setNetworkMode(v)}
+														orientation="vertical"
+													>
+														<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
+															<TabsTrigger
+																value="group"
+																className="h-7 px-3 text-[11px]"
+															>
+																<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
+															</TabsTrigger>
+															<TabsTrigger
+																value="global"
+																className="h-7 px-3 text-[11px]"
+															>
+																<Circle className="w-3 h-3 mr-1.5" /> Global
+															</TabsTrigger>
+														</TabsList>
+													</Tabs>
+												</div>
+											)}
+										</>
+									) : selectedCharacter ? (
+										<CharacterGraph
+											onReady={() => handleGraphReady(graphLoadKey)}
+										/>
+									) : (
+										<h1 className="p-4 z-10 pointer-events-none">
+											Character not found
+										</h1>
+									)}
+									<AnimatePresence>
+										{isGraphLoading && graphLoadKey && (
+											<GraphLoadingOverlay
+												key={graphLoadKey}
+												variant={
+													viewMode === "network" && networkMode === "groups"
+														? "groups"
+														: viewMode === "network"
+															? "network"
+															: viewMode === "link"
+																? "link"
+																: viewMode === "chat"
+																	? "chat"
+																	: "character"
+												}
+												subject={selectedCharacter?.name}
+												nodeCount={characterCount}
+												edgeCount={
+													networkMode === "groups" ? 0 : relationshipCount
+												}
+												typeCount={relationshipTypeCount}
+												pendingCount={pendingChatCount}
+												groupCount={groupCount}
+											/>
+										)}
+									</AnimatePresence>
 								</>
-							) : selectedCharacter ? (
-								<CharacterGraph />
-							) : (
-								<h1 className="p-4 z-10 pointer-events-none">
-									Character not found
-								</h1>
 							)}
 						</main>
 						{editingType && (

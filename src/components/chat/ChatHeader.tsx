@@ -6,6 +6,7 @@ import {
 	UserPlus,
 	Users,
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -16,6 +17,8 @@ import type { ChatMember } from "@/types/chat";
 
 interface ChatHeaderProps {
 	headerName: string;
+	subtitle: string;
+	avatarUrl?: string | null;
 	isGroup: boolean;
 	chatId: string | null;
 	members: ChatMember[];
@@ -28,6 +31,8 @@ interface ChatHeaderProps {
 
 export default function ChatHeader({
 	headerName,
+	subtitle,
+	avatarUrl,
 	isGroup,
 	chatId,
 	members,
@@ -38,11 +43,26 @@ export default function ChatHeader({
 	onDelete,
 }: ChatHeaderProps) {
 	return (
-		<div className="shrink-0 px-6 py-3 border-b border-white/10 bg-background/60 backdrop-blur-md flex items-center justify-between">
-			<h2 className="font-semibold truncate">{headerName}</h2>
+		<header className="chat-header">
+			<div className="chat-header-identity">
+				<Avatar className="chat-header-avatar">
+					<AvatarImage src={avatarUrl ?? undefined} />
+					<AvatarFallback>
+						{isGroup ? (
+							<Users className="size-4" />
+						) : (
+							headerName[0]?.toUpperCase()
+						)}
+					</AvatarFallback>
+				</Avatar>
+				<div className="min-w-0">
+					<h2>{headerName}</h2>
+					<p>{subtitle}</p>
+				</div>
+			</div>
 			{isGroup && chatId && (
 				<DropdownMenu>
-					<DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md p-1 text-foreground/60 hover:text-foreground hover:bg-white/10 transition-colors">
+					<DropdownMenuTrigger className="chat-header-menu">
 						<EllipsisVertical className="w-4 h-4" />
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="min-w-[180px]">
@@ -68,6 +88,6 @@ export default function ChatHeader({
 					</DropdownMenuContent>
 				</DropdownMenu>
 			)}
-		</div>
+		</header>
 	);
 }

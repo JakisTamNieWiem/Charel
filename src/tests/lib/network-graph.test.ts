@@ -94,6 +94,29 @@ describe("network-graph helpers", () => {
 		expect(findNodeAtPosition(layout.nodes, 100, 100)).toBeNull();
 	});
 
+	it("builds a groups-only layout with grouped nodes and no links", () => {
+		const layout = buildNetworkLayout(
+			characters,
+			relationships,
+			types,
+			groups,
+			"groups",
+		);
+
+		expect(layout.nodes).toHaveLength(2);
+		expect(layout.links).toHaveLength(0);
+		expect(layout.groups).toHaveLength(2);
+		expect(layout.groups.map((group) => group.name)).toEqual(["Blue", "Red"]);
+		expect(layout.groups.map((group) => group.memberCount)).toEqual([1, 1]);
+		expect(layout.groups[0].cx).toBeLessThan(layout.groups[1].cx);
+		expect(layout.nodes.find((node) => node.id === "b")).toMatchObject({
+			groupCx: layout.groups[0].cx,
+			groupCy: layout.groups[0].cy,
+			x: layout.groups[0].cx,
+			y: layout.groups[0].cy,
+		});
+	});
+
 	it("computes viewport visibility and avatar tiers", () => {
 		const bounds = getViewportBounds({ x: 200, y: 150, k: 0.5 }, 400, 300);
 		const layout = buildNetworkLayout(

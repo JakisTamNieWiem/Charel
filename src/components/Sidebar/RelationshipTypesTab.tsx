@@ -1,82 +1,175 @@
-import { Edit2, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Edit2, Plus, Shuffle, Trash2 } from "lucide-react";
+import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import TypeModal from "@/components/TypeModal";
 import { Button } from "@/components/ui/button";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { RelationshipType } from "@/types/types";
+import {
+	SidebarEmptyState,
+	SidebarTabHeader,
+	SidebarTabRoot,
+	sidebarRowClass,
+} from "./SidebarTabLayout";
 
 export default function RelationshipTypesTab() {
 	const relationshipTypes = useGraphStore((state) => state.relationshipTypes);
+	const relationships = useGraphStore((state) => state.relationships);
+	const characters = useGraphStore((state) => state.characters);
+	const selectedTypeId = useGraphStore((state) => state.linkViewTypeId);
 	const deleteType = useGraphStore((state) => state.deleteType);
+	const setLinkViewSelection = useGraphStore(
+		(state) => state.setLinkViewSelection,
+	);
+	const randomizeLinkView = useGraphStore((state) => state.randomizeLinkView);
 
 	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
+	const characterIds = new Set(characters.map((character) => character.id));
+	const activeTypeId = selectedTypeId ?? relationshipTypes[0]?.id ?? null;
+	const hasPreviewRelationship = relationships.some(
+		(relationship) =>
+			relationship.typeId === activeTypeId &&
+			characterIds.has(relationship.fromId) &&
+			characterIds.has(relationship.toId),
+	);
+	const selectLinkType = (typeId: string) => {
+		const relationship = relationships.find(
+			(candidate) =>
+				candidate.typeId === typeId &&
+				characterIds.has(candidate.fromId) &&
+				characterIds.has(candidate.toId),
+		);
+
+		setLinkViewSelection({
+			typeId,
+			sourceId: relationship?.fromId ?? null,
+			targetId: relationship?.toId ?? null,
+		});
+	};
+
+	useEffect(() => {
+		if (!selectedTypeId && relationshipTypes[0]) {
+			setLinkViewSelection({ typeId: relationshipTypes[0].id });
+		}
+	}, [relationshipTypes, selectedTypeId, setLinkViewSelection]);
 
 	return (
-		<div>
-			<div className="p-2 min-h-9 flex items-center justify-between  sticky top-0 bg-sidebar z-50">
-				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
-					Link Types
-				</h2>
-				<Button
-					variant={"ghost"}
-					onClick={() =>
-						setEditingType({
-							id: "",
-							label: "",
-							color: "",
-							description: "",
-							value: 0,
-						})
-					}
-					className="p-1 hover:bg-white/10 rounded"
-				>
-					<Plus className="w-4 h-4" />
-				</Button>
-			</div>
+		<SidebarTabRoot>
+			<SidebarTabHeader
+				title="Link Types"
+				count={relationshipTypes.length}
+				action={
+					<div className="flex items-center gap-1">
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							title="Shuffle preview characters"
+							disabled={!hasPreviewRelationship}
+							onClick={randomizeLinkView}
+							className="hover:bg-(--sidebar-foreground)/8"
+						>
+							<Shuffle className="w-4 h-4" />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							title="New link type"
+							onClick={() =>
+								setEditingType({
+									id: "",
+									label: "",
+									color: "",
+									description: "",
+									value: 0,
+								})
+							}
+							className="hover:bg-(--sidebar-foreground)/8"
+						>
+							<Plus className="w-4 h-4" />
+						</Button>
+					</div>
+				}
+			/>
 
-			<div className="space-y-2 px-1">
+			<div className="space-y-1.5">
+				{relationshipTypes.length === 0 && (
+					<SidebarEmptyState title="No link types yet">
+						Add relationship types to describe how characters connect.
+					</SidebarEmptyState>
+				)}
+
 				{relationshipTypes.map((type) => (
 					<div
 						key={type.id}
-						style={{ "--hover-color": type.color } as React.CSSProperties}
-						className="group px-3 py-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-3 transition-colors duration-200 hover:border-(--hover-color) hover:bg-(--hover-color)/10"
+						style={{ "--hover-color": type.color } as CSSProperties}
+						onClick={() => selectLinkType(type.id)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter" || event.key === " ") {
+								event.preventDefault();
+								selectLinkType(type.id);
+							}
+						}}
+						role="button"
+						tabIndex={0}
+						className={`${sidebarRowClass} group flex min-h-[3.75rem] cursor-pointer items-center gap-3 px-3 py-2 hover:border-(--hover-color) hover:bg-(--hover-color)/10 ${
+							selectedTypeId === type.id
+								? "border-(--hover-color) bg-(--hover-color)/12"
+								: ""
+						}`}
 					>
 						<div
-							className="size-5 rounded-full"
+							className="size-7 shrink-0 rounded-full"
 							style={{ backgroundColor: type.color }}
 						/>
-						<div className="flex-1">
-							<h3 className="text-sm font-medium">{type.label}</h3>
-							<p className="text-[10px] opacity-50">{type.description}</p>
+						<div className="min-w-0 flex-1">
+							<h3 className="truncate text-sm font-semibold leading-snug">
+								{type.label}
+							</h3>
+							<p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">
+								{type.description}
+							</p>
 						</div>
-						<div className="justify-end">
-							<p
+						<div className="flex shrink-0 items-center gap-2">
+							<span
 								style={{
 									color: sentimentColor(type.value),
 								}}
-								className="text-xs text-left "
+								className="min-w-10 text-right text-xs font-mono font-bold tabular-nums"
 							>
 								{type.value >= 0 ? "+" : ""}
 								{type.value?.toFixed(2)}
-							</p>
-						</div>
-						<div className="flex flex-col gap-1">
-							<button
-								onClick={() => setEditingType(type)}
-								className="p-1 hover:text-blue-400"
-							>
-								<Edit2 className="w-3 h-3" />
-							</button>
-							<button
-								onClick={() => deleteType(type.id)}
-								className="p-1 hover:text-red-400"
-							>
-								<Trash2 className="w-3 h-3" />
-							</button>
+							</span>
+							<div className="flex flex-col gap-0.5 opacity-55 transition-opacity group-hover:opacity-100">
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									title="Edit link type"
+									onClick={(event) => {
+										event.stopPropagation();
+										setEditingType(type);
+									}}
+									className="hover:bg-(--sidebar-foreground)/8 hover:text-blue-400"
+								>
+									<Edit2 className="w-3 h-3" />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									title="Delete link type"
+									onClick={(event) => {
+										event.stopPropagation();
+										deleteType(type.id);
+									}}
+									className="hover:bg-(--sidebar-foreground)/8 hover:text-red-400"
+								>
+									<Trash2 className="w-3 h-3" />
+								</Button>
+							</div>
 						</div>
 					</div>
 				))}
 			</div>
+
 			{editingType && (
 				<TypeModal
 					type={editingType}
@@ -86,7 +179,7 @@ export default function RelationshipTypesTab() {
 					}}
 				/>
 			)}
-		</div>
+		</SidebarTabRoot>
 	);
 }
 
@@ -95,28 +188,24 @@ function lerp(start: number, end: number, amt: number) {
 }
 
 function sentimentColor(value: number) {
-	// 1. Clamp value to range [-1, 1] to prevent color overflow
 	const clamped = Math.max(-1, Math.min(1, value));
 
-	// 2. Define our anchor points (RGB values)
-	const red = { r: 248, g: 113, b: 113 }; // #f87171
-	const grey = { r: 128, g: 128, b: 128 }; // #808080
-	const green = { r: 74, g: 222, b: 128 }; // #4ade80
+	const red = { r: 248, g: 113, b: 113 };
+	const grey = { r: 128, g: 128, b: 128 };
+	const green = { r: 74, g: 222, b: 128 };
 
 	let start: typeof red;
 	let end: typeof red;
 	let t: number;
 
 	if (clamped < 0) {
-		// Moving from Red to Grey (clamped is -1 to 0)
 		start = red;
 		end = grey;
-		t = 1 + clamped; // Inverts -1..0 to 0..1
+		t = 1 + clamped;
 	} else {
-		// Moving from Grey to Green (clamped is 0 to 1)
 		start = grey;
 		end = green;
-		t = clamped; // 0..1
+		t = clamped;
 	}
 
 	const r = Math.round(lerp(start.r, end.r, t));

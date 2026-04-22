@@ -22,12 +22,13 @@ function renderWithEmojis(text: string): ReactNode[] {
 			parts.push(text.slice(lastIndex, matchIndex));
 		}
 		parts.push(
-			<Emoji
-				key={matchIndex}
-				unified={emojiToUnified(match[0])}
-				emojiStyle={EmojiStyle.TWITTER}
-				size={18}
-			/>,
+			<span key={matchIndex} className="chat-message-emoji">
+				<Emoji
+					unified={emojiToUnified(match[0])}
+					emojiStyle={EmojiStyle.TWITTER}
+					size={18}
+				/>
+			</span>,
 		);
 		lastIndex = matchIndex + match[0].length;
 	}
@@ -42,38 +43,26 @@ function renderWithEmojis(text: string): ReactNode[] {
 export default function MessageContent({ content }: { content: string }) {
 	const systemMatch = content.match(/^\[system\](.*)\[\/system\]$/s);
 	if (systemMatch) {
-		return (
-			<p className="text-xs text-muted-foreground italic">{systemMatch[1]}</p>
-		);
+		return <p className="chat-system-copy">{systemMatch[1]}</p>;
 	}
 
 	const imgMatch = content.match(/^\[img\](.*)\[\/img\]$/s);
 	if (imgMatch) {
-		return (
-			<img
-				src={imgMatch[1]}
-				alt="Image"
-				className="max-w-sm max-h-72 rounded-lg mt-1"
-			/>
-		);
+		return <img src={imgMatch[1]} alt="Image" className="chat-message-image" />;
 	}
 
 	const imageUrls = content.match(IMAGE_URL_RE);
 	if (imageUrls) {
 		const text = content.replace(IMAGE_URL_RE, "").trim();
 		return (
-			<div>
-				{text && (
-					<p className="text-sm whitespace-pre-wrap wrap-break-word">
-						{renderWithEmojis(text)}
-					</p>
-				)}
+			<div className="chat-message-media-stack">
+				{text && <p className="chat-message-text">{renderWithEmojis(text)}</p>}
 				{imageUrls.map((url) => (
 					<img
 						key={url}
 						src={url}
 						alt="Embedded"
-						className="max-w-sm max-h-72 rounded-lg mt-1"
+						className="chat-message-image"
 						onError={(e) => {
 							const a = document.createElement("a");
 							a.href = url;
@@ -89,9 +78,5 @@ export default function MessageContent({ content }: { content: string }) {
 		);
 	}
 
-	return (
-		<p className="text-sm whitespace-pre-wrap wrap-break-word flex justify-start!">
-			{renderWithEmojis(content)}
-		</p>
-	);
+	return <p className="chat-message-text">{renderWithEmojis(content)}</p>;
 }

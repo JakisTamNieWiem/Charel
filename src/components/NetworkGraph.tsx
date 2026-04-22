@@ -17,9 +17,16 @@ import {
 	isLinkVisible,
 	type LayoutData,
 	NODE_SIZE,
+	type ViewportBounds,
 } from "@/lib/network-graph";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Badge } from "./ui/badge";
+
+type NetworkGraphProps = {
+	onReady?: () => void;
+};
+
+type NetworkMode = "group" | "groups" | "global";
 
 const GLOW_SPEED = 0.25;
 const GLOW_SPREAD = 0.18;
@@ -28,6 +35,9 @@ const GLOW_EDGE_FADE_RANGE = 0.12;
 const LINK_STRAIGHT_SCREEN_WIDTH = 0.9;
 const LINK_CURVED_SCREEN_WIDTH = 1.2;
 const QUALITY_SETTLE_DELAY_MS = 90;
+const MIN_ZOOM = 0.05;
+const MAX_ZOOM = 4;
+const MAX_WHEEL_ZOOM_DELTA = 0.8;
 const TEXT_TEXTURE_OVERSAMPLE = 1.5;
 const MAX_TEXT_TEXTURE_RESOLUTION = 8;
 const GROUP_LABEL_FONT_SIZE = 22;
@@ -67,6 +77,7 @@ type EngineState = {
 	hasCentered: boolean;
 	pointerDownPos: { x: number; y: number };
 	lastPointerPos: { x: number; y: number };
+	networkMode: NetworkMode;
 	layout: LayoutData;
 	staticDirty: boolean;
 	fxDirty: boolean;
@@ -231,6 +242,81 @@ function parseRgbColor(value: string) {
 	);
 }
 
+function hueToRgb(p: number, q: number, t: number) {
+	let adjustedT = t;
+
+	if (adjustedT < 0) adjustedT += 1;
+	if (adjustedT > 1) adjustedT -= 1;
+	if (adjustedT < 1 / 6) return p + (q - p) * 6 * adjustedT;
+	if (adjustedT < 1 / 2) return q;
+	if (adjustedT < 2 / 3) return p + (q - p) * (2 / 3 - adjustedT) * 6;
+	return p;
+}
+
+function parseHue(value: string) {
+	if (value.endsWith("turn")) {
+		return Number.parseFloat(value) * 360;
+	}
+
+	if (value.endsWith("rad")) {
+		return Number.parseFloat(value) * (180 / Math.PI);
+	}
+
+	if (value.endsWith("deg")) {
+		return Number.parseFloat(value);
+	}
+
+	return Number.parseFloat(value);
+}
+
+function parseHslColor(value: string) {
+	const match = value.match(/^hsla?\((.+)\)$/i);
+
+	if (!match) {
+		return null;
+	}
+
+	const parts = match[1]
+		.replace(/\//g, " ")
+		.split(/[,\s]+/)
+		.filter(Boolean);
+
+	if (parts.length < 3) {
+		return null;
+	}
+
+	const hue = parseHue(parts[0]);
+	const saturation = Number.parseFloat(parts[1]) / 100;
+	const lightness = Number.parseFloat(parts[2]) / 100;
+
+	if ([hue, saturation, lightness].some((part) => Number.isNaN(part))) {
+		return null;
+	}
+
+	const normalizedHue = (((hue % 360) + 360) % 360) / 360;
+	const clampedSaturation = clamp(saturation);
+	const clampedLightness = clamp(lightness);
+
+	if (clampedSaturation === 0) {
+		const grey = Math.round(clampedLightness * 255);
+		return packRgb(grey, grey, grey);
+	}
+
+	const q =
+		clampedLightness < 0.5
+			? clampedLightness * (1 + clampedSaturation)
+			: clampedLightness +
+				clampedSaturation -
+				clampedLightness * clampedSaturation;
+	const p = 2 * clampedLightness - q;
+
+	return packRgb(
+		Math.round(hueToRgb(p, q, normalizedHue + 1 / 3) * 255),
+		Math.round(hueToRgb(p, q, normalizedHue) * 255),
+		Math.round(hueToRgb(p, q, normalizedHue - 1 / 3) * 255),
+	);
+}
+
 function parseOklchColor(value: string) {
 	const match = value.match(/^oklch\((.+)\)$/i);
 
@@ -293,6 +379,10 @@ function colorToNumber(value: string | null | undefined, fallback: number) {
 
 	if (color.startsWith("rgb")) {
 		return parseRgbColor(color) ?? fallback;
+	}
+
+	if (color.startsWith("hsl")) {
+		return parseHslColor(color) ?? fallback;
 	}
 
 	return fallback;
@@ -458,6 +548,22 @@ function addAvatarSprite(
 	}
 }
 
+function expandViewportBounds(
+	bounds: ViewportBounds,
+	width: number,
+	height: number,
+	scale: number,
+) {
+	const padding = (Math.max(width, height) * 1.6) / Math.max(scale, MIN_ZOOM);
+
+	return {
+		left: bounds.left - padding,
+		right: bounds.right + padding,
+		top: bounds.top - padding,
+		bottom: bounds.bottom + padding,
+	};
+}
+
 function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 	const layers = engine.layers;
 
@@ -477,10 +583,17 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 		engine.width,
 		engine.height,
 	);
+	const renderBounds = expandViewportBounds(
+		bounds,
+		engine.width,
+		engine.height,
+		k,
+	);
 	const { theme, hoveredNodeId, hoveredGroupId, connectedNodeIds } = engine;
 	const groupGraphics = new Graphics();
 	const linkGraphics = new Graphics();
 	const nodeGraphics = new Graphics();
+	const isGroupsOnlyView = engine.networkMode === "groups";
 
 	layers.groups.addChild(groupGraphics);
 	layers.links.addChild(linkGraphics);
@@ -491,18 +604,68 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 
 		if (
 			(k < 0.03 && !isHovered) ||
-			!isCircleVisible(bounds, group.cx, group.cy, group.radius + 60)
+			!isCircleVisible(renderBounds, group.cx, group.cy, group.radius + 60)
 		) {
 			continue;
 		}
 
 		const groupColor = colorToNumber(group.color, 0xffffff);
+		const groupAlpha = isGroupsOnlyView
+			? isHovered
+				? 0.22
+				: 0.13
+			: isHovered
+				? 0.18
+				: 0.07;
 
 		groupGraphics
 			.circle(group.cx, group.cy, group.radius)
-			.fill({ color: groupColor, alpha: isHovered ? 0.15 : 0.035 });
+			.fill({ color: groupColor, alpha: groupAlpha })
+			.stroke({
+				color: groupColor,
+				alpha: isGroupsOnlyView ? 0.36 : 0.14,
+				width: screenWidthToWorld(isGroupsOnlyView ? 1.5 : 0.8, k),
+			});
 
-		if (isHovered || k > 0.1) {
+		if (isGroupsOnlyView) {
+			const labelDist = group.radius + GROUP_LABEL_OFFSET;
+
+			addText(
+				layers.labels,
+				group.name.toUpperCase(),
+				group.cx,
+				group.cy + labelDist,
+				0.5,
+				0.5,
+				k,
+				{
+					fill: groupColor,
+					fontFamily: "sans-serif",
+					fontSize: GROUP_LABEL_FONT_SIZE,
+					fontWeight: "800",
+				},
+				0.95,
+			);
+			addText(
+				layers.labels,
+				`${group.memberCount} ${
+					group.memberCount === 1 ? "CHARACTER" : "CHARACTERS"
+				}`,
+				group.cx,
+				group.cy + labelDist + 22,
+				0.5,
+				0.5,
+				k,
+				{
+					fill: theme.fg,
+					fontFamily: "monospace",
+					fontSize: 11,
+					fontWeight: "700",
+					letterSpacing: 2,
+				},
+				0.45,
+			);
+		} else if (isHovered || k > 0.1) {
 			const cos = Math.cos(group.angle);
 			const sin = Math.sin(group.angle);
 			const labelDist = group.radius + GROUP_LABEL_OFFSET;
@@ -521,13 +684,13 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 					fontSize: GROUP_LABEL_FONT_SIZE,
 					fontWeight: "700",
 				},
-				isHovered ? 0.9 : 0.4,
+				isHovered ? 0.95 : 0.68,
 			);
 		}
 	}
 
 	for (const link of engine.layout.links) {
-		if (!isLinkVisible(bounds, link, 32)) {
+		if (!isLinkVisible(renderBounds, link, 32)) {
 			continue;
 		}
 
@@ -569,7 +732,7 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 		const isHighlighted = isHovered || isGroupHovered || isConnected;
 
 		if (
-			!isCircleVisible(bounds, node.x, node.y, NODE_SIZE + 48) &&
+			!isCircleVisible(renderBounds, node.x, node.y, NODE_SIZE + 48) &&
 			(!isHighlighted || k < 0.3)
 		) {
 			continue;
@@ -794,7 +957,75 @@ function destroyLayers(layers: PixiLayers) {
 	layers.world.destroy({ children: true });
 }
 
-export default function NetworkGraph() {
+function getLayoutWorldBounds(layout: LayoutData) {
+	let left = Number.POSITIVE_INFINITY;
+	let right = Number.NEGATIVE_INFINITY;
+	let top = Number.POSITIVE_INFINITY;
+	let bottom = Number.NEGATIVE_INFINITY;
+	const includeCircle = (x: number, y: number, radius: number) => {
+		left = Math.min(left, x - radius);
+		right = Math.max(right, x + radius);
+		top = Math.min(top, y - radius);
+		bottom = Math.max(bottom, y + radius);
+	};
+
+	for (const group of layout.groups) {
+		includeCircle(
+			group.cx,
+			group.cy,
+			group.radius + GROUP_LABEL_OFFSET + GROUP_LABEL_FONT_SIZE * 2,
+		);
+	}
+
+	for (const node of layout.nodes) {
+		includeCircle(node.x, node.y, NODE_SIZE + NODE_LABEL_OFFSET + 64);
+	}
+
+	if (![left, right, top, bottom].every(Number.isFinite)) {
+		return { left: -200, right: 200, top: -200, bottom: 200 };
+	}
+
+	return { left, right, top, bottom };
+}
+
+function clampTransformToLayout(engine: EngineState) {
+	const { transform } = engine;
+
+	transform.k = Number.isFinite(transform.k)
+		? clamp(transform.k, MIN_ZOOM, MAX_ZOOM)
+		: 0.5;
+
+	if (engine.width <= 0 || engine.height <= 0) {
+		return;
+	}
+
+	const bounds = getLayoutWorldBounds(engine.layout);
+	const guard = Math.max(
+		40,
+		Math.min(160, engine.width * 0.32, engine.height * 0.32),
+	);
+	const minX = guard - bounds.right * transform.k;
+	const maxX = engine.width - guard - bounds.left * transform.k;
+	const minY = guard - bounds.bottom * transform.k;
+	const maxY = engine.height - guard - bounds.top * transform.k;
+	const clampAxis = (
+		value: number,
+		min: number,
+		max: number,
+		fallback: number,
+	) => {
+		if (min > max) {
+			return (min + max) / 2;
+		}
+
+		return Number.isFinite(value) ? clamp(value, min, max) : fallback;
+	};
+
+	transform.x = clampAxis(transform.x, minX, maxX, engine.width / 2);
+	transform.y = clampAxis(transform.y, minY, maxY, engine.height / 2);
+}
+
+export default function NetworkGraph({ onReady }: NetworkGraphProps) {
 	const allChars = useGraphStore((state) => state.characters);
 	const relationships = useGraphStore((state) => state.relationships);
 	const types = useGraphStore((state) => state.relationshipTypes);
@@ -803,6 +1034,8 @@ export default function NetworkGraph() {
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
+	const onReadyRef = useRef(onReady);
+	const hasReportedReadyRef = useRef(false);
 	const scheduleRenderRef = useRef<(() => void) | null>(null);
 	const engineRef = useRef<EngineState>({
 		app: null,
@@ -820,6 +1053,7 @@ export default function NetworkGraph() {
 		hasCentered: false,
 		pointerDownPos: { x: 0, y: 0 },
 		lastPointerPos: { x: 0, y: 0 },
+		networkMode: "group",
 		layout: {
 			nodes: [],
 			links: [],
@@ -832,6 +1066,10 @@ export default function NetworkGraph() {
 		animFrameId: 0,
 		settleTimer: null,
 	});
+
+	useEffect(() => {
+		onReadyRef.current = onReady;
+	}, [onReady]);
 
 	const layout = useMemo<LayoutData>(() => {
 		return buildNetworkLayout(
@@ -846,11 +1084,14 @@ export default function NetworkGraph() {
 	useEffect(() => {
 		const engine = engineRef.current;
 
+		hasReportedReadyRef.current = false;
+		engine.networkMode = networkMode;
 		engine.layout = layout;
+		clampTransformToLayout(engine);
 		engine.staticDirty = true;
 		engine.fxDirty = true;
 		scheduleRenderRef.current?.();
-	}, [layout]);
+	}, [layout, networkMode]);
 
 	useEffect(() => {
 		const element = containerRef.current;
@@ -953,6 +1194,15 @@ export default function NetworkGraph() {
 
 				engine.app?.render();
 
+				if (!hasReportedReadyRef.current) {
+					hasReportedReadyRef.current = true;
+					window.requestAnimationFrame(() => {
+						if (!disposed) {
+							onReadyRef.current?.();
+						}
+					});
+				}
+
 				if (engine.activeEffects) {
 					scheduleRender();
 				}
@@ -1028,12 +1278,25 @@ export default function NetworkGraph() {
 
 			const pos = getEventPos(event);
 			const { x, y, k } = engine.transform;
-			const scaleAdjustment = Math.exp(-event.deltaY * 0.002);
-			const nextScale = Math.min(Math.max(k * scaleAdjustment, 0.03), 4);
+			const currentScale = Number.isFinite(k)
+				? clamp(k, MIN_ZOOM, MAX_ZOOM)
+				: 0.5;
+			const zoomDelta = clamp(
+				-event.deltaY * 0.002,
+				-MAX_WHEEL_ZOOM_DELTA,
+				MAX_WHEEL_ZOOM_DELTA,
+			);
+			const scaleAdjustment = Math.exp(zoomDelta);
+			const nextScale = clamp(
+				currentScale * scaleAdjustment,
+				MIN_ZOOM,
+				MAX_ZOOM,
+			);
 
-			engine.transform.x = pos.x - (pos.x - x) * (nextScale / k);
-			engine.transform.y = pos.y - (pos.y - y) * (nextScale / k);
+			engine.transform.x = pos.x - (pos.x - x) * (nextScale / currentScale);
+			engine.transform.y = pos.y - (pos.y - y) * (nextScale / currentScale);
 			engine.transform.k = nextScale;
+			clampTransformToLayout(engine);
 
 			markDirty(false, false);
 			scheduleSettledQuality();
@@ -1056,6 +1319,7 @@ export default function NetworkGraph() {
 
 				engine.transform.x += dx;
 				engine.transform.y += dy;
+				clampTransformToLayout(engine);
 				engine.lastPointerPos = { x: event.clientX, y: event.clientY };
 				markDirty(false, false);
 				return;
@@ -1146,6 +1410,7 @@ export default function NetworkGraph() {
 						engine.hasCentered = true;
 					}
 
+					clampTransformToLayout(engine);
 					markDirty(true, true);
 				});
 				resizeObserver.observe(element);
@@ -1168,6 +1433,7 @@ export default function NetworkGraph() {
 			.catch(() => {
 				engine.app = null;
 				engine.layers = null;
+				onReadyRef.current?.();
 			});
 
 		return () => {
@@ -1243,24 +1509,26 @@ export default function NetworkGraph() {
 				</div>
 			)}
 
-			<div className="pointer-events-none z-10 flex w-min flex-col flex-wrap-reverse gap-3 p-6">
-				{types.map((type) => (
-					<Badge
-						variant="secondary"
-						key={type.id}
-						style={{ "--badge-color": type.color } as React.CSSProperties}
-						className="self-start border border-foreground/5 bg-card/40 p-2.5 pr-1 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
-					>
-						<span className="text-[10px] font-bold uppercase tracking-widest">
-							{type.label}
-						</span>
-						<div
-							className="ml-2 h-3 w-3 rounded-full"
-							style={{ backgroundColor: type.color }}
-						/>
-					</Badge>
-				))}
-			</div>
+			{networkMode !== "groups" && (
+				<div className="pointer-events-none z-10 flex w-min flex-col flex-wrap-reverse gap-3 p-6">
+					{types.map((type) => (
+						<Badge
+							variant="secondary"
+							key={type.id}
+							style={{ "--badge-color": type.color } as React.CSSProperties}
+							className="self-start border border-foreground/5 bg-card/40 p-2.5 pr-1 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
+						>
+							<span className="text-[10px] font-bold uppercase tracking-widest">
+								{type.label}
+							</span>
+							<div
+								className="ml-2 h-3 w-3 rounded-full"
+								style={{ backgroundColor: type.color }}
+							/>
+						</Badge>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

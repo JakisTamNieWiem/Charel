@@ -60,8 +60,8 @@ export default function ChatInput({
 	};
 
 	return (
-		<div className="flex items-end gap-2">
-			<div className="flex items-center gap-1 mb-0.5 flex-1">
+		<div className="chat-composer">
+			<div className="chat-composer-field">
 				<Textarea
 					ref={textareaRef}
 					value={draft}
@@ -69,13 +69,13 @@ export default function ChatInput({
 					onKeyDown={handleKeyDown}
 					placeholder={placeholder}
 					disabled={disabled}
-					className="min-h-[36px] max-h-[120px] resize-none text-sm bg-white/5 border-white/10"
+					className="chat-composer-textarea bg-transparent!"
 					rows={1}
 				/>
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					className="shrink-0"
+					className="chat-composer-button"
 					onClick={handleImageUpload}
 					disabled={disabled}
 					title="Send image"
@@ -88,7 +88,7 @@ export default function ChatInput({
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							className="shrink-0"
+							className="chat-composer-button"
 							disabled={disabled}
 							title="Send emoji"
 							type="button"
@@ -117,7 +117,7 @@ export default function ChatInput({
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							className="shrink-0"
+							className="chat-composer-button"
 							disabled={disabled}
 							title="Send GIF"
 							type="button"

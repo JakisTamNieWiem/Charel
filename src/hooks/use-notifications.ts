@@ -15,25 +15,57 @@ export async function sendChatNotification({
 }: ChatNotificationOptions) {
 	try {
 		const desktop = getDesktopApi();
-		if (!desktop) {
+		if (desktop) {
+			let granted = await desktop.notification.isPermissionGranted();
+			if (!granted) {
+				const permission = await desktop.notification.requestPermission();
+				granted = permission === "granted";
+			}
+			if (granted) {
+				await desktop.notification.send({
+					title: charName,
+					body,
+					avatar,
+				});
+			}
 			return;
 		}
 
-		let granted = await desktop.notification.isPermissionGranted();
-		if (!granted) {
-			const permission = await desktop.notification.requestPermission();
-			granted = permission === "granted";
+		if (typeof window === "undefined" || !("Notification" in window)) {
+			return;
 		}
-		if (granted) {
-			await desktop.notification.send({
-				title: charName,
+
+		let permission = Notification.permission;
+		if (permission === "default") {
+			permission = await Notification.requestPermission();
+		}
+
+		if (permission === "granted") {
+			new Notification(charName, {
 				body,
-				avatar,
+				icon: avatar ?? undefined,
 			});
 		}
 	} catch (e) {
 		console.error("Notification error:", e);
 	}
+}
+
+export function getMessageNotificationPreview(content: string) {
+	const trimmed = content.trim();
+
+	if (trimmed.startsWith("[img]")) {
+		return "sent an image";
+	}
+
+	if (
+		/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|svg|bmp)(?:\?\S*)?/i.test(trimmed)
+	) {
+		return "sent an image";
+	}
+
+	const collapsed = trimmed.replace(/\s+/g, " ");
+	return collapsed.length > 72 ? `${collapsed.slice(0, 72)}...` : collapsed;
 }
 
 export function useUnreadChats(

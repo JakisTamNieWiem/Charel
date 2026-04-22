@@ -6,6 +6,13 @@ import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character } from "@/types/types";
 import ConfirmModal from "../ConfirmModal";
+import {
+	SidebarEmptyState,
+	SidebarSection,
+	SidebarTabHeader,
+	SidebarTabRoot,
+	sidebarRowClass,
+} from "./SidebarTabLayout";
 
 export default function CharacterTab() {
 	const allCharacters = useGraphStore((state) => state.characters);
@@ -54,25 +61,37 @@ export default function CharacterTab() {
 		}
 	}, [selectedId]);
 
-	return (
-		<div>
-			<div className="p-2 pr-0 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
-				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
-					Characters
-				</h2>
-				<Button
-					onClick={() => setEditingCharacter("new")}
-					variant="ghost"
-					className=""
-				>
-					<Plus className="w-4 h-4" />
-				</Button>
-			</div>
+	const sortedCharacters = [...allCharacters].sort((a, b) =>
+		a.name.localeCompare(b.name),
+	);
 
-			<div className=" space-y-2">
-				{[...allCharacters]
-					.sort((a, b) => a.name.localeCompare(b.name))
-					.map((char) => (
+	return (
+		<SidebarTabRoot>
+			<SidebarTabHeader
+				title="Characters"
+				count={allCharacters.length}
+				action={
+					<Button
+						onClick={() => setEditingCharacter("new")}
+						variant="ghost"
+						size="icon-sm"
+						title="New character"
+						className="hover:bg-(--sidebar-foreground)/8"
+					>
+						<Plus className="w-4 h-4" />
+					</Button>
+				}
+			/>
+
+			<SidebarSection>
+				{sortedCharacters.length === 0 && (
+					<SidebarEmptyState title="No characters yet">
+						Add a character to begin mapping the cast.
+					</SidebarEmptyState>
+				)}
+
+				<div className="space-y-2">
+					{sortedCharacters.map((char) => (
 						<div
 							key={char.id}
 							onMouseEnter={() => setHoveredId(char.id)}
@@ -83,29 +102,17 @@ export default function CharacterTab() {
 							}}
 							onClick={() => setSelectedCharId(char.id)}
 							className={cn(
-								"group/character px-3 py-2 rounded-lg border transition-[background-color,border-color,transform,shadow] duration-150 cursor-pointer flex items-center relative scroll-mt-16",
-
-								// 1. ACTIVE STATE (When physically clicking the mouse down)
-								// Applies a deep inner shadow, darkens the background, and slightly shrinks the element
-								"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
-								"active:shadow-[inset_0_4px_8px_rgba(0,0,0,0.15)] dark:active:shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]",
-								"active:border-transparent",
-
-								// 2. SELECTED vs UNSELECTED STATE
+								sidebarRowClass,
+								"group/character flex min-h-[4.75rem] cursor-pointer items-center gap-3 px-3 py-2.5 scroll-mt-16",
 								selectedId === char.id
 									? [
-											// Selected: Slightly pressed in (Shallow inner shadow)
-											"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
-											"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
+											"border-(--sidebar-primary)/20 bg-(--sidebar-primary)/8",
+											"shadow-[inset_0_2px_5px_rgba(0,0,0,0.22)]",
 										]
-									: [
-											// Unselected: Flat, pops slightly on hover
-											"bg-transparent border-transparent shadow-none",
-											"hover:bg-(--sidebar-foreground)/5",
-										],
+									: "shadow-none",
 							)}
 						>
-							<div className="size-14 mr-3 shrink-0 rounded-full overflow-hidden border border-white/10 bg-muted relative">
+							<div className="relative size-12 shrink-0 overflow-hidden rounded-full border border-(--sidebar-foreground)/12 bg-muted shadow-[0_0_0_3px_color-mix(in_oklab,var(--sidebar-foreground)_5%,transparent)]">
 								{char.avatar ? (
 									<img
 										src={char.avatar}
@@ -114,25 +121,28 @@ export default function CharacterTab() {
 										alt=""
 									/>
 								) : (
-									<div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase opacity-40">
+									<div className="flex h-full w-full items-center justify-center text-[0.6875rem] font-bold uppercase text-muted-foreground">
 										{char.name.substring(0, 2)}
 									</div>
 								)}
 							</div>
 
-							<div className="flex-1 min-w-0 w-full">
-								<h3 className="font-medium truncate">{char.name}</h3>
-								<p className="text-xs opacity-50 truncate">
+							<div className="min-w-0 flex-1">
+								<h3 className="truncate text-sm font-semibold leading-snug">
+									{char.name}
+								</h3>
+								<p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">
 									{char.description}
 								</p>
 							</div>
 
 							{hoveredId === char.id && (
-								<div className="opacity-0 group-hover/character:opacity-100 flex flex-col gap-1">
+								<div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover/character:opacity-100">
 									<Button
 										size="icon-xs"
 										variant="ghost"
-										className="p-0 hover:text-blue-400 hover:bg-transparent!"
+										title="Edit character"
+										className="hover:bg-(--sidebar-foreground)/8 hover:text-blue-400"
 										onClick={(e) => {
 											e.stopPropagation();
 											setEditingCharacter(char);
@@ -143,11 +153,12 @@ export default function CharacterTab() {
 									<Button
 										size="icon-xs"
 										variant="ghost"
+										title="Delete character"
 										onClick={(e) => {
 											e.stopPropagation();
 											setDeletingCharacter(char);
 										}}
-										className="p-0 hover:text-red-400 hover:bg-transparent!"
+										className="hover:bg-(--sidebar-foreground)/8 hover:text-red-400"
 									>
 										<Trash2 className="size-4" />
 									</Button>
@@ -155,7 +166,8 @@ export default function CharacterTab() {
 							)}
 						</div>
 					))}
-			</div>
+				</div>
+			</SidebarSection>
 
 			{deletingCharacter && (
 				<ConfirmModal
@@ -189,6 +201,6 @@ export default function CharacterTab() {
 					}}
 				/>
 			)}
-		</div>
+		</SidebarTabRoot>
 	);
 }
