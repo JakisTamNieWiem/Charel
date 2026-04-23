@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import NetworkGraph from "@/components/NetworkGraph";
 
@@ -27,40 +27,135 @@ vi.mock("@/store/useGraphStore", () => ({
 		selector(graphState),
 }));
 
+vi.mock("pixi.js", () => {
+	class PointMock {
+		x = 0;
+		y = 0;
+
+		set(x: number, y = x) {
+			this.x = x;
+			this.y = y;
+		}
+	}
+
+	class ContainerMock {
+		alpha = 1;
+		children: ContainerMock[] = [];
+		mask: ContainerMock | null = null;
+		position = new PointMock();
+		scale = new PointMock();
+		x = 0;
+		y = 0;
+
+		addChild(...children: ContainerMock[]) {
+			this.children.push(...children);
+			return children[0];
+		}
+
+		removeChildren() {
+			const children = this.children;
+			this.children = [];
+			return children;
+		}
+
+		destroy() {}
+	}
+
+	class GraphicsMock extends ContainerMock {
+		beginPath() {
+			return this;
+		}
+
+		circle() {
+			return this;
+		}
+
+		clear() {
+			return this;
+		}
+
+		fill() {
+			return this;
+		}
+
+		lineTo() {
+			return this;
+		}
+
+		moveTo() {
+			return this;
+		}
+
+		quadraticCurveTo() {
+			return this;
+		}
+
+		stroke() {
+			return this;
+		}
+	}
+
+	class SpriteMock extends ContainerMock {
+		anchor = new PointMock();
+		height = 0;
+		texture: { height: number; width: number };
+		width = 0;
+
+		constructor(texture = { height: 1, width: 1 }) {
+			super();
+			this.texture = texture;
+		}
+	}
+
+	class TextureMock {
+		height = 1;
+		width = 1;
+
+		static from() {
+			return new TextureMock();
+		}
+	}
+
+	class TextMock extends ContainerMock {
+		anchor = new PointMock();
+		text = "";
+
+		constructor(options?: { text?: string }) {
+			super();
+			this.text = options?.text ?? "";
+		}
+	}
+
+	class ApplicationMock {
+		canvas: HTMLCanvasElement = document.createElement("canvas");
+		renderer = { resize() {} };
+		stage = new ContainerMock();
+
+		async init(options?: { canvas?: HTMLCanvasElement }) {
+			this.canvas = options?.canvas ?? this.canvas;
+		}
+
+		destroy() {}
+
+		render() {}
+	}
+
+	return {
+		Application: ApplicationMock,
+		Container: ContainerMock,
+		Graphics: GraphicsMock,
+		Sprite: SpriteMock,
+		Text: TextMock,
+		Texture: TextureMock,
+	};
+});
+
 describe("NetworkGraph", () => {
 	beforeEach(() => {
 		setSelectedCharId.mockReset();
 	});
 
 	it("selects the centered node on click after initial resize", async () => {
-		const context = {
-			setTransform: vi.fn(),
-			clearRect: vi.fn(),
-			save: vi.fn(),
-			restore: vi.fn(),
-			scale: vi.fn(),
-			translate: vi.fn(),
-			beginPath: vi.fn(),
-			arc: vi.fn(),
-			fill: vi.fn(),
-			stroke: vi.fn(),
-			fillText: vi.fn(),
-			moveTo: vi.fn(),
-			lineTo: vi.fn(),
-			quadraticCurveTo: vi.fn(),
-			drawImage: vi.fn(),
-			globalAlpha: 1,
-			fillStyle: "",
-			strokeStyle: "",
-			lineWidth: 1,
-			font: "",
-			textAlign: "center" as const,
-			textBaseline: "middle" as const,
-			shadowColor: "",
-			shadowBlur: 0,
-			imageSmoothingEnabled: false,
-			imageSmoothingQuality: "low" as const,
-		};
 		let resizeCallback:
 			| ((
 					entries: Array<{ contentRect: { width: number; height: number } }>,
@@ -86,9 +181,6 @@ describe("NetworkGraph", () => {
 			return 1;
 		});
 		vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
-		vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
-			context as unknown as CanvasRenderingContext2D,
-		);
 		vi.spyOn(
 			HTMLCanvasElement.prototype,
 			"getBoundingClientRect",
@@ -105,16 +197,20 @@ describe("NetworkGraph", () => {
 		});
 
 		const { container } = render(<NetworkGraph />);
-		const baseCanvas = container.querySelector(
-			"canvas[data-layer='base']",
+		const pixiCanvas = container.querySelector(
+			"canvas[data-layer='pixi']",
 		) as HTMLCanvasElement;
+
+		await waitFor(() => {
+			expect(resizeCallback).not.toBeNull();
+		});
 
 		await act(async () => {
 			resizeCallback?.([{ contentRect: { width: 400, height: 300 } }]);
 		});
 
 		await act(async () => {
-			baseCanvas.dispatchEvent(
+			pixiCanvas.dispatchEvent(
 				new PointerEvent("pointerdown", {
 					bubbles: true,
 					clientX: 200,
@@ -122,7 +218,7 @@ describe("NetworkGraph", () => {
 					pointerId: 1,
 				}),
 			);
-			baseCanvas.dispatchEvent(
+			pixiCanvas.dispatchEvent(
 				new PointerEvent("pointerup", {
 					bubbles: true,
 					clientX: 200,
