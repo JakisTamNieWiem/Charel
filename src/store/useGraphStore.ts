@@ -17,7 +17,6 @@ const defaultData = {
 	groups: [] as Group[],
 	relationshipTypes: [] as RelationshipType[],
 };
-type ViewMode = "character" | "network" | "chat";
 type NetworkMode = "group" | "global";
 
 interface GraphState {
@@ -30,12 +29,10 @@ interface GraphState {
 	relationships: Relationship[];
 	groups: Group[];
 	selectedCharId: string | null;
-	viewMode: ViewMode;
 	networkMode: NetworkMode;
 
 	// --- ACTIONS: UI ---
 	setSelectedCharId: (id: string | null) => void;
-	setViewMode: (mode: ViewMode) => void;
 	setNetworkMode: (mode: NetworkMode) => void;
 
 	// --- ACTIONS: CHARACTERS ---
@@ -72,12 +69,10 @@ export const useGraphStore = create<GraphState>()(
 			// Initialize with your JSON data
 			...defaultData,
 			selectedCharId: null,
-			viewMode: "character" as ViewMode,
 			networkMode: "group" as NetworkMode,
 
 			// --- UI ---
 			setSelectedCharId: (id) => set({ selectedCharId: id }),
-			setViewMode: (mode) => set({ viewMode: mode }),
 			setNetworkMode: (mode) => set({ networkMode: mode }),
 
 			// --- CHARACTERS ---

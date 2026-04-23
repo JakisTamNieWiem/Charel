@@ -1,8 +1,9 @@
+import { RouterProvider } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Toaster } from "@/components/ui/sonner";
-import App from "./App";
+import { router } from "@/router";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Titlebar from "./components/Titlebar";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -15,7 +16,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 			<ThemeProvider defaultTheme="dark" defaultColor="zen">
 				<TooltipProvider>
 					<Titlebar />
-					<App />
+					<RouterProvider router={router} />
 					<Toaster richColors />
 				</TooltipProvider>
 			</ThemeProvider>
