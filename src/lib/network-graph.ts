@@ -64,6 +64,20 @@ export interface AvatarSpriteSpec {
 	size: number;
 }
 
+function getPairKey(leftId: string, rightId: string) {
+	return leftId < rightId ? `${leftId}::${rightId}` : `${rightId}::${leftId}`;
+}
+
+function getSymmetricOffset(index: number, count: number, avoidZero = false) {
+	const centered = index - (count - 1) / 2;
+
+	if (!avoidZero || centered !== 0) {
+		return centered;
+	}
+
+	return 0.5;
+}
+
 export function pickAvatarBucket(targetSize: number) {
 	return (
 		AVATAR_BUCKETS.find((bucket) => bucket >= targetSize) ??
@@ -255,6 +269,15 @@ export function buildNetworkLayout(
 
 	const nodeMap = new Map(nodes.map((node) => [node.id, node]));
 	const links: ComputedLink[] = [];
+	const relationshipsByPair = new Map<string, Relationship[]>();
+
+	for (const relationship of relationships) {
+		const pairKey = getPairKey(relationship.fromId, relationship.toId);
+		const pairRelationships = relationshipsByPair.get(pairKey) ?? [];
+
+		pairRelationships.push(relationship);
+		relationshipsByPair.set(pairKey, pairRelationships);
+	}
 
 	for (const relationship of relationships) {
 		const source = nodeMap.get(relationship.fromId);
@@ -267,18 +290,41 @@ export function buildNetworkLayout(
 		const type = typeMap.get(relationship.typeId);
 		const isCrossGroup =
 			networkMode === "group" ? source.groupId !== target.groupId : true;
+		const pairRelationships =
+			relationshipsByPair.get(getPairKey(source.id, target.id)) ?? [];
+		const pairIndex = pairRelationships.findIndex(
+			(candidate) =>
+				candidate.fromId === relationship.fromId &&
+				candidate.toId === relationship.toId &&
+				candidate.typeId === relationship.typeId,
+		);
 
 		let cpX: number | undefined;
 		let cpY: number | undefined;
 
-		if (isCrossGroup) {
+		if (isCrossGroup || pairRelationships.length > 1) {
 			const mx = (source.x + target.x) / 2;
 			const my = (source.y + target.y) / 2;
 			const dx = target.x - source.x;
 			const dy = target.y - source.y;
+			const pairOffset = getSymmetricOffset(
+				Math.max(pairIndex, 0),
+				pairRelationships.length,
+				!isCrossGroup,
+			);
+			const curvatureStrength = isCrossGroup ? 0.25 : 0.16;
+			const offsetMultiplier =
+				isCrossGroup && pairRelationships.length === 1
+					? 1
+					: 1 + Math.abs(pairOffset) * 0.75;
+			const direction = pairOffset < 0 ? -1 : 1;
+			const perpendicularOffset =
+				Math.hypot(dx, dy) * curvatureStrength * offsetMultiplier * direction;
+			const normalX = dy === 0 && dx === 0 ? 0 : -dy / Math.hypot(dx, dy);
+			const normalY = dy === 0 && dx === 0 ? 0 : dx / Math.hypot(dx, dy);
 
-			cpX = mx - dy * 0.25;
-			cpY = my + dx * 0.25;
+			cpX = mx + normalX * perpendicularOffset;
+			cpY = my + normalY * perpendicularOffset;
 		}
 
 		links.push({
