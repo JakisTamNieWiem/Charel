@@ -1,0 +1,12 @@
+CREATE OR REPLACE FUNCTION public.tabletop_set_updated_at()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    VOLATILE
+    COST 100
+AS $BODY$
+ 
+begin
+	new.updated_at = timezone('utc', now());
+	return new;
+end;
+$BODY$;

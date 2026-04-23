@@ -1,0 +1,48 @@
+CREATE OR REPLACE FUNCTION public.broadcast_message_changes()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    VOLATILE SECURITY DEFINER
+    COST 100
+    SET search_path=public
+AS $BODY$
+declare
+	target_chat_id uuid;
+	topic_event text;
+	member_user_id uuid;
+begin
+	target_chat_id := coalesce(NEW.chat, OLD.chat);
+	topic_event := case
+		when TG_OP = 'INSERT' then 'message.created'
+		when TG_OP = 'UPDATE' then 'message.updated'
+		else 'message.deleted'
+	end;
+
+	perform realtime.broadcast_changes(
+		format('chat:%s', target_chat_id),
+		topic_event,
+		TG_OP,
+		TG_TABLE_NAME,
+		TG_TABLE_SCHEMA,
+		NEW,
+		OLD
+	);
+
+	for member_user_id in
+		select distinct "userId"
+		from public."ChatsMembers"
+		where "chatId" = target_chat_id
+	loop
+		perform realtime.broadcast_changes(
+			format('user:%s:chat-list', member_user_id),
+			'chat-list.changed',
+			TG_OP,
+			TG_TABLE_NAME,
+			TG_TABLE_SCHEMA,
+			NEW,
+			OLD
+		);
+	end loop;
+
+	return null;
+end;
+$BODY$;

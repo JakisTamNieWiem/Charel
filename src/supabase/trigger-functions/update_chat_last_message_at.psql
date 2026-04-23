@@ -1,0 +1,16 @@
+CREATE OR REPLACE FUNCTION public.update_chat_last_message_at()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    VOLATILE SECURITY DEFINER
+    COST 100
+AS $BODY$
+ 
+BEGIN
+  -- Update the Chats table
+  UPDATE public."Chats"
+  SET "lastMessageAt" = NEW.created_at
+  WHERE id = NEW.chat;
+  
+  RETURN NEW;
+END;
+$BODY$;
