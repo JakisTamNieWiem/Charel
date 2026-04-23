@@ -88,6 +88,9 @@ export default function CharacterGraph() {
 			setHoveredRel(null);
 		}, 100);
 	}, []);
+	const handleMouseEnterTooltip = useCallback(() => {
+		if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+	}, []);
 
 	// Directly mutate the DOM transform
 	const applyTransform = () => {
@@ -242,10 +245,13 @@ export default function CharacterGraph() {
 										<TooltipContent
 											side={tooltipSide}
 											align="center"
-											className="pointer-events-none!"
+											sideOffset={2}
+											onMouseEnter={handleMouseEnterTooltip}
+											onMouseLeave={handleMouseLeaveLine}
+											className="w-max max-w-[min(22rem,calc(100vw-2rem))] items-start whitespace-normal break-words rounded-md px-3 py-2 text-left leading-snug"
 										>
-											<div className="h-full max-h-75 w-45 flex flex-col items-center justify-center pointer-events-none!">
-												<b>
+											<div className="no-scrollbar flex max-h-[min(20rem,calc(100vh-2rem))] max-w-full flex-col gap-1 overflow-y-auto">
+												<b className="text-[0.75rem] leading-tight">
 													{types.find((t) => t.id === hoveredRel.typeId)?.label}{" "}
 													{hoveredRel.value && hoveredRel?.value > 0
 														? `+${hoveredRel.value.toFixed(2)}`
@@ -255,11 +261,11 @@ export default function CharacterGraph() {
 																?.value.toFixed(2) ??
 															"+0.--")}
 												</b>
-												<span className="leading-tight pointer-events-none!">
+												<span className="max-w-full whitespace-normal break-words text-[0.75rem] leading-snug">
 													{hoveredRel.description}
 												</span>
 
-												<p className="mt-1 text-[10px] opacity-40 italic pointer-events-none!">
+												<p className="mt-1 text-[10px] italic opacity-45">
 													Left-click Edit | Right-click Delete
 												</p>
 											</div>
@@ -451,6 +457,7 @@ export default function CharacterGraph() {
 		// 2. Cached Hover Functions (Now stable thanks to useCallback)
 		handleMouseEnterLine,
 		handleMouseLeaveLine,
+		handleMouseEnterTooltip,
 		setSelectedCharId,
 		tooltipSide,
 		types.find,

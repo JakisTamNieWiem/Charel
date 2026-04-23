@@ -1,8 +1,8 @@
-import { Outlet, useLocation } from "@tanstack/react-router";
+import { useLocation } from "@tanstack/react-router";
 import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import AppViewport from "@/components/AppViewport";
 import AppSidebar from "@/components/Sidebar/Sidebar";
-import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship } from "@/types/types";
 import "./styles.css";
@@ -15,7 +15,7 @@ import { sendChatNotification } from "@/hooks/use-notifications";
 import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
-import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
+import { SidebarProvider } from "./components/ui/sidebar";
 import { useChatStore } from "./store/useChatStore";
 
 function App() {
@@ -379,16 +379,7 @@ function App() {
 					className="max-h-screen! max-w-screen! pt-6"
 				>
 					<AppSidebar />
-					<SidebarInset
-						className={cn(
-							"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80",
-							pathname !== "/chat" && "bg-dot-grid",
-						)}
-					>
-						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
-							<Outlet />
-						</main>
-					</SidebarInset>
+					<AppViewport pathname={pathname} />
 				</SidebarProvider>{" "}
 			</motion.div>
 		</>

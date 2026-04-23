@@ -7,7 +7,7 @@ import {
 	Users,
 	X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -118,6 +118,7 @@ export default function ChatTab() {
 
 	const [charSearch, setCharSearch] = useState("");
 	const [contactSearch, setContactSearch] = useState("");
+	const previousSpeakerIdRef = useRef<string | null>(null);
 
 	const isAnon =
 		!profile?.role || (profile.role !== "dm" && profile.role !== "player");
@@ -125,8 +126,17 @@ export default function ChatTab() {
 	// Clear active chat when switching speakers to avoid showing another character's messages
 	useEffect(() => {
 		if (!activeSpeakerId) return;
-		setActiveChatId(null);
-		setPendingCharacterId(null);
+		if (previousSpeakerIdRef.current === null) {
+			previousSpeakerIdRef.current = activeSpeakerId;
+			return;
+		}
+
+		if (previousSpeakerIdRef.current !== activeSpeakerId) {
+			setActiveChatId(null);
+			setPendingCharacterId(null);
+		}
+
+		previousSpeakerIdRef.current = activeSpeakerId;
 	}, [activeSpeakerId, setActiveChatId, setPendingCharacterId]);
 
 	// Build a map: characterId -> existing 1:1 chatId

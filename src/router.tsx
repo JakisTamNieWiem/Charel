@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 import App from "@/App";
 import { pagePaths } from "@/lib/app-navigation";
-import { CharactersPage, ChatPage, NetworkPage } from "@/routes/pages";
+import { CharactersPage, ChatPage } from "@/routes/pages";
 
 const rootRoute = createRootRoute({
 	component: App,
@@ -28,7 +28,7 @@ const charactersRoute = createRoute({
 const networkRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: pagePaths.network,
-	component: NetworkPage,
+	component: () => null,
 });
 
 const chatRoute = createRoute({
