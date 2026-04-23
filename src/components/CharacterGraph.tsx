@@ -248,7 +248,7 @@ export default function CharacterGraph() {
 											sideOffset={2}
 											onMouseEnter={handleMouseEnterTooltip}
 											onMouseLeave={handleMouseLeaveLine}
-											className="w-max max-w-[min(22rem,calc(100vw-2rem))] items-start whitespace-normal break-words rounded-md px-3 py-2 text-left leading-snug"
+											className="w-max max-w-[min(22rem,calc(100vw-2rem))] items-start whitespace-normal wrap-break-word rounded-md px-3 py-2 text-left leading-snug"
 										>
 											<div className="no-scrollbar flex max-h-[min(20rem,calc(100vh-2rem))] max-w-full flex-col gap-1 overflow-y-auto">
 												<b className="text-[0.75rem] leading-tight">
@@ -261,7 +261,7 @@ export default function CharacterGraph() {
 																?.value.toFixed(2) ??
 															"+0.--")}
 												</b>
-												<span className="max-w-full whitespace-normal break-words text-[0.75rem] leading-snug">
+												<span className="max-w-full whitespace-normal wrap-break-word text-[0.75rem] leading-snug">
 													{hoveredRel.description}
 												</span>
 
