@@ -75,6 +75,41 @@ describe("network-graph helpers", () => {
 		expect(layout.links[0].cpY).toBeTypeOf("number");
 	});
 
+	it("computes relationship geometry for alternate curve styles", () => {
+		const cubic = buildNetworkLayout(
+			characters,
+			relationships,
+			types,
+			groups,
+			"global",
+			"cubic",
+		);
+		const sine = buildNetworkLayout(
+			characters,
+			relationships,
+			types,
+			groups,
+			"global",
+			"sine",
+		);
+		const fractal = buildNetworkLayout(
+			characters,
+			relationships,
+			types,
+			groups,
+			"global",
+			"fractal",
+		);
+
+		expect(cubic.links[0].curveStyle).toBe("cubic");
+		expect(cubic.links[0].cp1X).toBeTypeOf("number");
+		expect(cubic.links[0].cp2Y).toBeTypeOf("number");
+		expect(sine.links[0].curveStyle).toBe("sine");
+		expect(sine.links[0].waveAmplitude).toBeTypeOf("number");
+		expect(fractal.links[0].curveStyle).toBe("fractal");
+		expect(fractal.links[0].pathPoints?.length).toBeGreaterThan(2);
+	});
+
 	it("keeps single-node grouped layout centered and hit-testable", () => {
 		const layout = buildNetworkLayout(
 			[characters[0]],

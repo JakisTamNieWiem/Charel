@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { temporal } from "zundo";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { NetworkCurveStyle } from "@/lib/network-graph";
 import { supabase } from "@/lib/supabase";
 // Import your JSON file to use as the default state!
 import type {
@@ -30,10 +31,12 @@ interface GraphState {
 	groups: Group[];
 	selectedCharId: string | null;
 	networkMode: NetworkMode;
+	networkCurveStyle: NetworkCurveStyle;
 
 	// --- ACTIONS: UI ---
 	setSelectedCharId: (id: string | null) => void;
 	setNetworkMode: (mode: NetworkMode) => void;
+	setNetworkCurveStyle: (style: NetworkCurveStyle) => void;
 
 	// --- ACTIONS: CHARACTERS ---
 	addCharacter: (char: Omit<Omit<Character, "id">, "ownerId">) => void;
@@ -70,10 +73,12 @@ export const useGraphStore = create<GraphState>()(
 			...defaultData,
 			selectedCharId: null,
 			networkMode: "group" as NetworkMode,
+			networkCurveStyle: "quadratic" as NetworkCurveStyle,
 
 			// --- UI ---
 			setSelectedCharId: (id) => set({ selectedCharId: id }),
 			setNetworkMode: (mode) => set({ networkMode: mode }),
+			setNetworkCurveStyle: (style) => set({ networkCurveStyle: style }),
 
 			// --- CHARACTERS ---
 			addCharacter: async (char) => {
@@ -421,6 +426,7 @@ export const useGraphStore = create<GraphState>()(
 					relationships: defaultData.relationships,
 					groups: defaultData.groups,
 					selectedCharId: null,
+					networkCurveStyle: "quadratic",
 				}),
 			importData: (importedJson: Partial<GraphState>) =>
 				set((state) => ({
@@ -436,6 +442,8 @@ export const useGraphStore = create<GraphState>()(
 						importedJson.selectedCharId !== undefined
 							? importedJson.selectedCharId
 							: state.selectedCharId,
+					networkCurveStyle:
+						importedJson.networkCurveStyle ?? state.networkCurveStyle,
 				})),
 		})),
 		{

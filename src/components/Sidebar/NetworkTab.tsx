@@ -1,6 +1,23 @@
 import { useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import type { NetworkCurveStyle } from "@/lib/network-graph";
 import { useGraphStore } from "@/store/useGraphStore";
+
+const curveStyleOptions: Array<{ value: NetworkCurveStyle; label: string }> = [
+	{ value: "quadratic", label: "Quadratic" },
+	{ value: "cubic", label: "Cubic" },
+	{ value: "sine", label: "Sine wave" },
+	{ value: "fractal", label: "Fractal" },
+];
 
 interface CharStat {
 	id: string;
@@ -17,6 +34,8 @@ export default function NetworkTab() {
 	const relationships = useGraphStore((s) => s.relationships);
 	const types = useGraphStore((s) => s.relationshipTypes);
 	const groups = useGraphStore((s) => s.groups);
+	const networkCurveStyle = useGraphStore((s) => s.networkCurveStyle);
+	const setNetworkCurveStyle = useGraphStore((s) => s.setNetworkCurveStyle);
 	const stats = useMemo(() => {
 		const typeValueMap = new Map(types.map((t) => [t.id, t.value ?? 0]));
 		const relValue = (r: { typeId: string; value: number | null }) =>
@@ -209,6 +228,38 @@ export default function NetworkTab() {
 			</div>
 			<div className="flex-1 overflow-y-auto no-scrollbar">
 				<div className="p-4 pt-0 space-y-6">
+					<div className="space-y-2">
+						<label
+							htmlFor="network-curve-style"
+							className="text-[10px] font-mono uppercase tracking-widest opacity-50"
+						>
+							Relationship curves
+						</label>
+						<Select
+							value={networkCurveStyle}
+							onValueChange={(value) =>
+								setNetworkCurveStyle(value as NetworkCurveStyle)
+							}
+						>
+							<SelectTrigger
+								id="network-curve-style"
+								className="h-8 w-full rounded-lg border-white/10 bg-white/5 text-xs"
+							>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									<SelectLabel>Curve style</SelectLabel>
+									{curveStyleOptions.map((option) => (
+										<SelectItem key={option.value} value={option.value}>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+					</div>
+
 					{/* Overview Grid */}
 					<div className="grid grid-cols-2 gap-2">
 						<StatCard

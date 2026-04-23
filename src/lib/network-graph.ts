@@ -10,6 +10,7 @@ export const AVATAR_CACHE_SIZE = 256;
 const AVATAR_BUCKETS = [32, 48, 64, 96, 128, 192, 256];
 
 export type AvatarQualityTier = "interactive" | "settled";
+export type NetworkCurveStyle = "quadratic" | "cubic" | "sine" | "fractal";
 
 export interface ComputedNode {
 	id: string;
@@ -31,8 +32,17 @@ export interface ComputedLink {
 	target: ComputedNode;
 	typeId: string;
 	color: string;
+	curveStyle: NetworkCurveStyle;
 	cpX?: number;
 	cpY?: number;
+	cp1X?: number;
+	cp1Y?: number;
+	cp2X?: number;
+	cp2Y?: number;
+	waveAmplitude?: number;
+	waveCount?: number;
+	wavePhase?: number;
+	pathPoints?: Array<{ x: number; y: number }>;
 }
 
 export interface ComputedGroup {
@@ -76,6 +86,54 @@ function getSymmetricOffset(index: number, count: number, avoidZero = false) {
 	}
 
 	return 0.5;
+}
+
+function hashString(value: string) {
+	let hash = 2166136261;
+
+	for (let index = 0; index < value.length; index += 1) {
+		hash ^= value.charCodeAt(index);
+		hash = Math.imul(hash, 16777619);
+	}
+
+	return hash >>> 0;
+}
+
+function midpointDisplacement(
+	start: { x: number; y: number },
+	end: { x: number; y: number },
+	normal: { x: number; y: number },
+	amplitude: number,
+	depth: number,
+	seed: number,
+): Array<{ x: number; y: number }> {
+	if (depth <= 0) {
+		return [start, end];
+	}
+
+	const noise = ((seed % 1000) / 1000 - 0.5) * 2;
+	const midpoint = {
+		x: (start.x + end.x) / 2 + normal.x * amplitude * noise,
+		y: (start.y + end.y) / 2 + normal.y * amplitude * noise,
+	};
+	const left = midpointDisplacement(
+		start,
+		midpoint,
+		normal,
+		amplitude * 0.55,
+		depth - 1,
+		hashString(`${seed}:left`),
+	);
+	const right = midpointDisplacement(
+		midpoint,
+		end,
+		normal,
+		amplitude * 0.55,
+		depth - 1,
+		hashString(`${seed}:right`),
+	);
+
+	return [...left.slice(0, -1), ...right];
 }
 
 export function pickAvatarBucket(targetSize: number) {
@@ -137,18 +195,28 @@ export function isLinkVisible(
 	link: ComputedLink,
 	padding: number,
 ) {
-	const xs =
-		link.cpX != null
-			? [link.source.x, link.target.x, link.cpX]
-			: [link.source.x, link.target.x];
-	const ys =
-		link.cpY != null
-			? [link.source.y, link.target.y, link.cpY]
-			: [link.source.y, link.target.y];
-	const minX = Math.min(...xs) - padding;
-	const maxX = Math.max(...xs) + padding;
-	const minY = Math.min(...ys) - padding;
-	const maxY = Math.max(...ys) + padding;
+	const points = link.pathPoints ?? [];
+	const xs = [
+		link.source.x,
+		link.target.x,
+		link.cpX,
+		link.cp1X,
+		link.cp2X,
+		...points.map((point) => point.x),
+	].filter((value) => value != null);
+	const ys = [
+		link.source.y,
+		link.target.y,
+		link.cpY,
+		link.cp1Y,
+		link.cp2Y,
+		...points.map((point) => point.y),
+	].filter((value) => value != null);
+	const wavePadding = Math.abs(link.waveAmplitude ?? 0);
+	const minX = Math.min(...xs) - padding - wavePadding;
+	const maxX = Math.max(...xs) + padding + wavePadding;
+	const minY = Math.min(...ys) - padding - wavePadding;
+	const maxY = Math.max(...ys) + padding + wavePadding;
 
 	return !(
 		maxX < bounds.left ||
@@ -180,6 +248,7 @@ export function buildNetworkLayout(
 	types: RelationshipType[],
 	groups: Group[],
 	networkMode: "group" | "global",
+	curveStyle: NetworkCurveStyle = "quadratic",
 ): LayoutData {
 	const typeMap = new Map(types.map((type) => [type.id, type]));
 	const groupInfoMap = new Map(groups.map((group) => [group.id, group]));
@@ -301,12 +370,21 @@ export function buildNetworkLayout(
 
 		let cpX: number | undefined;
 		let cpY: number | undefined;
+		let cp1X: number | undefined;
+		let cp1Y: number | undefined;
+		let cp2X: number | undefined;
+		let cp2Y: number | undefined;
+		let waveAmplitude: number | undefined;
+		let waveCount: number | undefined;
+		let wavePhase: number | undefined;
+		let pathPoints: Array<{ x: number; y: number }> | undefined;
 
 		if (isCrossGroup || pairRelationships.length > 1) {
 			const mx = (source.x + target.x) / 2;
 			const my = (source.y + target.y) / 2;
 			const dx = target.x - source.x;
 			const dy = target.y - source.y;
+			const distance = Math.hypot(dx, dy);
 			const pairOffset = getSymmetricOffset(
 				Math.max(pairIndex, 0),
 				pairRelationships.length,
@@ -319,12 +397,42 @@ export function buildNetworkLayout(
 					: 1 + Math.abs(pairOffset) * 0.75;
 			const direction = pairOffset < 0 ? -1 : 1;
 			const perpendicularOffset =
-				Math.hypot(dx, dy) * curvatureStrength * offsetMultiplier * direction;
-			const normalX = dy === 0 && dx === 0 ? 0 : -dy / Math.hypot(dx, dy);
-			const normalY = dy === 0 && dx === 0 ? 0 : dx / Math.hypot(dx, dy);
+				distance * curvatureStrength * offsetMultiplier * direction;
+			const normalX = dy === 0 && dx === 0 ? 0 : -dy / distance;
+			const normalY = dy === 0 && dx === 0 ? 0 : dx / distance;
 
 			cpX = mx + normalX * perpendicularOffset;
 			cpY = my + normalY * perpendicularOffset;
+
+			if (curveStyle === "cubic") {
+				cp1X = source.x + dx * 0.32 + normalX * perpendicularOffset * 1.15;
+				cp1Y = source.y + dy * 0.32 + normalY * perpendicularOffset * 1.15;
+				cp2X = source.x + dx * 0.68 + normalX * perpendicularOffset * 1.15;
+				cp2Y = source.y + dy * 0.68 + normalY * perpendicularOffset * 1.15;
+			}
+
+			if (curveStyle === "sine") {
+				waveAmplitude =
+					Math.min(90, Math.max(18, distance * 0.08)) *
+					offsetMultiplier *
+					direction;
+				waveCount = isCrossGroup ? 1.5 : 1;
+				wavePhase = pairIndex % 2 === 0 ? 0 : Math.PI;
+			}
+
+			if (curveStyle === "fractal") {
+				const seed = hashString(
+					`${relationship.fromId}:${relationship.toId}:${relationship.typeId}`,
+				);
+				pathPoints = midpointDisplacement(
+					{ x: source.x, y: source.y },
+					{ x: target.x, y: target.y },
+					{ x: normalX * direction, y: normalY * direction },
+					Math.min(120, Math.max(30, distance * 0.16)) * offsetMultiplier,
+					4,
+					seed,
+				);
+			}
 		}
 
 		links.push({
@@ -334,8 +442,17 @@ export function buildNetworkLayout(
 			target,
 			typeId: relationship.typeId,
 			color: type?.color || "#555",
+			curveStyle,
 			cpX,
 			cpY,
+			cp1X,
+			cp1Y,
+			cp2X,
+			cp2Y,
+			waveAmplitude,
+			waveCount,
+			wavePhase,
+			pathPoints,
 		});
 	}
 

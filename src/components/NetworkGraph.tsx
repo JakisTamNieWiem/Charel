@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useRef } from "react";
 import {
 	buildNetworkLayout,
+	type ComputedLink,
 	findNodeAtPosition,
 	getViewportBounds,
 	isCircleVisible,
@@ -109,15 +110,93 @@ function sampleQuadratic(
 	];
 }
 
-function sampleLink(
-	link: {
-		source: { x: number; y: number };
-		target: { x: number; y: number };
-		cpX?: number;
-		cpY?: number;
-	},
+function sampleCubic(
+	sx: number,
+	sy: number,
+	cp1X: number,
+	cp1Y: number,
+	cp2X: number,
+	cp2Y: number,
+	ex: number,
+	ey: number,
 	t: number,
 ): [number, number] {
+	const t1 = 1 - t;
+
+	return [
+		t1 ** 3 * sx + 3 * t1 * t1 * t * cp1X + 3 * t1 * t * t * cp2X + t ** 3 * ex,
+		t1 ** 3 * sy + 3 * t1 * t1 * t * cp1Y + 3 * t1 * t * t * cp2Y + t ** 3 * ey,
+	];
+}
+
+function samplePolyline(
+	points: Array<{ x: number; y: number }>,
+	t: number,
+): [number, number] {
+	if (points.length === 0) {
+		return [0, 0];
+	}
+
+	if (points.length === 1) {
+		return [points[0].x, points[0].y];
+	}
+
+	const scaled = clamp(t) * (points.length - 1);
+	const index = Math.min(Math.floor(scaled), points.length - 2);
+	const localT = scaled - index;
+	const start = points[index];
+	const end = points[index + 1];
+
+	return [
+		start.x + (end.x - start.x) * localT,
+		start.y + (end.y - start.y) * localT,
+	];
+}
+
+function sampleLink(link: ComputedLink, t: number): [number, number] {
+	if (
+		link.curveStyle === "cubic" &&
+		link.cp1X != null &&
+		link.cp1Y != null &&
+		link.cp2X != null &&
+		link.cp2Y != null
+	) {
+		return sampleCubic(
+			link.source.x,
+			link.source.y,
+			link.cp1X,
+			link.cp1Y,
+			link.cp2X,
+			link.cp2Y,
+			link.target.x,
+			link.target.y,
+			t,
+		);
+	}
+
+	if (link.curveStyle === "sine" && link.waveAmplitude != null) {
+		const dx = link.target.x - link.source.x;
+		const dy = link.target.y - link.source.y;
+		const distance = Math.hypot(dx, dy) || 1;
+		const normalX = -dy / distance;
+		const normalY = dx / distance;
+		const phase = link.wavePhase ?? 0;
+		const waves = link.waveCount ?? 1;
+		const displacement =
+			Math.sin(t * Math.PI * waves + phase) *
+			Math.sin(t * Math.PI) *
+			link.waveAmplitude;
+
+		return [
+			link.source.x + dx * t + normalX * displacement,
+			link.source.y + dy * t + normalY * displacement,
+		];
+	}
+
+	if (link.curveStyle === "fractal" && link.pathPoints) {
+		return samplePolyline(link.pathPoints, t);
+	}
+
 	if (link.cpX != null && link.cpY != null) {
 		return sampleQuadratic(
 			link.source.x,
@@ -136,26 +215,60 @@ function sampleLink(
 	];
 }
 
+function drawSampledPath(graphics: Graphics, link: ComputedLink, steps = 32) {
+	graphics.beginPath();
+	const [startX, startY] = sampleLink(link, 0);
+
+	graphics.moveTo(startX, startY);
+
+	for (let index = 1; index <= steps; index += 1) {
+		const [x, y] = sampleLink(link, index / steps);
+		graphics.lineTo(x, y);
+	}
+}
+
 function screenWidthToWorld(width: number, scale: number) {
 	return width / Math.max(scale, 0.001);
 }
 
-function drawLinkPath(
-	graphics: Graphics,
-	link: {
-		source: { x: number; y: number };
-		target: { x: number; y: number };
-		cpX?: number;
-		cpY?: number;
-	},
-) {
-	graphics.beginPath();
-	graphics.moveTo(link.source.x, link.source.y);
-
-	if (link.cpX != null && link.cpY != null) {
-		graphics.quadraticCurveTo(link.cpX, link.cpY, link.target.x, link.target.y);
+function drawLinkPath(graphics: Graphics, link: ComputedLink) {
+	if (
+		link.curveStyle === "cubic" &&
+		link.cp1X != null &&
+		link.cp1Y != null &&
+		link.cp2X != null &&
+		link.cp2Y != null
+	) {
+		graphics
+			.beginPath()
+			.moveTo(link.source.x, link.source.y)
+			.bezierCurveTo(
+				link.cp1X,
+				link.cp1Y,
+				link.cp2X,
+				link.cp2Y,
+				link.target.x,
+				link.target.y,
+			);
+	} else if (
+		link.curveStyle === "sine" ||
+		(link.curveStyle === "fractal" && link.pathPoints)
+	) {
+		drawSampledPath(graphics, link, link.curveStyle === "fractal" ? 16 : 40);
 	} else {
-		graphics.lineTo(link.target.x, link.target.y);
+		graphics.beginPath();
+		graphics.moveTo(link.source.x, link.source.y);
+
+		if (link.cpX != null && link.cpY != null) {
+			graphics.quadraticCurveTo(
+				link.cpX,
+				link.cpY,
+				link.target.x,
+				link.target.y,
+			);
+		} else {
+			graphics.lineTo(link.target.x, link.target.y);
+		}
 	}
 
 	return graphics;
@@ -803,6 +916,7 @@ export default function NetworkGraph() {
 	const types = useGraphStore((state) => state.relationshipTypes);
 	const groups = useGraphStore((state) => state.groups);
 	const networkMode = useGraphStore((state) => state.networkMode);
+	const networkCurveStyle = useGraphStore((state) => state.networkCurveStyle);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -843,8 +957,9 @@ export default function NetworkGraph() {
 			types,
 			groups,
 			networkMode,
+			networkCurveStyle,
 		);
-	}, [allChars, groups, networkMode, relationships, types]);
+	}, [allChars, groups, networkCurveStyle, networkMode, relationships, types]);
 
 	useEffect(() => {
 		const engine = engineRef.current;
