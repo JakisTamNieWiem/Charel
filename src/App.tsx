@@ -1,18 +1,13 @@
+import { Outlet, useLocation } from "@tanstack/react-router";
 import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import CharacterGraph from "@/components/CharacterGraph";
-import ChatWindow from "@/components/chat/ChatWindow";
-import NetworkGraph from "@/components/NetworkGraph";
 import AppSidebar from "@/components/Sidebar/Sidebar";
-import TypeModal from "@/components/TypeModal";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Character, Relationship, RelationshipType } from "@/types/types";
+import type { Character, Relationship } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
-import { Circle, LayoutGrid } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater";
@@ -33,16 +28,9 @@ function App() {
 
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
-	const viewMode = useGraphStore((state) => state.viewMode);
-	const networkMode = useGraphStore((state) => state.networkMode);
-	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
-
-	const [editingType, setEditingType] = useState<RelationshipType | null>(null);
-
-	// Derived state
-	const selectedCharacter = useGraphStore((state) =>
-		state.characters.find((c) => c.id === state.selectedCharId),
-	);
+	const pathname = useLocation({
+		select: (location) => location.pathname,
+	});
 	useEffect(() => {
 		checkForUpdates();
 	}, []);
@@ -394,55 +382,12 @@ function App() {
 					<SidebarInset
 						className={cn(
 							"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80",
-							viewMode !== "chat" && "bg-dot-grid",
+							pathname !== "/chat" && "bg-dot-grid",
 						)}
 					>
 						<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
-							{viewMode === "chat" ? (
-								<ChatWindow />
-							) : viewMode === "network" ? (
-								<>
-									<NetworkGraph />
-									<div className="absolute top-6 right-6 z-10">
-										<Tabs
-											value={networkMode}
-											onValueChange={(v) => setNetworkMode(v)}
-											orientation="vertical"
-										>
-											<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
-												<TabsTrigger
-													value="group"
-													className="h-7 px-3 text-[11px]"
-												>
-													<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
-												</TabsTrigger>
-												<TabsTrigger
-													value="global"
-													className="h-7 px-3 text-[11px]"
-												>
-													<Circle className="w-3 h-3 mr-1.5" /> Global
-												</TabsTrigger>
-											</TabsList>
-										</Tabs>
-									</div>
-								</>
-							) : selectedCharacter ? (
-								<CharacterGraph />
-							) : (
-								<h1 className="p-4 z-10 pointer-events-none">
-									Character not found
-								</h1>
-							)}
+							<Outlet />
 						</main>
-						{editingType && (
-							<TypeModal
-								type={editingType}
-								open={!!editingType}
-								onOpenChange={(open) => {
-									if (!open) setEditingType(null);
-								}}
-							/>
-						)}
 					</SidebarInset>
 				</SidebarProvider>{" "}
 			</motion.div>

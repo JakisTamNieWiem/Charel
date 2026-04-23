@@ -1,3 +1,4 @@
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import type { Session } from "@supabase/supabase-js";
 import { getVersion } from "@tauri-apps/api/app";
 import {
@@ -23,6 +24,14 @@ import {
 } from "@/components/ui/sidebar";
 import { useChats } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
+import {
+	type AppPage,
+	type SidebarTab,
+	defaultSidebarTabByPage,
+	pagePaths,
+	pathnameToPage,
+	sidebarTabToPage,
+} from "@/lib/app-navigation";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -37,54 +46,52 @@ import RelationshipTypesTab from "./RelationshipTypesTab";
 import SettingsTab from "./SettingsTab";
 import ThemeToggle from "./ThemeToggle";
 
-type SidebarTab =
-	| "characters"
-	| "network"
-	| "groups"
-	| "types"
-	| "settings"
-	| "chat";
-
 const navItems: {
 	value: SidebarTab;
 	icon: React.ElementType;
 	title: string;
-	viewMode: "character" | "network" | "chat";
+	page: AppPage;
 }[] = [
 	{
 		value: "characters",
 		icon: Users,
 		title: "Characters",
-		viewMode: "character",
+		page: "characters",
 	},
 	{
 		value: "network",
 		icon: Network,
 		title: "Network Graph",
-		viewMode: "network",
+		page: "network",
 	},
-	{ value: "groups", icon: Layers, title: "Groups", viewMode: "network" },
+	{ value: "groups", icon: Layers, title: "Groups", page: "network" },
 	{
 		value: "types",
 		icon: Link,
 		title: "Relationship Types",
-		viewMode: "character",
+		page: "characters",
 	},
-	{ value: "chat", icon: MessageCircle, title: "Chat", viewMode: "chat" },
+	{ value: "chat", icon: MessageCircle, title: "Chat", page: "chat" },
 	{
 		value: "settings",
 		icon: Settings,
 		title: "Settings",
-		viewMode: "character",
+		page: "characters",
 	},
 ];
 
 export default function AppSidebar() {
-	const setViewMode = useGraphStore((state) => state.setViewMode);
+	const navigate = useNavigate();
+	const pathname = useLocation({
+		select: (location) => location.pathname,
+	});
+	const currentPage = pathnameToPage(pathname);
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
 	const isSyncing = useGraphStore((state) => state.isSyncing);
 	const [session, setSession] = useState<Session | null>(null);
-	const [activeTab, setActiveTab] = useState<SidebarTab>("characters");
+	const [activeTab, setActiveTab] = useState<SidebarTab>(
+		defaultSidebarTabByPage[currentPage],
+	);
 
 	const [version, setVersion] = useState<string>("");
 
@@ -128,6 +135,12 @@ export default function AppSidebar() {
 		getVersion().then((v) => setVersion(`Version: ${v}`));
 	}, []);
 
+	useEffect(() => {
+		if (sidebarTabToPage[activeTab] !== currentPage) {
+			setActiveTab(defaultSidebarTabByPage[currentPage]);
+		}
+	}, [activeTab, currentPage]);
+
 	const displayName = (() => {
 		if (profile?.displayName) {
 			return profile.displayName;
@@ -165,14 +178,14 @@ export default function AppSidebar() {
 			<div className="h-full flex flex-row gap-0">
 				<div className="flex flex-col h-full border-r border-sidebar-border bg-sidebar shrink-0 w-(--sidebar-width-icon)">
 					<div className="flex flex-col justify-center gap-2 py-2 px-1 flex-1">
-						{navItems.map(({ value, icon: Icon, title, viewMode }) => (
+						{navItems.map(({ value, icon: Icon, title, page }) => (
 							<Button
 								key={value}
 								variant="ghost"
 								title={title}
 								onClick={() => {
 									setActiveTab(value);
-									setViewMode(viewMode);
+									void navigate({ to: pagePaths[page] });
 									contentRef.current?.scrollTo(0, 0);
 								}}
 								className={cn(
