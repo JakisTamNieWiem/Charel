@@ -1,5 +1,5 @@
-import { useLocation, useNavigate } from "@tanstack/react-router";
 import type { Session } from "@supabase/supabase-js";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { getVersion } from "@tauri-apps/api/app";
 import {
 	Cloud,
@@ -24,15 +24,15 @@ import {
 } from "@/components/ui/sidebar";
 import { useChats } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
+import { useProfile } from "@/hooks/use-profile";
 import {
 	type AppPage,
-	type SidebarTab,
 	defaultSidebarTabByPage,
 	pagePaths,
 	pathnameToPage,
+	type SidebarTab,
 	sidebarTabToPage,
 } from "@/lib/app-navigation";
-import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";

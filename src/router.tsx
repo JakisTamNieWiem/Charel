@@ -1,9 +1,9 @@
 import {
-	Navigate,
 	createHashHistory,
 	createRootRoute,
 	createRoute,
 	createRouter,
+	Navigate,
 } from "@tanstack/react-router";
 import App from "@/App";
 import { pagePaths } from "@/lib/app-navigation";

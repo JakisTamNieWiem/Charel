@@ -1,5 +1,5 @@
-import { useLocation } from "@tanstack/react-router";
 import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import AppViewport from "@/components/AppViewport";
 import AppSidebar from "@/components/Sidebar/Sidebar";
@@ -8,11 +8,11 @@ import type { Character, Relationship } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "motion/react";
+import { sendChatNotification } from "@/hooks/use-notifications";
+import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater";
-import { sendChatNotification } from "@/hooks/use-notifications";
-import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
 import { SidebarProvider } from "./components/ui/sidebar";
@@ -245,9 +245,13 @@ function App() {
 							["messages", chatId],
 							(current) => {
 								if (!current || current.pages.length === 0) return current;
-								if (current.pages.flat().some((m) => m.id === msg.id)) return current;
+								if (current.pages.flat().some((m) => m.id === msg.id))
+									return current;
 								const pages = [...current.pages];
-								pages[pages.length - 1] = [...pages[pages.length - 1], msg as Message];
+								pages[pages.length - 1] = [
+									...pages[pages.length - 1],
+									msg as Message,
+								];
 								return { ...current, pages };
 							},
 						);
@@ -258,7 +262,10 @@ function App() {
 						queryClient.invalidateQueries({ queryKey: ["chats"] });
 
 						// Send native notification if not active chat or app is not focused
-						if (useChatStore.getState().activeChatId !== chatId || !document.hasFocus()) {
+						if (
+							useChatStore.getState().activeChatId !== chatId ||
+							!document.hasFocus()
+						) {
 							const { data } = await supabase
 								.from("Messages")
 								.select("*, character:Characters!characterId(name, avatar)")
