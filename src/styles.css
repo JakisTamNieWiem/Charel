@@ -750,6 +750,7 @@
 
   .app-boot-screen {
     --boot-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --boot-space: clamp(1rem, 2.4vw, 2.5rem);
     position: fixed;
     inset: 0;
     z-index: 1000;
@@ -795,12 +796,14 @@
 
   .app-boot-shell {
     position: relative;
-    width: min(72rem, calc(100vw - 2rem));
-    min-height: min(42rem, calc(100vh - 2rem));
+    width: min(100rem, calc(100vw - var(--boot-space) * 2));
+    min-height: min(52rem, calc(100vh - var(--boot-space) * 2));
+    max-height: calc(100vh - var(--boot-space) * 2);
     display: grid;
     grid-template-rows: auto 1fr auto;
+    overflow: hidden;
     border: 1px solid color-mix(in oklch, var(--foreground), transparent 88%);
-    border-radius: 1.25rem;
+    border-radius: clamp(1rem, 1.4vw, 1.6rem);
     background: color-mix(in oklch, var(--background), transparent 10%);
     box-shadow: 0 2rem 6rem color-mix(in oklch, black, transparent 70%);
     backdrop-filter: blur(22px);
@@ -812,7 +815,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1rem;
+    padding: clamp(0.9rem, 1.3vw, 1.35rem);
   }
 
   .app-boot-brand,
@@ -826,8 +829,8 @@
   }
 
   .app-boot-brand img {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: clamp(2.25rem, 2.5vw, 3rem);
+    height: clamp(2.25rem, 2.5vw, 3rem);
     border-radius: 0.75rem;
   }
 
@@ -835,7 +838,7 @@
   .app-boot-status strong,
   .app-boot-footer strong {
     margin: 0;
-    font-size: 0.78rem;
+    font-size: clamp(0.78rem, 0.82vw, 0.95rem);
     font-weight: 800;
     text-transform: uppercase;
   }
@@ -848,7 +851,7 @@
   .app-boot-step span,
   .app-boot-step strong {
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: clamp(0.62rem, 0.64vw, 0.74rem);
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -857,30 +860,35 @@
 
   .app-boot-main {
     display: grid;
-    grid-template-columns: minmax(14rem, 0.9fr) minmax(18rem, 1.15fr) minmax(14rem, 0.85fr);
+    grid-template-columns:
+      minmax(18rem, 0.95fr)
+      minmax(22rem, 1.05fr)
+      minmax(17rem, 0.8fr);
     align-items: center;
-    gap: clamp(1rem, 3vw, 3rem);
-    padding: clamp(1rem, 4vw, 3rem);
+    gap: clamp(1.25rem, 3.2vw, 4rem);
+    min-height: 0;
+    padding: clamp(1.5rem, 4.4vw, 4.5rem);
   }
 
   .app-boot-copy h1 {
-    margin: 0.7rem 0 0;
-    font-size: clamp(3rem, 7vw, 6.8rem);
+    margin: clamp(0.7rem, 1vw, 1rem) 0 0;
+    font-size: clamp(4rem, 7.2vw, 8.6rem);
     font-weight: 950;
-    line-height: 0.82;
+    line-height: 0.8;
     text-transform: uppercase;
   }
 
   .app-boot-copy p {
-    margin: 1rem 0 0;
-    max-width: 18rem;
+    margin: clamp(1rem, 1.2vw, 1.35rem) 0 0;
+    max-width: 24rem;
+    font-size: clamp(0.95rem, 1vw, 1.15rem);
     color: color-mix(in oklch, var(--foreground), transparent 28%);
   }
 
   .app-boot-progress {
     --boot-progress: 0;
-    margin-top: 1.4rem;
-    height: 0.4rem;
+    margin-top: clamp(1.35rem, 1.6vw, 1.9rem);
+    height: clamp(0.38rem, 0.45vw, 0.52rem);
     overflow: hidden;
     border-radius: 999px;
     background: color-mix(in oklch, var(--foreground), transparent 90%);
@@ -922,7 +930,7 @@
   }
 
   .app-boot-graph {
-    width: min(26rem, 62vw);
+    width: min(34rem, 100%);
     max-width: 100%;
     overflow: visible;
   }
@@ -997,22 +1005,23 @@
     display: flex;
     min-width: 0;
     flex-direction: column;
-    gap: 0.8rem;
+    gap: clamp(0.8rem, 1vw, 1rem);
   }
 
   .app-boot-steps {
     display: grid;
-    gap: 0.45rem;
+    gap: clamp(0.45rem, 0.65vw, 0.7rem);
   }
 
   .app-boot-step {
     display: grid;
-    grid-template-columns: 3.4rem 1fr 2rem;
+    grid-template-columns: 3.6rem 1fr 2.2rem;
     align-items: center;
     gap: 0.75rem;
     border: 1px solid color-mix(in oklch, var(--foreground), transparent 92%);
     border-radius: 0.7rem;
-    padding: 0.55rem 0.7rem;
+    min-height: clamp(2.3rem, 2.55vw, 3rem);
+    padding: 0.55rem 0.8rem;
     opacity: 0.5;
     transition:
       opacity 220ms var(--boot-ease),
@@ -1022,7 +1031,7 @@
 
   .app-boot-step p {
     margin: 0;
-    font-size: 0.75rem;
+    font-size: clamp(0.75rem, 0.78vw, 0.9rem);
     color: color-mix(in oklch, var(--foreground), transparent 25%);
   }
 
@@ -1039,11 +1048,11 @@
   }
 
   .app-boot-footer div {
-    min-width: 7rem;
+    min-width: clamp(7rem, 9vw, 9rem);
     justify-content: space-between;
     border-radius: 999px;
     background: color-mix(in oklch, var(--foreground), transparent 94%);
-    padding: 0.45rem 0.65rem;
+    padding: 0.5rem 0.75rem;
   }
 
   @keyframes app-boot-scan {
@@ -1089,18 +1098,114 @@
     }
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1220px) {
+    .app-boot-shell {
+      width: min(78rem, calc(100vw - var(--boot-space) * 2));
+      min-height: min(46rem, calc(100vh - var(--boot-space) * 2));
+    }
+
+    .app-boot-main {
+      grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 0.95fr);
+      text-align: center;
+    }
+
+    .app-boot-copy {
+      text-align: left;
+    }
+
+    .app-boot-copy h1 {
+      font-size: clamp(3.6rem, 8.8vw, 6.8rem);
+    }
+
+    .app-boot-copy p {
+      margin-inline: 0;
+    }
+
+    .app-boot-console {
+      display: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .app-boot-screen {
+      --boot-space: clamp(0.65rem, 3vw, 1rem);
+      align-items: stretch;
+      padding: var(--boot-space);
+      overflow-y: auto;
+    }
+
+    .app-boot-shell {
+      width: 100%;
+      min-height: calc(100vh - var(--boot-space) * 2);
+      max-height: none;
+    }
+
+    .app-boot-header,
+    .app-boot-footer {
+      padding: 0.85rem;
+    }
+
     .app-boot-main {
       grid-template-columns: 1fr;
+      align-content: center;
+      gap: 1.4rem;
+      padding: clamp(1.1rem, 6vw, 2rem);
       text-align: center;
+    }
+
+    .app-boot-copy {
+      text-align: center;
+    }
+
+    .app-boot-copy h1 {
+      font-size: clamp(3.15rem, 16vw, 5.25rem);
     }
 
     .app-boot-copy p {
       margin-inline: auto;
     }
 
-    .app-boot-console {
+    .app-boot-progress {
+      max-width: 22rem;
+      margin-inline: auto;
+    }
+
+    .app-boot-reactor {
+      max-width: min(22rem, 76vw);
+      margin-inline: auto;
+    }
+
+    .app-boot-footer {
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .app-boot-brand span,
+    .app-boot-footer span {
       display: none;
+    }
+
+    .app-boot-footer div {
+      min-width: auto;
+    }
+  }
+
+  @media (max-height: 720px) and (min-width: 761px) {
+    .app-boot-shell {
+      min-height: calc(100vh - var(--boot-space) * 2);
+    }
+
+    .app-boot-main {
+      padding-block: 1.35rem;
+    }
+
+    .app-boot-copy h1 {
+      font-size: clamp(3.4rem, 6.2vw, 6.2rem);
+    }
+
+    .app-boot-graph {
+      width: min(28rem, 100%);
     }
   }
 
@@ -1118,6 +1223,451 @@
     .app-boot-step {
       transition: none;
     }
+  }
+
+  .relationship-inspector {
+    --relationship-accent: var(--primary);
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    display: flex;
+    width: min(20rem, calc(100vw - 3rem));
+    flex-direction: column;
+    gap: 1rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklch, var(--foreground), transparent 90%);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background: color-mix(in oklch, var(--background), transparent 8%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklch, var(--foreground), transparent 94%),
+      0 22px 70px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(18px);
+    color: var(--foreground);
+    animation: character-graph-inspector-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .relationship-inspector::before {
+    content: "";
+    height: 3px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--relationship-accent);
+    box-shadow: 0 0 22px color-mix(in oklch, var(--relationship-accent), transparent 42%);
+  }
+
+  .relationship-inspector-topline,
+  .relationship-inspector-type,
+  .relationship-inspector-person {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .relationship-inspector-topline {
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .relationship-inspector-topline span,
+  .relationship-inspector-person span,
+  .relationship-inspector-type span {
+    color: color-mix(in oklch, var(--foreground), transparent 48%);
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .relationship-inspector-topline strong {
+    color: color-mix(in oklch, var(--relationship-accent), var(--foreground) 16%);
+    font-size: 0.9rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .relationship-inspector-people {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: start;
+    gap: 0.75rem;
+  }
+
+  .relationship-inspector-person {
+    display: grid;
+    justify-items: center;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .relationship-inspector-person div,
+  .relationship-inspector-type div {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .relationship-inspector-person strong,
+  .relationship-inspector-type strong {
+    display: block;
+    overflow: hidden;
+    color: color-mix(in oklch, var(--foreground), transparent 6%);
+    font-size: 1rem;
+    font-weight: 850;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .relationship-inspector-avatar {
+    width: 3.35rem;
+    height: 3.35rem;
+    border: 1px solid color-mix(in oklch, var(--relationship-accent), transparent 40%);
+    background: color-mix(in oklch, var(--background), var(--foreground) 9%);
+    box-shadow: 0 0 0 5px color-mix(in oklch, var(--relationship-accent), transparent 88%);
+  }
+
+  .relationship-inspector-thread {
+    width: 100%;
+    min-width: 2rem;
+    height: 1px;
+    margin-top: 1.675rem;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--relationship-accent), transparent 36%),
+      color-mix(in oklch, var(--relationship-accent), transparent 80%)
+    );
+  }
+
+  .relationship-inspector-type {
+    gap: 0.75rem;
+    min-height: 4.25rem;
+    align-items: center;
+    border: 1px solid color-mix(in oklch, var(--foreground), transparent 92%);
+    border-radius: 0.625rem;
+    padding: 0.7rem 0.75rem;
+    background: color-mix(in oklch, var(--foreground), transparent 96%);
+  }
+
+  .relationship-inspector-type div:not(.relationship-inspector-swatch) {
+    display: grid;
+    gap: 0.2rem;
+    justify-content: center;
+  }
+
+  .relationship-inspector-swatch {
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklch, var(--foreground), transparent 84%),
+      0 0 24px color-mix(in oklch, var(--relationship-accent), transparent 68%);
+  }
+
+  .relationship-inspector-copy {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+    color: color-mix(in oklch, var(--foreground), transparent 12%);
+    font-size: 0.9rem;
+    font-weight: 450;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .relationship-inspector-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 0.25rem;
+  }
+
+  .relationship-inspector-actions > button {
+    flex: 1 1 0;
+    justify-content: center;
+    border: 1px solid color-mix(in oklch, var(--foreground), transparent 91%);
+    background: color-mix(in oklch, var(--background), transparent 18%);
+  }
+
+  .relationship-inspector-new-relation {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 2.35rem;
+    border: 1px solid color-mix(in oklch, var(--foreground), transparent 88%);
+    border-radius: 999px;
+    padding-inline: 0.95rem 1.05rem;
+    background: color-mix(in oklch, var(--background), transparent 12%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklch, var(--foreground), transparent 92%),
+      0 14px 38px rgba(0, 0, 0, 0.2);
+    color: color-mix(in oklch, var(--foreground), transparent 4%);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    backdrop-filter: blur(14px);
+  }
+
+  .relationship-inspector-new-relation:hover {
+    border-color: color-mix(in oklch, var(--foreground), transparent 78%);
+    background: color-mix(in oklch, var(--foreground), transparent 94%);
+    color: var(--foreground);
+  }
+
+  .relationship-type-legend {
+    position: absolute;
+    top: 1.5rem;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    display: flex;
+    width: min(11.5rem, calc(100vw - 25rem));
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.5rem;
+    overflow-y: auto;
+  }
+
+  .relationship-type-badge {
+    --legend-color: var(--primary);
+    display: inline-flex;
+    max-width: 100%;
+    min-height: 1.75rem;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    border: 1px solid color-mix(in oklch, var(--foreground), transparent 92%);
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem 0.35rem 0.45rem;
+    background: color-mix(in oklch, var(--background), transparent 16%);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.14);
+    backdrop-filter: blur(14px);
+  }
+
+  .relationship-type-badge span {
+    overflow: hidden;
+    color: color-mix(in oklch, var(--foreground), transparent 20%);
+    font-size: 0.64rem;
+    font-weight: 850;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .relationship-type-dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--legend-color);
+    box-shadow: 0 0 12px color-mix(in oklch, var(--legend-color), transparent 66%);
+  }
+
+  .relationship-browser {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 0.15rem;
+  }
+
+  .relationship-browser-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .relationship-browser-heading div {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .relationship-browser-heading span {
+    color: color-mix(in oklch, var(--foreground), transparent 48%);
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .relationship-browser-heading strong {
+    color: color-mix(in oklch, var(--foreground), transparent 16%);
+    font-size: 0.72rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .relationship-search {
+    display: flex;
+    min-height: 2.25rem;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid color-mix(in oklch, var(--foreground), transparent 91%);
+    border-radius: 999px;
+    padding: 0 0.75rem;
+    background: color-mix(in oklch, var(--background), transparent 8%);
+    color: color-mix(in oklch, var(--foreground), transparent 46%);
+  }
+
+  .relationship-search input {
+    height: 2.1rem;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.82rem;
+  }
+
+  .relationship-search input:focus-visible {
+    box-shadow: none;
+  }
+
+  .relationship-list {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+  }
+
+  .relationship-list-item {
+    --relationship-row-accent: var(--primary);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 3.2rem auto;
+    min-height: 4rem;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid color-mix(in oklch, var(--foreground), transparent 93%);
+    border-radius: 0.7rem;
+    padding: 0.65rem 0.7rem;
+    background: color-mix(in oklch, var(--foreground), transparent 97%);
+    color: var(--foreground);
+    text-align: left;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      transform 160ms ease;
+  }
+
+  .relationship-list-item:hover,
+  .relationship-list-item.is-selected {
+    border-color: color-mix(in oklch, var(--relationship-row-accent), transparent 58%);
+    background: color-mix(in oklch, var(--relationship-row-accent), transparent 91%);
+  }
+
+  .relationship-list-item:active {
+    transform: translateY(1px);
+  }
+
+  .relationship-list-avatar {
+    width: 2.35rem;
+    height: 2.35rem;
+    border: 1px solid color-mix(in oklch, var(--relationship-row-accent), transparent 42%);
+    background: color-mix(in oklch, var(--background), var(--foreground) 8%);
+  }
+
+  .relationship-list-main {
+    display: grid;
+    min-width: 0;
+    align-content: center;
+    gap: 0.28rem;
+  }
+
+  .relationship-list-title,
+  .relationship-list-meta {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .relationship-list-title strong {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    overflow: hidden;
+    font-size: 0.88rem;
+    font-weight: 850;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .relationship-list-value {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: flex-end;
+    justify-self: end;
+    color: color-mix(in oklch, var(--relationship-row-accent), var(--foreground) 18%);
+    font-size: 0.72rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .relationship-list-meta {
+    justify-content: flex-start;
+  }
+
+  .relationship-list-meta span {
+    overflow: hidden;
+    color: color-mix(in oklch, var(--foreground), transparent 46%);
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .relationship-list-dot {
+    grid-column: 4;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--relationship-row-accent);
+    box-shadow: 0 0 16px color-mix(in oklch, var(--relationship-row-accent), transparent 62%);
+  }
+
+  .relationship-list-direction {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex: 0 0 auto;
+    color: color-mix(in oklch, var(--relationship-row-accent), var(--foreground) 24%);
+    stroke-width: 2.5;
+  }
+
+  .relationship-list-empty {
+    display: grid;
+    min-height: 5rem;
+    place-items: center;
+    border: 1px dashed color-mix(in oklch, var(--foreground), transparent 90%);
+    border-radius: 0.7rem;
+    color: color-mix(in oklch, var(--foreground), transparent 48%);
+    font-size: 0.82rem;
+    font-style: italic;
+    text-align: center;
   }
 
   .character-graph-scene-transition {
@@ -1138,6 +1688,52 @@
     animation: character-graph-header-enter 220ms cubic-bezier(0.22, 1, 0.36, 1)
       both;
     will-change: opacity, transform;
+  }
+
+  @media (max-width: 920px) {
+    .relationship-inspector {
+      top: auto;
+      right: 1rem;
+      bottom: 1rem;
+      left: 1rem;
+      width: auto;
+      max-height: min(44vh, 24rem);
+    }
+
+    .relationship-inspector-people {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+    }
+
+    .relationship-inspector-thread {
+      width: 2rem;
+      height: 1px;
+      margin-top: 1.675rem;
+      margin-left: 0;
+    }
+
+    .relationship-list-item {
+      min-height: 3.7rem;
+    }
+
+    .relationship-type-legend {
+      top: auto;
+      bottom: calc(min(44vh, 24rem) + 1.75rem);
+      left: 1rem;
+      right: 1rem;
+      width: auto;
+      max-height: 5.5rem;
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .relationship-type-legend {
+      display: none;
+    }
   }
 }
 
@@ -1177,10 +1773,23 @@
   }
 }
 
+@keyframes character-graph-inspector-enter {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .character-graph-stage-transition,
   .character-graph-scene-transition,
-  .character-graph-header-transition {
+  .character-graph-header-transition,
+  .relationship-inspector {
     animation: none;
     will-change: auto;
   }
