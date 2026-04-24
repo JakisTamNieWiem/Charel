@@ -88,9 +88,6 @@ export default function CharacterGraph() {
 			setHoveredRel(null);
 		}, 100);
 	}, []);
-	const handleMouseEnterTooltip = useCallback(() => {
-		if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-	}, []);
 
 	// Directly mutate the DOM transform
 	const applyTransform = () => {
@@ -250,23 +247,20 @@ export default function CharacterGraph() {
 												side={tooltipSide}
 												align="center"
 												sideOffset={2}
-												onMouseEnter={handleMouseEnterTooltip}
-												onMouseLeave={handleMouseLeaveLine}
-												className="w-max max-w-[min(22rem,calc(100vw-2rem))] items-start whitespace-normal wrap-break-word rounded-md px-3 py-2 text-left leading-snug"
+												className="pointer-events-none w-max max-w-[min(22rem,calc(100vw-2rem))] items-start whitespace-normal wrap-break-word rounded-md px-3 py-2 text-left leading-snug"
 											>
 												<div className="no-scrollbar flex max-h-[min(20rem,calc(100vh-2rem))] max-w-full flex-col gap-1 overflow-y-auto">
-													<b className="text-[0.75rem] leading-tight">
-														{
-															types.find((t) => t.id === hoveredRel.typeId)
-																?.label
-														}{" "}
-														{hoveredRel.value && hoveredRel?.value > 0
-															? `+${hoveredRel.value.toFixed(2)}`
-															: (hoveredRel.value?.toFixed(2) ??
-																types
-																	.find((t) => t.id === hoveredRel.typeId)
-																	?.value.toFixed(2) ??
-																"+0.--")}
+													<b className="text-[0.75rem] leading-tight flex justify-between">
+														<span>{type?.label}</span>
+														<span>
+															{(() => {
+																const displayValue = rel.value ?? type?.value;
+																if (displayValue == null) return "+0.--";
+																return displayValue > 0
+																	? `+${displayValue.toFixed(2)}`
+																	: displayValue.toFixed(2);
+															})()}
+														</span>
 													</b>
 													<span className="max-w-full whitespace-normal wrap-break-word text-[0.75rem] leading-snug">
 														{hoveredRel.description}
@@ -287,17 +281,19 @@ export default function CharacterGraph() {
 										strokeWidth="16"
 										className="pointer-events-auto cursor-help"
 										onMouseMove={(e) => {
-											// We need to find the screen position of the midpoint of the line
-											// We can get this from the path itself or the parent G element
 											const pathElement = e.currentTarget;
-											const bbox = pathElement.getBoundingClientRect();
-											const mouseY = e.clientY;
+											const pathMatrix = pathElement.getScreenCTM();
 
-											// If mouse is above the vertical center of the path's bounding box,
-											// we want the tooltip to be at the bottom (so it doesn't block the line)
-											// If mouse is below, we want it at the top.
-											const midY = bbox.top + bbox.height / 2;
-											setTooltipSide(mouseY < midY ? "bottom" : "top");
+											if (pathMatrix && svgRef.current) {
+												const curveMidpoint = svgRef.current.createSVGPoint();
+												curveMidpoint.x = curveMidX;
+												curveMidpoint.y = curveMidY;
+												const screenMidpoint =
+													curveMidpoint.matrixTransform(pathMatrix);
+												setTooltipSide(
+													e.clientY < screenMidpoint.y ? "bottom" : "top",
+												);
+											}
 
 											handleMouseEnterLine(rel);
 										}}
@@ -468,10 +464,8 @@ export default function CharacterGraph() {
 		// 2. Cached Hover Functions (Now stable thanks to useCallback)
 		handleMouseEnterLine,
 		handleMouseLeaveLine,
-		handleMouseEnterTooltip,
 		setSelectedCharId,
 		tooltipSide,
-		types.find,
 		centerRadius,
 	]);
 	return (
@@ -480,7 +474,7 @@ export default function CharacterGraph() {
 			<div className="col-start-1 row-start-1 w-full h-full pointer-events-auto z-0">
 				<div
 					className={cn(
-						"absolute top-0 right-0 h-full w-screen touch-none select-none z-0",
+						"character-graph-stage-transition absolute top-0 right-0 h-full w-screen touch-none select-none z-0",
 						isDragging ? "cursor-grabbing" : "cursor-grab",
 					)}
 					onWheel={handleWheel}
@@ -578,9 +572,9 @@ export default function CharacterGraph() {
 					</svg>
 				</div>
 				{/* LAYER 2: THE FOREGROUND UI (Stays strictly within SidebarInset bounds) */}
-				<div className="col-start-1 row-start-1 z-10 w-full h-full flex flex-col justify-between pointer-events-none">
+				<div className="col-start-1 row-start-1 z-10 w-full h-full pointer-events-none">
 					{/* Header */}
-					<header className="w-full p-6 flex items-center justify-between shrink-0 pointer-events-none ">
+					<header className="pointer-events-none absolute inset-x-0 top-0 flex w-full items-center justify-between p-6">
 						<div
 							key={selectedCharacter?.id ?? "empty-character-heading"}
 							className="character-graph-header-transition bg-background/40 backdrop-blur-md p-4 rounded-2xl pointer-events-auto"
@@ -609,7 +603,7 @@ export default function CharacterGraph() {
 					</header>
 
 					{/* Legend Container */}
-					<div className="h-full w-min p-6 flex flex-col flex-wrap-reverse justify-start items-start gap-3 pointer-events-none self-end">
+					<div className="pointer-events-none absolute right-0 top-1/2 flex w-min -translate-y-1/2 flex-col flex-wrap-reverse items-start gap-3 p-6">
 						{types.map((type) => (
 							<Badge
 								variant={"secondary"}

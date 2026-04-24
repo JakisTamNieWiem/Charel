@@ -41,6 +41,14 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Chat, ChatMember } from "@/types/chat";
+import {
+	SidebarEmptyState,
+	SidebarSection,
+	SidebarTabHeader,
+	SidebarTabRoot,
+	sidebarInputClass,
+	sidebarRowClass,
+} from "./SidebarTabLayout";
 
 export default function ChatTab() {
 	const { data: profile } = useProfile();
@@ -184,6 +192,8 @@ export default function ChatTab() {
 			),
 		[chats, activeSpeakerId],
 	);
+	const hasDirectChats = contactCharacters.length > 0;
+	const hasGroupChats = groupChats.length > 0;
 
 	const filteredCharacters = useMemo(() => {
 		const sorted = [...contactCharacters].sort((a, b) => {
@@ -325,62 +335,65 @@ export default function ChatTab() {
 
 	if (isAnon) {
 		return (
-			<div className="p-4">
-				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50 mb-4">
-					Chat
-				</h2>
-				<p className="text-sm text-muted-foreground mb-3">
+			<SidebarTabRoot>
+				<SidebarTabHeader title="Chats" count={characters.length} />
+				<SidebarEmptyState title="Chat unavailable">
 					Log in as a player or DM to access chat.
-				</p>
-				<p className="text-[10px] font-mono uppercase tracking-widest opacity-30 mb-2">
-					Characters
-				</p>
-				{characters.map((c) => (
-					<div key={c.id} className="flex items-center gap-2 px-2 py-1.5">
-						<Avatar className="size-6">
-							<AvatarImage src={c.avatar ?? undefined} />
-							<AvatarFallback className="text-[8px]">
-								{c.name[0]}
-							</AvatarFallback>
-						</Avatar>
-						<span className="text-xs truncate">{c.name}</span>
+				</SidebarEmptyState>
+				<SidebarSection title="Characters" count={characters.length}>
+					<div className="space-y-1">
+						{characters.map((c) => (
+							<div
+								key={c.id}
+								className={`${sidebarRowClass} flex items-center gap-2 px-2 py-1.5`}
+							>
+								<Avatar className="size-6">
+									<AvatarImage src={c.avatar ?? undefined} />
+									<AvatarFallback className="text-[8px]">
+										{c.name[0]}
+									</AvatarFallback>
+								</Avatar>
+								<span className="truncate text-xs font-medium">{c.name}</span>
+							</div>
+						))}
 					</div>
-				))}
-			</div>
+				</SidebarSection>
+			</SidebarTabRoot>
 		);
 	}
 
 	return (
-		<div>
-			<div className="p-2 pr-0 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
-				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
-					Chats
-				</h2>
-				<div className="flex items-center gap-1">
-					<Button
-						onClick={() => setShowAddContact(true)}
-						variant="ghost"
-						title="Add contact"
-						disabled={!activeSpeakerId}
-					>
-						<UserPlus className="w-4 h-4" />
-					</Button>
-					<Button
-						onClick={() => setShowNewGroup(true)}
-						variant="ghost"
-						title="New group chat"
-						disabled={!activeSpeakerId}
-					>
-						<Plus className="w-4 h-4" />
-					</Button>
-				</div>
-			</div>
+		<SidebarTabRoot>
+			<SidebarTabHeader
+				title="Chats"
+				count={filteredGroups.length + filteredCharacters.length}
+				action={
+					<>
+						<Button
+							onClick={() => setShowAddContact(true)}
+							variant="ghost"
+							size="icon-sm"
+							title="Add contact"
+							disabled={!activeSpeakerId}
+							className="hover:bg-(--sidebar-foreground)/8"
+						>
+							<UserPlus className="w-4 h-4" />
+						</Button>
+						<Button
+							onClick={() => setShowNewGroup(true)}
+							variant="ghost"
+							size="icon-sm"
+							title="New group chat"
+							disabled={!activeSpeakerId}
+							className="hover:bg-(--sidebar-foreground)/8"
+						>
+							<Plus className="w-4 h-4" />
+						</Button>
+					</>
+				}
+			/>
 
-			{/* Character selector */}
-			<div className="px-1 pb-2">
-				<label className="text-[10px] font-mono uppercase tracking-widest opacity-30 mb-1 block">
-					Speaking as
-				</label>
+			<SidebarSection title="Speaking as" className="space-y-2">
 				<Combobox
 					value={activeChar?.name ?? ""}
 					onValueChange={(val) => {
@@ -393,7 +406,7 @@ export default function ChatTab() {
 				>
 					<ComboboxInput
 						placeholder="Select character..."
-						className="h-8 text-xs"
+						className={cn(sidebarInputClass, "h-9 w-full text-sm")}
 					/>
 					<ComboboxContent>
 						<ComboboxEmpty>No characters found</ComboboxEmpty>
@@ -412,126 +425,152 @@ export default function ChatTab() {
 						</ComboboxList>
 					</ComboboxContent>
 				</Combobox>
-			</div>
+			</SidebarSection>
 
-			{/* Search */}
-			<div className="pb-2 mb-3 px-1">
+			<SidebarSection className="space-y-2">
 				<div className="relative">
 					<Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
 					<Input
 						placeholder="Search..."
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
-						className="h-7 pl-7 text-xs bg-white/5 border-white/10"
+						className={cn(sidebarInputClass, "h-9 pl-7 text-sm")}
 					/>
 				</div>
-			</div>
+			</SidebarSection>
 
-			{/* Group chats section */}
-			<div className="mb-2">
-				<p className="text-[10px] font-mono uppercase tracking-widest opacity-30 px-1 mb-1">
-					Group Chats ({groupChats.length})
-				</p>
-				{filteredGroups.map((chat) => (
-					<div
-						key={chat.id}
-						onClick={() => setActiveChatId(chat.id)}
-						className={cn(
-							"group/chat px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative",
-							"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
-							activeChatId === chat.id
-								? [
-										"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
-										"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
-									]
-								: "bg-transparent border-transparent hover:bg-(--sidebar-foreground)/5",
-						)}
-					>
-						<div className="size-8 mr-3 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-							{chat.cover ? (
-								<img
-									src={chat.cover}
-									alt=""
-									className="w-full h-full object-cover"
-								/>
-							) : (
-								<Users className="w-3.5 h-3.5 text-muted-foreground" />
-							)}
-						</div>
-						<div className="flex-1 min-w-0">
-							<h3 className="text-sm font-medium truncate">
-								{getGroupDisplayName(chat)}
-							</h3>
-							<p className="text-[10px] opacity-30 truncate">
-								{getGroupLastMessagePreview(chat.id) ?? "No messages yet"}
-							</p>
-						</div>
-						{isChatUnread(chat.id) && (
-							<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
-								<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-								<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-							</span>
-						)}
-					</div>
-				))}
-			</div>
-
-			{/* Characters (direct messages) */}
-			<div>
-				<p className="text-[10px] font-mono uppercase tracking-widest opacity-30 px-1 mb-1">
-					Chats ({chats.length})
-				</p>
-				{chats.length === 0 && (
-					<p className="px-3 py-2 text-xs text-muted-foreground">
-						No contacts for this character yet.
-					</p>
-				)}
-				{filteredCharacters.map((char) => {
-					const existingChatId = directChatMap.get(char.id);
-					const isActive = existingChatId
-						? activeChatId === existingChatId
-						: pendingCharacterId === char.id;
-
-					return (
-						<div
-							key={char.id}
-							onClick={() => handleCharacterClick(char.id)}
+			<SidebarSection title="Group Chats" count={groupChats.length}>
+				<div className="space-y-1.5">
+					{!search && !hasGroupChats && (
+						<button
+							type="button"
+							onClick={() => setShowNewGroup(true)}
+							disabled={!activeSpeakerId}
 							className={cn(
-								"px-3 py-2 rounded-lg border transition-all duration-150 cursor-pointer flex items-center relative",
-								"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
-								isActive
-									? [
-											"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
-											"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
-										]
-									: "bg-transparent border-transparent hover:bg-(--sidebar-foreground)/5",
+								sidebarRowClass,
+								"flex min-h-[3.25rem] w-full items-center gap-3 px-3 py-2.5 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45",
 							)}
 						>
-							<Avatar className="size-10 mr-3 shrink-0">
-								<AvatarImage src={char.avatar ?? undefined} />
-								<AvatarFallback>{char.name[0]}</AvatarFallback>
-							</Avatar>
+							<div className="grid size-8 shrink-0 place-items-center rounded-full bg-(--sidebar-foreground)/5">
+								<Plus className="size-3.5" />
+							</div>
+							<span className="truncate text-sm italic">
+								Create a group chat...
+							</span>
+						</button>
+					)}
+					{filteredGroups.map((chat) => (
+						<div
+							key={chat.id}
+							onClick={() => setActiveChatId(chat.id)}
+							className={cn(
+								sidebarRowClass,
+								"group/chat flex cursor-pointer items-center px-3 py-2.5 relative",
+								activeChatId === chat.id
+									? [
+											"border-(--sidebar-primary)/20 bg-(--sidebar-primary)/8",
+											"shadow-[inset_0_2px_5px_rgba(0,0,0,0.22)]",
+										]
+									: "shadow-none",
+							)}
+						>
+							<div className="size-8 mr-3 rounded-full bg-(--sidebar-foreground)/8 flex items-center justify-center shrink-0 overflow-hidden border border-(--sidebar-foreground)/10">
+								{chat.cover ? (
+									<img
+										src={chat.cover}
+										alt=""
+										className="w-full h-full object-cover"
+									/>
+								) : (
+									<Users className="w-3.5 h-3.5 text-muted-foreground" />
+								)}
+							</div>
 							<div className="flex-1 min-w-0">
 								<h3 className="text-sm font-medium truncate">
-									{nicknameMap.get(char.id) ?? char.name}
+									{getGroupDisplayName(chat)}
 								</h3>
-								<p className="text-[10px] opacity-30 truncate">
-									{existingChatId
-										? (getLastMessagePreview(existingChatId) ??
-											"No messages yet")
-										: "No messages yet"}
+								<p className="text-[0.625rem] text-muted-foreground truncate">
+									{getGroupLastMessagePreview(chat.id) ?? "No messages yet"}
 								</p>
 							</div>
-							{existingChatId && isChatUnread(existingChatId) && (
+							{isChatUnread(chat.id) && (
 								<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
 									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
 									<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
 								</span>
 							)}
 						</div>
-					);
-				})}
-			</div>
+					))}
+				</div>
+			</SidebarSection>
+
+			<SidebarSection title="Direct Chats" count={filteredCharacters.length}>
+				<div className="space-y-1.5">
+					{!search && !hasDirectChats && (
+						<button
+							type="button"
+							onClick={() => setShowAddContact(true)}
+							disabled={!activeSpeakerId}
+							className={cn(
+								sidebarRowClass,
+								"flex min-h-[3.25rem] w-full items-center gap-3 px-3 py-2.5 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45",
+							)}
+						>
+							<div className="grid size-10 shrink-0 place-items-center rounded-full bg-(--sidebar-foreground)/5">
+								<UserPlus className="size-3.5" />
+							</div>
+							<span className="truncate text-sm italic">
+								Start a direct chat...
+							</span>
+						</button>
+					)}
+					{filteredCharacters.map((char) => {
+						const existingChatId = directChatMap.get(char.id);
+						const isActive = existingChatId
+							? activeChatId === existingChatId
+							: pendingCharacterId === char.id;
+
+						return (
+							<div
+								key={char.id}
+								onClick={() => handleCharacterClick(char.id)}
+								className={cn(
+									sidebarRowClass,
+									"flex cursor-pointer items-center px-3 py-2.5 relative",
+									isActive
+										? [
+												"border-(--sidebar-primary)/20 bg-(--sidebar-primary)/8",
+												"shadow-[inset_0_2px_5px_rgba(0,0,0,0.22)]",
+											]
+										: "shadow-none",
+								)}
+							>
+								<Avatar className="size-10 mr-3 shrink-0">
+									<AvatarImage src={char.avatar ?? undefined} />
+									<AvatarFallback>{char.name[0]}</AvatarFallback>
+								</Avatar>
+								<div className="flex-1 min-w-0">
+									<h3 className="text-sm font-semibold truncate">
+										{nicknameMap.get(char.id) ?? char.name}
+									</h3>
+									<p className="text-[0.625rem] text-muted-foreground truncate">
+										{existingChatId
+											? (getLastMessagePreview(existingChatId) ??
+												"No messages yet")
+											: "No messages yet"}
+									</p>
+								</div>
+								{existingChatId && isChatUnread(existingChatId) && (
+									<span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-2 w-2">
+										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+										<span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+									</span>
+								)}
+							</div>
+						);
+					})}
+				</div>
+			</SidebarSection>
 
 			{/* Add Contact Dialog */}
 			<Dialog
@@ -547,13 +586,34 @@ export default function ChatTab() {
 					<DialogHeader>
 						<DialogTitle>Contacts</DialogTitle>
 					</DialogHeader>
-					<div className="space-y-6 min-h-96! flex flex-col">
+					<div className="space-y-6 min-h-128! flex flex-col">
 						<Input
 							placeholder="Search characters or phone numbers..."
 							value={contactSearch}
 							onChange={(e) => setContactSearch(e.target.value)}
 							className="h-12 text-md"
 						/>
+						{activeChar && (
+							<div className="flex items-center gap-4 rounded-md border border-white/10 bg-white/5 px-4 py-3">
+								<Avatar className="size-10 shrink-0">
+									<AvatarImage src={activeChar.avatar ?? undefined} />
+									<AvatarFallback className="text-[8px]">
+										{activeChar.name[0]}
+									</AvatarFallback>
+								</Avatar>
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center gap-2">
+										<p className="truncate text-md">{activeChar.name}</p>
+										<span className="shrink-0 rounded-full border border-white/10 px-1.5 py-0.5 text-[0.5625rem] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+											You
+										</span>
+									</div>
+									<p className="truncate text-sm text-muted-foreground">
+										{activeChar.phoneNumber?.trim() || "No phone number"}
+									</p>
+								</div>
+							</div>
+						)}
 						<ScrollArea className="h-full max-h-96 overflow-y-auto space-y-1 bg-background overflow-visible rounded-md p-1">
 							{availableContacts.length === 0 &&
 								/^\d{9}$/.test(contactSearch) && (
@@ -732,6 +792,6 @@ export default function ChatTab() {
 					</div>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</SidebarTabRoot>
 	);
 }

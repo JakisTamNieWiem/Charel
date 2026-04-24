@@ -25,6 +25,12 @@ import {
 	type ThemeMode,
 	type ThemeValues,
 } from "@/lib/theme-editor";
+import { cn } from "@/lib/utils";
+import {
+	SidebarPanel,
+	SidebarSection,
+	sidebarInputClass,
+} from "./SidebarTabLayout";
 import { ThemeEditorDialog } from "./theme-manager/ThemeEditorDialog";
 
 type ThemeDraft = {
@@ -215,12 +221,9 @@ export default function ThemeManager() {
 		}
 	};
 	return (
-		<div className="my-2 flex min-h-9 flex-col gap-3 p-2">
-			<Label className="text-xs font-mono uppercase tracking-widest opacity-50">
-				Theming
-			</Label>
-
-			<div className="flex flex-col gap-2 sm:flex-row">
+		<SidebarSection title="Theming">
+			<SidebarPanel className="space-y-2 p-2.5">
+				<Label className="sr-only">Theming</Label>
 				<Select
 					value={color}
 					onValueChange={(nextColor) => {
@@ -232,7 +235,7 @@ export default function ThemeManager() {
 					}}
 					items={allThemes}
 				>
-					<SelectTrigger className="w-full sm:flex-1">
+					<SelectTrigger className={cn(sidebarInputClass, "w-full")}>
 						<SelectValue placeholder="Select a theme" />
 					</SelectTrigger>
 					<SelectContent alignItemWithTrigger={false}>
@@ -258,24 +261,29 @@ export default function ThemeManager() {
 						</SelectGroup>
 					</SelectContent>
 				</Select>
-			</div>
-			<Button
-				className="sm:w-auto"
-				variant="secondary"
-				onClick={handleImportFile}
-			>
-				<Upload className="mr-2 h-4 w-4" /> Import Theme File
-			</Button>
 
-			<Button
-				className="sm:w-auto"
-				variant="outline"
-				disabled={!customThemesLoaded}
-				onClick={() => openEditorForTheme()}
-			>
-				<Palette className="mr-2 h-4 w-4" />
-				{activeCustomTheme ? "Edit Theme" : "Customize"}
-			</Button>
+				<div className="grid grid-cols-2 gap-2">
+					<Button
+						variant="secondary"
+						size="sm"
+						onClick={handleImportFile}
+						className="justify-center"
+					>
+						<Upload className="h-4 w-4" /> Import
+					</Button>
+
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={!customThemesLoaded}
+						onClick={() => openEditorForTheme()}
+						className="justify-center"
+					>
+						<Palette className="h-4 w-4" />
+						{activeCustomTheme ? "Edit" : "Customize"}
+					</Button>
+				</div>
+			</SidebarPanel>
 
 			<ThemeEditorDialog
 				open={isEditorOpen}
@@ -295,6 +303,6 @@ export default function ThemeManager() {
 				}}
 				saveDisabled={!draft.name.trim()}
 			/>
-		</div>
+		</SidebarSection>
 	);
 }

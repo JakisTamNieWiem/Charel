@@ -9,7 +9,7 @@ export default function AppViewport({ pathname }: { pathname: string }) {
 	return (
 		<SidebarInset
 			className={cn(
-				"relative flex flex-col overflow-hidden transition-all duration-300 ease-in-out bg-background! shadow-[inset_0_0_10px_2px_rgba(0,0,0,0.2)]! ring-1 ring-inset ring-white/80 dark:ring-black/80",
+				"relative ml-8 mr-8 mb-8 flex flex-col overflow-hidden rounded-2xl border border-border/30 bg-background! transition-all duration-300 ease-in-out after:pointer-events-none after:absolute after:inset-0 after:z-[100] after:rounded-2xl after:shadow-[inset_0_0_30px_rgba(0,0,0,0.1)]",
 				pathname !== "/chat" && "bg-dot-grid",
 			)}
 		>

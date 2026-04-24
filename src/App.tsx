@@ -382,7 +382,7 @@ function App() {
 				<SidebarProvider
 					defaultOpen={true}
 					style={{ "--sidebar-width": "22rem" } as React.CSSProperties}
-					className="max-h-screen! max-w-screen! pt-6"
+					className="max-h-screen! max-w-screen! pt-8"
 				>
 					<AppSidebar />
 					<AppViewport pathname={pathname} />
