@@ -4,7 +4,7 @@ import { NetworkPage } from "@/routes/pages";
 import { SidebarInset } from "./ui/sidebar";
 
 export default function AppViewport({ pathname }: { pathname: string }) {
-	const isNetworkPage = pathname.startsWith("/network");
+	const isNetworkPage = pathname === "/network";
 
 	return (
 		<SidebarInset
@@ -14,9 +14,20 @@ export default function AppViewport({ pathname }: { pathname: string }) {
 			)}
 		>
 			<main className="flex-1 relative h-full w-full overflow-hidden flex flex-col">
-				<div className="absolute inset-0">
-					{isNetworkPage ? <NetworkPage /> : <Outlet />}
+				<div
+					aria-hidden={!isNetworkPage}
+					className={cn(
+						"absolute inset-0",
+						!isNetworkPage && "pointer-events-none opacity-0",
+					)}
+				>
+					<NetworkPage />
 				</div>
+				{!isNetworkPage && (
+					<div className="absolute inset-0">
+						<Outlet />
+					</div>
+				)}
 			</main>
 		</SidebarInset>
 	);
