@@ -379,7 +379,17 @@ export function buildNetworkLayout(
 		let wavePhase: number | undefined;
 		let pathPoints: Array<{ x: number; y: number }> | undefined;
 
-		if (isCrossGroup || pairRelationships.length > 1) {
+		if (curveStyle === "quadratic") {
+			if (isCrossGroup) {
+				const mx = (source.x + target.x) / 2;
+				const my = (source.y + target.y) / 2;
+				const dx = target.x - source.x;
+				const dy = target.y - source.y;
+
+				cpX = mx - dy * 0.25;
+				cpY = my + dx * 0.25;
+			}
+		} else if (isCrossGroup || pairRelationships.length > 1) {
 			const mx = (source.x + target.x) / 2;
 			const my = (source.y + target.y) / 2;
 			const dx = target.x - source.x;

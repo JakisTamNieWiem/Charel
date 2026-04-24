@@ -344,6 +344,81 @@ function parseRgbColor(value: string) {
 	);
 }
 
+function hueToRgb(p: number, q: number, t: number) {
+	let adjustedT = t;
+
+	if (adjustedT < 0) adjustedT += 1;
+	if (adjustedT > 1) adjustedT -= 1;
+	if (adjustedT < 1 / 6) return p + (q - p) * 6 * adjustedT;
+	if (adjustedT < 1 / 2) return q;
+	if (adjustedT < 2 / 3) return p + (q - p) * (2 / 3 - adjustedT) * 6;
+	return p;
+}
+
+function parseHue(value: string) {
+	if (value.endsWith("turn")) {
+		return Number.parseFloat(value) * 360;
+	}
+
+	if (value.endsWith("rad")) {
+		return Number.parseFloat(value) * (180 / Math.PI);
+	}
+
+	if (value.endsWith("deg")) {
+		return Number.parseFloat(value);
+	}
+
+	return Number.parseFloat(value);
+}
+
+function parseHslColor(value: string) {
+	const match = value.match(/^hsla?\((.+)\)$/i);
+
+	if (!match) {
+		return null;
+	}
+
+	const parts = match[1]
+		.replace(/\//g, " ")
+		.split(/[,\s]+/)
+		.filter(Boolean);
+
+	if (parts.length < 3) {
+		return null;
+	}
+
+	const hue = parseHue(parts[0]);
+	const saturation = Number.parseFloat(parts[1]) / 100;
+	const lightness = Number.parseFloat(parts[2]) / 100;
+
+	if ([hue, saturation, lightness].some((part) => Number.isNaN(part))) {
+		return null;
+	}
+
+	const normalizedHue = (((hue % 360) + 360) % 360) / 360;
+	const clampedSaturation = clamp(saturation);
+	const clampedLightness = clamp(lightness);
+
+	if (clampedSaturation === 0) {
+		const grey = Math.round(clampedLightness * 255);
+		return packRgb(grey, grey, grey);
+	}
+
+	const q =
+		clampedLightness < 0.5
+			? clampedLightness * (1 + clampedSaturation)
+			: clampedLightness +
+				clampedSaturation -
+				clampedLightness * clampedSaturation;
+	const p = 2 * clampedLightness - q;
+
+	return packRgb(
+		Math.round(hueToRgb(p, q, normalizedHue + 1 / 3) * 255),
+		Math.round(hueToRgb(p, q, normalizedHue) * 255),
+		Math.round(hueToRgb(p, q, normalizedHue - 1 / 3) * 255),
+	);
+}
+
 function parseOklchColor(value: string) {
 	const match = value.match(/^oklch\((.+)\)$/i);
 
@@ -406,6 +481,10 @@ function colorToNumber(value: string | null | undefined, fallback: number) {
 
 	if (color.startsWith("rgb")) {
 		return parseRgbColor(color) ?? fallback;
+	}
+
+	if (color.startsWith("hsl")) {
+		return parseHslColor(color) ?? fallback;
 	}
 
 	return fallback;

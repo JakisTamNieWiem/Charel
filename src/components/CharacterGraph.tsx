@@ -205,244 +205,254 @@ export default function CharacterGraph() {
 	const graphSvgContent = useMemo(() => {
 		return (
 			<g ref={gRef} transform="translate(0, 0) scale(1)">
-				{relationshipData.map(
-					({
-						rel,
-						type,
-						idx,
-						path,
-						isFromCenter,
-						angleDeg,
-						curveMidX,
-						curveMidY,
+				<g
+					key={selectedId ?? "empty-character-graph"}
+					className="character-graph-scene-transition"
+				>
+					{relationshipData.map(
+						({
+							rel,
+							type,
+							idx,
+							path,
+							isFromCenter,
+							angleDeg,
+							curveMidX,
+							curveMidY,
 
-						edgeOpacity,
-					}) => {
-						const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}-${idx}`;
-						const isActive =
-							hoveredRel &&
-							`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}-${idx}` ===
-								relId;
+							edgeOpacity,
+						}) => {
+							const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}-${idx}`;
+							const isActive =
+								hoveredRel &&
+								`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}-${idx}` ===
+									relId;
+							return (
+								<g
+									key={`rel-path-${relId}`}
+									className="cursor-help"
+									transform={` rotate(${angleDeg})`}
+								>
+									{isActive && (
+										<Tooltip open={true}>
+											<TooltipTrigger
+												render={
+													<circle
+														cy={curveMidY}
+														cx={curveMidX}
+														r="1"
+														fill="transparent"
+														className="pointer-events-none!"
+													/>
+												}
+											></TooltipTrigger>
+											<TooltipContent
+												side={tooltipSide}
+												align="center"
+												sideOffset={2}
+												onMouseEnter={handleMouseEnterTooltip}
+												onMouseLeave={handleMouseLeaveLine}
+												className="w-max max-w-[min(22rem,calc(100vw-2rem))] items-start whitespace-normal wrap-break-word rounded-md px-3 py-2 text-left leading-snug"
+											>
+												<div className="no-scrollbar flex max-h-[min(20rem,calc(100vh-2rem))] max-w-full flex-col gap-1 overflow-y-auto">
+													<b className="text-[0.75rem] leading-tight">
+														{
+															types.find((t) => t.id === hoveredRel.typeId)
+																?.label
+														}{" "}
+														{hoveredRel.value && hoveredRel?.value > 0
+															? `+${hoveredRel.value.toFixed(2)}`
+															: (hoveredRel.value?.toFixed(2) ??
+																types
+																	.find((t) => t.id === hoveredRel.typeId)
+																	?.value.toFixed(2) ??
+																"+0.--")}
+													</b>
+													<span className="max-w-full whitespace-normal wrap-break-word text-[0.75rem] leading-snug">
+														{hoveredRel.description}
+													</span>
+
+													<p className="mt-1 text-[10px] italic opacity-45">
+														Left-click Edit | Right-click Delete
+													</p>
+												</div>
+											</TooltipContent>
+										</Tooltip>
+									)}
+									{/* Invisible trigger path */}
+									<path
+										d={path}
+										fill="none"
+										stroke="transparent"
+										strokeWidth="16"
+										className="pointer-events-auto cursor-help"
+										onMouseMove={(e) => {
+											// We need to find the screen position of the midpoint of the line
+											// We can get this from the path itself or the parent G element
+											const pathElement = e.currentTarget;
+											const bbox = pathElement.getBoundingClientRect();
+											const mouseY = e.clientY;
+
+											// If mouse is above the vertical center of the path's bounding box,
+											// we want the tooltip to be at the bottom (so it doesn't block the line)
+											// If mouse is below, we want it at the top.
+											const midY = bbox.top + bbox.height / 2;
+											setTooltipSide(mouseY < midY ? "bottom" : "top");
+
+											handleMouseEnterLine(rel);
+										}}
+										onMouseEnter={(e) => {
+											e.preventDefault();
+											handleMouseEnterLine(rel);
+										}}
+										onMouseLeave={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											handleMouseLeaveLine();
+										}}
+										onPointerDown={(e) => {
+											if (e.pointerType === "mouse" && e.button === 2) return;
+											e.preventDefault();
+											e.stopPropagation();
+											setEditingRel(rel);
+										}}
+										onPointerUp={(e) => {
+											// 2. OPEN THE MODAL HERE!
+											// The click cycle is finished, so the overlay won't misinterpret the mouse release.
+											if (e.pointerType === "mouse" && e.button === 2) return;
+											e.preventDefault();
+											e.stopPropagation();
+											setIsModalOpen(true);
+										}}
+										onContextMenu={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											setDeletingRel(rel);
+										}}
+									/>
+									{/* Visible path */}
+									<path
+										d={path}
+										fill="none"
+										strokeLinecap="round"
+										strokeWidth="4"
+										// 1. Choose gradient based on direction
+										stroke={
+											isFromCenter
+												? `url(#grad-out-${type?.id})`
+												: `url(#grad-in-${type?.id})`
+										}
+										// 2. Put the arrowhead on the correct side
+										markerEnd={
+											isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
+										}
+										markerStart={
+											!isFromCenter
+												? `url(#arrowhead-${rel.typeId})`
+												: undefined
+										}
+										opacity={isActive ? 1 : edgeOpacity}
+										className="pointer-events-none transition-opacity duration-300"
+									/>
+								</g>
+							);
+						},
+					)}
+
+					{relatedCharacters.map((char, i: number) => {
+						const angle =
+							(i / relatedCharacters.length) * 2 * Math.PI - Math.PI / 2;
+						const cos = Math.cos(angle);
+						const sin = Math.sin(angle);
+						const x = radius * cos;
+						const y = radius * sin;
+
+						// Position name radially outside the circle
+						const textRadius = radius + relatedRadius + 16;
+						const textX = textRadius * cos;
+						const textY = textRadius * sin;
+						const textAnchor =
+							cos > 0.5 ? "start" : cos < -0.5 ? "end" : "middle";
+						const dominantBaseline =
+							sin > 0.5 ? "hanging" : sin < -0.5 ? "auto" : "middle";
+
 						return (
 							<g
-								key={`rel-path-${relId}`}
-								className="cursor-help"
-								transform={` rotate(${angleDeg})`}
+								key={char.id}
+								onPointerDown={(e) => {
+									e.stopPropagation();
+								}}
+								onClick={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									setSelectedCharId(char.id);
+								}}
+								className="cursor-pointer group"
 							>
-								{isActive && (
-									<Tooltip open={true}>
-										<TooltipTrigger
-											render={
-												<circle
-													cy={curveMidY}
-													cx={curveMidX}
-													r="1"
-													fill="transparent"
-													className="pointer-events-none!"
-												/>
-											}
-										></TooltipTrigger>
-										<TooltipContent
-											side={tooltipSide}
-											align="center"
-											sideOffset={2}
-											onMouseEnter={handleMouseEnterTooltip}
-											onMouseLeave={handleMouseLeaveLine}
-											className="w-max max-w-[min(22rem,calc(100vw-2rem))] items-start whitespace-normal wrap-break-word rounded-md px-3 py-2 text-left leading-snug"
-										>
-											<div className="no-scrollbar flex max-h-[min(20rem,calc(100vh-2rem))] max-w-full flex-col gap-1 overflow-y-auto">
-												<b className="text-[0.75rem] leading-tight">
-													{types.find((t) => t.id === hoveredRel.typeId)?.label}{" "}
-													{hoveredRel.value && hoveredRel?.value > 0
-														? `+${hoveredRel.value.toFixed(2)}`
-														: (hoveredRel.value?.toFixed(2) ??
-															types
-																.find((t) => t.id === hoveredRel.typeId)
-																?.value.toFixed(2) ??
-															"+0.--")}
-												</b>
-												<span className="max-w-full whitespace-normal wrap-break-word text-[0.75rem] leading-snug">
-													{hoveredRel.description}
-												</span>
-
-												<p className="mt-1 text-[10px] italic opacity-45">
-													Left-click Edit | Right-click Delete
-												</p>
-											</div>
-										</TooltipContent>
-									</Tooltip>
-								)}
-								{/* Invisible trigger path */}
-								<path
-									d={path}
-									fill="none"
-									stroke="transparent"
-									strokeWidth="16"
-									className="pointer-events-auto cursor-help"
-									onMouseMove={(e) => {
-										// We need to find the screen position of the midpoint of the line
-										// We can get this from the path itself or the parent G element
-										const pathElement = e.currentTarget;
-										const bbox = pathElement.getBoundingClientRect();
-										const mouseY = e.clientY;
-
-										// If mouse is above the vertical center of the path's bounding box,
-										// we want the tooltip to be at the bottom (so it doesn't block the line)
-										// If mouse is below, we want it at the top.
-										const midY = bbox.top + bbox.height / 2;
-										setTooltipSide(mouseY < midY ? "bottom" : "top");
-
-										handleMouseEnterLine(rel);
-									}}
-									onMouseEnter={(e) => {
-										e.preventDefault();
-										handleMouseEnterLine(rel);
-									}}
-									onMouseLeave={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										handleMouseLeaveLine();
-									}}
-									onPointerDown={(e) => {
-										if (e.pointerType === "mouse" && e.button === 2) return;
-										e.preventDefault();
-										e.stopPropagation();
-										setEditingRel(rel);
-									}}
-									onPointerUp={(e) => {
-										// 2. OPEN THE MODAL HERE!
-										// The click cycle is finished, so the overlay won't misinterpret the mouse release.
-										if (e.pointerType === "mouse" && e.button === 2) return;
-										e.preventDefault();
-										e.stopPropagation();
-										setIsModalOpen(true);
-									}}
-									onContextMenu={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										setDeletingRel(rel);
-									}}
+								<circle
+									cx={x}
+									cy={y}
+									r={relatedRadius + 2}
+									fill="#0a0a0a"
+									stroke="white"
+									strokeWidth="1"
+									className="opacity-20 group-hover:opacity-40 transition-opacity"
 								/>
-								{/* Visible path */}
-								<path
-									d={path}
-									fill="none"
-									strokeLinecap="round"
-									strokeWidth="4"
-									// 1. Choose gradient based on direction
-									stroke={
-										isFromCenter
-											? `url(#grad-out-${type?.id})`
-											: `url(#grad-in-${type?.id})`
+								<clipPath id={`clip-${char.id}`}>
+									<circle cx={x} cy={y} r={relatedRadius} />
+								</clipPath>
+								<image
+									href={
+										char.avatar || `https://picsum.photos/seed/${char.id}/80/80`
 									}
-									// 2. Put the arrowhead on the correct side
-									markerEnd={
-										isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
-									}
-									markerStart={
-										!isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
-									}
-									opacity={isActive ? 1 : edgeOpacity}
-									className="pointer-events-none transition-opacity duration-300"
+									x={x - relatedRadius}
+									y={y - relatedRadius}
+									width={relatedRadius * 2}
+									height={relatedRadius * 2}
+									clipPath={`url(#clip-${char.id})`}
+									// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
+									referrerPolicy="no-referrer"
 								/>
+
+								<text
+									x={textX}
+									y={textY}
+									textAnchor={textAnchor}
+									dominantBaseline={dominantBaseline}
+									className="fill-foreground text-[10px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"
+								>
+									{char.name}
+								</text>
 							</g>
 						);
-					},
-				)}
+					})}
 
-				{relatedCharacters.map((char, i: number) => {
-					const angle =
-						(i / relatedCharacters.length) * 2 * Math.PI - Math.PI / 2;
-					const cos = Math.cos(angle);
-					const sin = Math.sin(angle);
-					const x = radius * cos;
-					const y = radius * sin;
-
-					// Position name radially outside the circle
-					const textRadius = radius + relatedRadius + 16;
-					const textX = textRadius * cos;
-					const textY = textRadius * sin;
-					const textAnchor =
-						cos > 0.5 ? "start" : cos < -0.5 ? "end" : "middle";
-					const dominantBaseline =
-						sin > 0.5 ? "hanging" : sin < -0.5 ? "auto" : "middle";
-
-					return (
-						<g
-							key={char.id}
-							onPointerDown={(e) => {
-								e.stopPropagation();
-							}}
-							onClick={(e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								setSelectedCharId(char.id);
-							}}
-							className="cursor-pointer group"
-						>
-							<circle
-								cx={x}
-								cy={y}
-								r={relatedRadius + 2}
-								fill="#0a0a0a"
-								stroke="white"
-								strokeWidth="1"
-								className="opacity-20 group-hover:opacity-40 transition-opacity"
-							/>
-							<clipPath id={`clip-${char.id}`}>
-								<circle cx={x} cy={y} r={relatedRadius} />
-							</clipPath>
-							<image
-								href={
-									char.avatar || `https://picsum.photos/seed/${char.id}/80/80`
-								}
-								x={x - relatedRadius}
-								y={y - relatedRadius}
-								width={relatedRadius * 2}
-								height={relatedRadius * 2}
-								clipPath={`url(#clip-${char.id})`}
-								// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
-								referrerPolicy="no-referrer"
-							/>
-
-							<text
-								x={textX}
-								y={textY}
-								textAnchor={textAnchor}
-								dominantBaseline={dominantBaseline}
-								className="fill-foreground text-[10px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"
-							>
-								{char.name}
-							</text>
-						</g>
-					);
-				})}
-
-				<g className="drop-shadow-2xl">
-					<circle
-						cx={0}
-						cy={0}
-						r={centerRadius + 2}
-						fill="#0a0a0a"
-						stroke="white"
-						strokeWidth="2"
-					/>
-					<clipPath id="clip-center">
-						<circle cx={0} cy={0} r={centerRadius} />
-					</clipPath>
-					<image
-						href={
-							selectedCharacter?.avatar ||
-							`https://picsum.photos/seed/${selectedCharacter?.id}/120/120`
-						}
-						x={-centerRadius}
-						y={-centerRadius}
-						width={centerRadius * 2}
-						height={centerRadius * 2}
-						clipPath="url(#clip-center)"
-						// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
-						referrerPolicy="no-referrer"
-					/>
+					<g className="drop-shadow-2xl">
+						<circle
+							cx={0}
+							cy={0}
+							r={centerRadius + 2}
+							fill="#0a0a0a"
+							stroke="white"
+							strokeWidth="2"
+						/>
+						<clipPath id="clip-center">
+							<circle cx={0} cy={0} r={centerRadius} />
+						</clipPath>
+						<image
+							href={
+								selectedCharacter?.avatar ||
+								`https://picsum.photos/seed/${selectedCharacter?.id}/120/120`
+							}
+							x={-centerRadius}
+							y={-centerRadius}
+							width={centerRadius * 2}
+							height={centerRadius * 2}
+							clipPath="url(#clip-center)"
+							// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
+							referrerPolicy="no-referrer"
+						/>
+					</g>
 				</g>
 			</g>
 		);
@@ -452,6 +462,7 @@ export default function CharacterGraph() {
 		relatedCharacters,
 		hoveredRel,
 		selectedCharacter,
+		selectedId,
 		radius,
 
 		// 2. Cached Hover Functions (Now stable thanks to useCallback)
@@ -570,7 +581,10 @@ export default function CharacterGraph() {
 				<div className="col-start-1 row-start-1 z-10 w-full h-full flex flex-col justify-between pointer-events-none">
 					{/* Header */}
 					<header className="w-full p-6 flex items-center justify-between shrink-0 pointer-events-none ">
-						<div className="bg-background/40 backdrop-blur-md p-4 rounded-2xl pointer-events-auto">
+						<div
+							key={selectedCharacter?.id ?? "empty-character-heading"}
+							className="character-graph-header-transition bg-background/40 backdrop-blur-md p-4 rounded-2xl pointer-events-auto"
+						>
 							<h2
 								style={{ fontFamily: "Geist Variable" }}
 								className="text-4xl font-bold tracking-tighter uppercase italic serif"
