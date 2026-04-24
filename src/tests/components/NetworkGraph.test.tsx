@@ -19,6 +19,7 @@ const graphState = {
 	relationshipTypes: [],
 	groups: [{ id: "group-1", name: "Crew", color: "#ff0000" }],
 	networkMode: "group" as const,
+	networkCurveStyle: "quadratic" as const,
 	setSelectedCharId,
 };
 
@@ -197,12 +198,19 @@ describe("NetworkGraph", () => {
 		});
 
 		const { container } = render(<NetworkGraph />);
-		const pixiCanvas = container.querySelector(
-			"canvas[data-layer='pixi']",
-		) as HTMLCanvasElement;
 
 		await waitFor(() => {
 			expect(resizeCallback).not.toBeNull();
+		});
+
+		const pixiCanvas = await waitFor(() => {
+			const canvas = container.querySelector(
+				"canvas[data-layer='pixi']",
+			) as HTMLCanvasElement | null;
+
+			expect(canvas).not.toBeNull();
+
+			return canvas as HTMLCanvasElement;
 		});
 
 		await act(async () => {

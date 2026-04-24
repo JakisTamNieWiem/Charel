@@ -1,5 +1,5 @@
 import {
-	Application,
+	type Application,
 	Container,
 	type ContainerChild,
 	Graphics,
@@ -19,6 +19,7 @@ import {
 	type LayoutData,
 	NODE_SIZE,
 } from "@/lib/network-graph";
+import { acquireSharedPixiApp } from "@/lib/shared-pixi";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Badge } from "./ui/badge";
 
@@ -36,6 +37,10 @@ const GROUP_LABEL_OFFSET = 25;
 const NODE_INITIAL_FONT_SIZE = NODE_SIZE * 0.8;
 const NODE_LABEL_FONT_SIZE = 11;
 const NODE_LABEL_OFFSET = 8;
+const savedNetworkViewState = {
+	transform: { x: 0, y: 0, k: 0.5 },
+	hasCentered: false,
+};
 
 type ThemeColors = {
 	bg: number;
@@ -919,13 +924,12 @@ export default function NetworkGraph() {
 	const networkCurveStyle = useGraphStore((state) => state.networkCurveStyle);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 	const containerRef = useRef<HTMLDivElement | null>(null);
-	const canvasRef = useRef<HTMLCanvasElement | null>(null);
 	const scheduleRenderRef = useRef<(() => void) | null>(null);
 	const engineRef = useRef<EngineState>({
 		app: null,
 		layers: null,
 		canvas: null,
-		transform: { x: 0, y: 0, k: 0.5 },
+		transform: { ...savedNetworkViewState.transform },
 		width: 0,
 		height: 0,
 		theme: { bg: 0x000000, fg: 0xffffff, card: 0x222222 },
@@ -934,7 +938,7 @@ export default function NetworkGraph() {
 		connectedNodeIds: new Set<string>(),
 		isDragging: false,
 		isInteracting: false,
-		hasCentered: false,
+		hasCentered: savedNetworkViewState.hasCentered,
 		pointerDownPos: { x: 0, y: 0 },
 		lastPointerPos: { x: 0, y: 0 },
 		layout: {
@@ -972,41 +976,28 @@ export default function NetworkGraph() {
 
 	useEffect(() => {
 		const element = containerRef.current;
-		const canvas = canvasRef.current;
 
-		if (!element || !canvas) {
+		if (!element) {
 			return;
 		}
 
 		const engine = engineRef.current;
-		const app = new Application();
 		const layers = createLayers();
 		let disposed = false;
-		let appInitialized = false;
-		let layersAddedToStage = false;
 		let layersDestroyed = false;
+		let app: Application | null = null;
+		let canvas: HTMLCanvasElement | null = null;
+		let releaseSharedApp: (() => void) | null = null;
 		let resizeObserver: ResizeObserver | null = null;
 		let themeObserver: MutationObserver | null = null;
 
 		const safeDestroyLayers = () => {
-			if (layersDestroyed || layersAddedToStage) {
+			if (layersDestroyed) {
 				return;
 			}
 
 			layersDestroyed = true;
 			destroyLayers(layers);
-		};
-
-		const safeDestroyApp = () => {
-			if (!appInitialized) {
-				return;
-			}
-
-			if (!layersAddedToStage) {
-				safeDestroyLayers();
-			}
-
-			app.destroy({ removeView: false }, { children: true });
 		};
 
 		const markDirty = (staticLayer = true, fxLayer = true) => {
@@ -1106,6 +1097,10 @@ export default function NetworkGraph() {
 		};
 
 		const updateHoverState = (mouseX: number, mouseY: number) => {
+			if (!canvas) {
+				return;
+			}
+
 			const { x: tx, y: ty, k } = engine.transform;
 			const worldX = (mouseX - tx) / k;
 			const worldY = (mouseY - ty) / k;
@@ -1139,6 +1134,10 @@ export default function NetworkGraph() {
 		};
 
 		const getEventPos = (event: MouseEvent | PointerEvent | WheelEvent) => {
+			if (!canvas) {
+				return { x: 0, y: 0 };
+			}
+
 			const rect = canvas.getBoundingClientRect();
 
 			return { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -1162,6 +1161,10 @@ export default function NetworkGraph() {
 		};
 
 		const onPointerDown = (event: PointerEvent) => {
+			if (!canvas) {
+				return;
+			}
+
 			engine.isDragging = true;
 			startInteraction();
 			engine.lastPointerPos = { x: event.clientX, y: event.clientY };
@@ -1191,7 +1194,7 @@ export default function NetworkGraph() {
 			engine.isDragging = false;
 
 			try {
-				canvas.releasePointerCapture(event.pointerId);
+				canvas?.releasePointerCapture(event.pointerId);
 			} catch {
 				// Some browsers release capture automatically on cancellation.
 			}
@@ -1210,6 +1213,10 @@ export default function NetworkGraph() {
 		};
 
 		const onPointerLeave = () => {
+			if (!canvas) {
+				return;
+			}
+
 			if (engine.isDragging) {
 				return;
 			}
@@ -1223,52 +1230,57 @@ export default function NetworkGraph() {
 			}
 		};
 
+		const syncSize = (observedRect?: { width: number; height: number }) => {
+			const rect = element.getBoundingClientRect();
+			const width = Math.max(rect.width || element.clientWidth, 1);
+			const height = Math.max(rect.height || element.clientHeight, 1);
+			const nextWidth = Math.max(observedRect?.width || width, 1);
+			const nextHeight = Math.max(observedRect?.height || height, 1);
+			const resolution = window.devicePixelRatio || 1;
+			const wasPlaceholderSize = engine.width <= 1 || engine.height <= 1;
+
+			engine.width = nextWidth;
+			engine.height = nextHeight;
+			app?.renderer.resize(nextWidth, nextHeight, resolution);
+
+			if (canvas) {
+				canvas.style.width = `${nextWidth}px`;
+				canvas.style.height = `${nextHeight}px`;
+			}
+
+			if (
+				!engine.hasCentered ||
+				(wasPlaceholderSize && nextWidth > 1 && nextHeight > 1)
+			) {
+				engine.transform.x = nextWidth / 2;
+				engine.transform.y = nextHeight / 2;
+				engine.hasCentered = true;
+			}
+
+			markDirty(true, true);
+		};
+
 		scheduleRenderRef.current = scheduleRender;
-		engine.canvas = canvas;
-		engine.layers = layers;
 
-		app
-			.init({
-				canvas,
-				preference: ["webgpu", "webgl", "canvas"],
-				antialias: true,
-				autoDensity: true,
-				autoStart: false,
-				backgroundAlpha: 0,
-				powerPreference: "high-performance",
-				resolution: window.devicePixelRatio || 1,
-			})
-			.then(() => {
-				appInitialized = true;
-
+		acquireSharedPixiApp("network-graph", element)
+			.then((shared) => {
 				if (disposed) {
-					safeDestroyApp();
+					shared.release();
+					safeDestroyLayers();
 					return;
 				}
 
+				app = shared.app;
+				canvas = shared.canvas;
+				releaseSharedApp = shared.release;
 				engine.app = app;
+				engine.canvas = canvas;
+				engine.layers = layers;
 				app.stage.addChild(layers.world);
-				layersAddedToStage = true;
+				canvas.setAttribute("aria-label", "Network graph");
 
 				resizeObserver = new ResizeObserver((entries) => {
-					const rect = entries[0].contentRect;
-					const width = Math.max(rect.width, 1);
-					const height = Math.max(rect.height, 1);
-					const resolution = window.devicePixelRatio || 1;
-
-					engine.width = width;
-					engine.height = height;
-					app.renderer.resize(width, height, resolution);
-					canvas.style.width = `${width}px`;
-					canvas.style.height = `${height}px`;
-
-					if (!engine.hasCentered) {
-						engine.transform.x = width / 2;
-						engine.transform.y = height / 2;
-						engine.hasCentered = true;
-					}
-
-					markDirty(true, true);
+					syncSize(entries[0]?.contentRect);
 				});
 				resizeObserver.observe(element);
 
@@ -1285,6 +1297,8 @@ export default function NetworkGraph() {
 				canvas.addEventListener("pointerup", endPointerInteraction);
 				canvas.addEventListener("pointercancel", endPointerInteraction);
 				canvas.addEventListener("pointerleave", onPointerLeave);
+				syncSize();
+				window.requestAnimationFrame(() => syncSize());
 				markDirty(true, true);
 			})
 			.catch(() => {
@@ -1307,13 +1321,16 @@ export default function NetworkGraph() {
 
 			resizeObserver?.disconnect();
 			themeObserver?.disconnect();
-			canvas.removeEventListener("wheel", onWheel);
-			canvas.removeEventListener("pointerdown", onPointerDown);
-			canvas.removeEventListener("pointermove", onPointerMove);
-			canvas.removeEventListener("pointerup", endPointerInteraction);
-			canvas.removeEventListener("pointercancel", endPointerInteraction);
-			canvas.removeEventListener("pointerleave", onPointerLeave);
-			canvas.style.cursor = "default";
+			canvas?.removeEventListener("wheel", onWheel);
+			canvas?.removeEventListener("pointerdown", onPointerDown);
+			canvas?.removeEventListener("pointermove", onPointerMove);
+			canvas?.removeEventListener("pointerup", endPointerInteraction);
+			canvas?.removeEventListener("pointercancel", endPointerInteraction);
+			canvas?.removeEventListener("pointerleave", onPointerLeave);
+
+			if (canvas) {
+				canvas.style.cursor = "default";
+			}
 
 			if (engine.app === app) {
 				engine.app = null;
@@ -1323,14 +1340,12 @@ export default function NetworkGraph() {
 				engine.layers = null;
 			}
 
+			savedNetworkViewState.transform = { ...engine.transform };
+			savedNetworkViewState.hasCentered = engine.hasCentered;
 			engine.canvas = null;
 			scheduleRenderRef.current = null;
-
-			if (appInitialized) {
-				safeDestroyApp();
-			} else {
-				safeDestroyLayers();
-			}
+			releaseSharedApp?.();
+			safeDestroyLayers();
 		};
 	}, [setSelectedCharId]);
 
@@ -1339,13 +1354,6 @@ export default function NetworkGraph() {
 			className="relative flex h-full w-full flex-1 items-center justify-end overflow-hidden"
 			ref={containerRef}
 		>
-			<canvas
-				aria-label="Network graph"
-				className="absolute inset-0 block h-full w-full pointer-events-auto"
-				data-layer="pixi"
-				ref={canvasRef}
-			/>
-
 			{networkMode === "group" && (
 				<div className="pointer-events-none absolute top-6 left-6 z-10 flex flex-col gap-2">
 					{groups.map((group) => (
