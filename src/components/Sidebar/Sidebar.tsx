@@ -102,6 +102,7 @@ export default function AppSidebar() {
 	const activeSpeakerId = useChatStore((state) => state.activeSpeakerId);
 
 	const characters = useGraphStore((state) => state.characters);
+	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
 
 	const hasUnread = useMemo(() => {
 		if (!activeSpeakerId || chats.length === 0) return false;
@@ -185,6 +186,11 @@ export default function AppSidebar() {
 								title={title}
 								onClick={() => {
 									setActiveTab(value);
+									if (value === "groups") {
+										setNetworkMode("groups");
+									} else if (value === "network") {
+										setNetworkMode("group");
+									}
 									void navigate({ to: pagePaths[page] });
 									contentRef.current?.scrollTo(0, 0);
 								}}

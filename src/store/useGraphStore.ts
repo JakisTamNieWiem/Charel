@@ -18,7 +18,7 @@ const defaultData = {
 	groups: [] as Group[],
 	relationshipTypes: [] as RelationshipType[],
 };
-type NetworkMode = "group" | "global";
+type NetworkMode = "group" | "groups" | "global";
 
 interface GraphState {
 	// --- LOAD STATE ---

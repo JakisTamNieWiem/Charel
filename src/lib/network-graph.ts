@@ -49,6 +49,7 @@ export interface ComputedGroup {
 	id: string;
 	name: string;
 	color: string;
+	memberCount: number;
 	cx: number;
 	cy: number;
 	radius: number;
@@ -247,7 +248,7 @@ export function buildNetworkLayout(
 	relationships: Relationship[],
 	types: RelationshipType[],
 	groups: Group[],
-	networkMode: "group" | "global",
+	networkMode: "group" | "groups" | "global",
 	curveStyle: NetworkCurveStyle = "quadratic",
 ): LayoutData {
 	const typeMap = new Map(types.map((type) => [type.id, type]));
@@ -255,7 +256,87 @@ export function buildNetworkLayout(
 	const nodes: ComputedNode[] = [];
 	const groupBounds: ComputedGroup[] = [];
 
-	if (networkMode === "global") {
+	if (networkMode === "groups") {
+		const groupedCharacters = new Map<string, Character[]>();
+
+		for (const character of allChars) {
+			if (!character.groupId) {
+				continue;
+			}
+
+			const entries = groupedCharacters.get(character.groupId) || [];
+			entries.push(character);
+			groupedCharacters.set(character.groupId, entries);
+		}
+
+		const sortedGroups = [...groups].sort((left, right) =>
+			left.name.localeCompare(right.name),
+		);
+		const groupSpecs = sortedGroups.map((group) => {
+			const groupNodes = groupedCharacters.get(group.id) || [];
+			const innerRadius = Math.max(80, groupNodes.length * 10);
+
+			return {
+				group,
+				groupNodes,
+				innerRadius,
+				memberCount: groupNodes.length,
+				radius: innerRadius + 40,
+			};
+		});
+		const gap = 96;
+		const totalWidth =
+			groupSpecs.reduce((sum, spec) => sum + spec.radius * 2, 0) +
+			Math.max(0, groupSpecs.length - 1) * gap;
+		let cursorX = -totalWidth / 2;
+
+		for (const {
+			group,
+			groupNodes,
+			innerRadius,
+			memberCount,
+			radius,
+		} of groupSpecs) {
+			cursorX += radius;
+			const gCx = cursorX;
+			const gCy = 0;
+
+			groupNodes.forEach((character, nodeIndex) => {
+				const nodeAngle = (nodeIndex / groupNodes.length) * 2 * Math.PI;
+
+				nodes.push({
+					id: character.id,
+					name: character.name,
+					groupId: character.groupId,
+					avatar: character.avatar,
+					x:
+						groupNodes.length === 1
+							? gCx
+							: gCx + Math.cos(nodeAngle) * innerRadius,
+					y:
+						groupNodes.length === 1
+							? gCy
+							: gCy + Math.sin(nodeAngle) * innerRadius,
+					color: group.color,
+					initials: character.name.substring(0, 2).toUpperCase(),
+					groupCx: gCx,
+					groupCy: gCy,
+				});
+			});
+
+			groupBounds.push({
+				id: group.id,
+				name: group.name,
+				color: group.color,
+				memberCount,
+				cx: gCx,
+				cy: gCy,
+				radius,
+				angle: Math.PI / 2,
+			});
+			cursorX += radius + gap;
+		}
+	} else if (networkMode === "global") {
 		const sortedChars = [...allChars].sort((left, right) =>
 			left.name.localeCompare(right.name),
 		);
@@ -327,6 +408,7 @@ export function buildNetworkLayout(
 					id: groupInfo.id,
 					name: groupInfo.name,
 					color: groupInfo.color,
+					memberCount: groupNodes.length,
 					cx: gCx,
 					cy: gCy,
 					radius: innerRadius + 40,
@@ -338,6 +420,10 @@ export function buildNetworkLayout(
 
 	const nodeMap = new Map(nodes.map((node) => [node.id, node]));
 	const links: ComputedLink[] = [];
+
+	if (networkMode === "groups") {
+		return { nodes, links, groups: groupBounds, nodeMap };
+	}
 	const relationshipsByPair = new Map<string, Relationship[]>();
 
 	for (const relationship of relationships) {

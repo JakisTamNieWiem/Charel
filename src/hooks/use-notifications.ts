@@ -37,6 +37,24 @@ export async function sendChatNotification({
 	}
 }
 
+export function getMessageNotificationPreview(content: string) {
+	const trimmed = content.trim();
+
+	if (trimmed.startsWith("[img]")) {
+		return "sent an image";
+	}
+
+	if (
+		/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|svg|bmp)(?:\?\S*)?/i.test(trimmed)
+	) {
+		return "sent an image";
+	}
+
+	const collapsed = trimmed.replace(/\s+/g, " ");
+
+	return collapsed.length > 72 ? `${collapsed.slice(0, 72)}...` : collapsed;
+}
+
 export function useUnreadChats(
 	activeSpeakerId: string | null,
 	chats: (Chat & { members?: ChatMember[] })[],

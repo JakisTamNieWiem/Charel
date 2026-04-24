@@ -8,7 +8,10 @@ import type { Character, Relationship } from "@/types/types";
 import "./styles.css";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "motion/react";
-import { sendChatNotification } from "@/hooks/use-notifications";
+import {
+	getMessageNotificationPreview,
+	sendChatNotification,
+} from "@/hooks/use-notifications";
 import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
@@ -279,11 +282,7 @@ function App() {
 								// Skip system messages — they don't need notifications
 								if (content.startsWith("[system]")) return;
 
-								const preview = content.startsWith("[img]")
-									? "sent an image"
-									: content.length > 50
-										? `${content.slice(0, 50)}...`
-										: content;
+								const preview = getMessageNotificationPreview(content);
 
 								// Use group cover if available, otherwise fall back to sender avatar
 								const { data: chatData } = await supabase

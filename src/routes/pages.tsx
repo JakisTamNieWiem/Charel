@@ -1,4 +1,4 @@
-import { Circle, LayoutGrid } from "lucide-react";
+import { Circle, Layers, LayoutGrid } from "lucide-react";
 import CharacterGraph from "@/components/CharacterGraph";
 import ChatWindow from "@/components/chat/ChatWindow";
 import NetworkGraph from "@/components/NetworkGraph";
@@ -33,6 +33,9 @@ export function NetworkPage() {
 					<TabsList className="bg-background/60 backdrop-blur-md border border-white/10">
 						<TabsTrigger value="group" className="h-7 px-3 text-[11px]">
 							<LayoutGrid className="w-3 h-3 mr-1.5" /> Group
+						</TabsTrigger>
+						<TabsTrigger value="groups" className="h-7 px-3 text-[11px]">
+							<Layers className="w-3 h-3 mr-1.5" /> Groups
 						</TabsTrigger>
 						<TabsTrigger value="global" className="h-7 px-3 text-[11px]">
 							<Circle className="w-3 h-3 mr-1.5" /> Global

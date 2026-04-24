@@ -8,7 +8,7 @@ const EMOJI_RE =
 function emojiToUnified(emoji: string): string {
 	return [...emoji]
 		.map((c) => c.codePointAt(0)?.toString(16))
-		.filter((code): code is string => code !== undefined)
+		.filter(Boolean)
 		.join("-");
 }
 
@@ -17,9 +17,7 @@ function renderWithEmojis(text: string): ReactNode[] {
 	let lastIndex = 0;
 
 	for (const match of text.matchAll(EMOJI_RE)) {
-		const matchIndex = match.index;
-		if (matchIndex === undefined) continue;
-
+		const matchIndex = match.index ?? 0;
 		if (matchIndex > lastIndex) {
 			parts.push(text.slice(lastIndex, matchIndex));
 		}
