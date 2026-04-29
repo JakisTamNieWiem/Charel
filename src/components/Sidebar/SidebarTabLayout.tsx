@@ -102,7 +102,7 @@ export function SidebarCountBadge({
 				"inline-flex h-4 min-w-4 items-center justify-center rounded-full border px-1.5 text-[0.5625rem] font-mono font-semibold leading-none tabular-nums",
 				muted
 					? "border-(--sidebar-foreground)/10 bg-(--sidebar-foreground)/4 text-muted-foreground/70"
-					: "border-(--sidebar-primary)/20 bg-(--sidebar-primary)/10 text-(--sidebar-primary)",
+					: "border-(--sidebar-primary)/20 bg-(--sidebar-primary)/10 text-sidebar-primary",
 			)}
 		>
 			{children}

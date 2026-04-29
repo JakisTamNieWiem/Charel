@@ -1,5 +1,5 @@
 import {
-	Application,
+	type Application,
 	Container,
 	type ContainerChild,
 	Graphics,
@@ -19,6 +19,7 @@ import {
 	type LayoutData,
 	NODE_SIZE,
 } from "@/lib/network-graph";
+import { sharedPixiRuntime } from "@/lib/pixi-runtime";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Badge } from "./ui/badge";
 
@@ -998,7 +999,6 @@ export default function NetworkGraph() {
 	const networkCurveStyle = useGraphStore((state) => state.networkCurveStyle);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 	const containerRef = useRef<HTMLDivElement | null>(null);
-	const canvasRef = useRef<HTMLCanvasElement | null>(null);
 	const scheduleRenderRef = useRef<(() => void) | null>(null);
 	const engineRef = useRef<EngineState>({
 		app: null,
@@ -1051,42 +1051,20 @@ export default function NetworkGraph() {
 
 	useEffect(() => {
 		const element = containerRef.current;
-		const canvas = canvasRef.current;
 
-		if (!element || !canvas) {
+		if (!element) {
 			return;
 		}
 
 		const engine = engineRef.current;
-		const app = new Application();
 		const layers = createLayers();
 		let disposed = false;
-		let appInitialized = false;
-		let layersAddedToStage = false;
-		let layersDestroyed = false;
+		let attached = false;
+		let attachToken = 0;
+		let canvas: HTMLCanvasElement;
+		let app: Application | null = null;
 		let resizeObserver: ResizeObserver | null = null;
 		let themeObserver: MutationObserver | null = null;
-
-		const safeDestroyLayers = () => {
-			if (layersDestroyed || layersAddedToStage) {
-				return;
-			}
-
-			layersDestroyed = true;
-			destroyLayers(layers);
-		};
-
-		const safeDestroyApp = () => {
-			if (!appInitialized) {
-				return;
-			}
-
-			if (!layersAddedToStage) {
-				safeDestroyLayers();
-			}
-
-			app.destroy({ removeView: false }, { children: true });
-		};
 
 		const markDirty = (staticLayer = true, fxLayer = true) => {
 			if (staticLayer) {
@@ -1303,31 +1281,24 @@ export default function NetworkGraph() {
 		};
 
 		scheduleRenderRef.current = scheduleRender;
-		engine.canvas = canvas;
 		engine.layers = layers;
 
-		app
-			.init({
-				canvas,
-				preference: ["webgpu", "webgl", "canvas"],
-				antialias: true,
-				autoDensity: true,
-				autoStart: false,
-				backgroundAlpha: 0,
-				powerPreference: "high-performance",
-				resolution: window.devicePixelRatio || 1,
-			})
-			.then(() => {
-				appInitialized = true;
-
+		sharedPixiRuntime
+			.attach(element)
+			.then((attachment) => {
 				if (disposed) {
-					safeDestroyApp();
+					sharedPixiRuntime.detach(element, attachment.token);
 					return;
 				}
 
+				app = attachment.app;
+				canvas = attachment.canvas;
+				attached = true;
+				attachToken = attachment.token;
 				engine.app = app;
-				app.stage.addChild(layers.world);
-				layersAddedToStage = true;
+				engine.canvas = canvas;
+				sharedPixiRuntime.activateRoot("network", layers.world);
+				canvas.setAttribute("aria-label", "Network graph");
 
 				resizeObserver = new ResizeObserver((entries) => {
 					const rect = entries[0].contentRect;
@@ -1337,9 +1308,7 @@ export default function NetworkGraph() {
 
 					engine.width = width;
 					engine.height = height;
-					app.renderer.resize(width, height, resolution);
-					canvas.style.width = `${width}px`;
-					canvas.style.height = `${height}px`;
+					sharedPixiRuntime.resize(width, height, resolution);
 
 					if (!engine.hasCentered) {
 						engine.transform.x = width / 2;
@@ -1366,7 +1335,8 @@ export default function NetworkGraph() {
 				canvas.addEventListener("pointerleave", onPointerLeave);
 				markDirty(true, true);
 			})
-			.catch(() => {
+			.catch((error) => {
+				console.error("Failed to attach network graph Pixi surface", error);
 				engine.app = null;
 				engine.layers = null;
 			});
@@ -1386,13 +1356,17 @@ export default function NetworkGraph() {
 
 			resizeObserver?.disconnect();
 			themeObserver?.disconnect();
-			canvas.removeEventListener("wheel", onWheel);
-			canvas.removeEventListener("pointerdown", onPointerDown);
-			canvas.removeEventListener("pointermove", onPointerMove);
-			canvas.removeEventListener("pointerup", endPointerInteraction);
-			canvas.removeEventListener("pointercancel", endPointerInteraction);
-			canvas.removeEventListener("pointerleave", onPointerLeave);
-			canvas.style.cursor = "default";
+			if (attached) {
+				canvas.removeEventListener("wheel", onWheel);
+				canvas.removeEventListener("pointerdown", onPointerDown);
+				canvas.removeEventListener("pointermove", onPointerMove);
+				canvas.removeEventListener("pointerup", endPointerInteraction);
+				canvas.removeEventListener("pointercancel", endPointerInteraction);
+				canvas.removeEventListener("pointerleave", onPointerLeave);
+				canvas.style.cursor = "default";
+				sharedPixiRuntime.deactivateRoot("network");
+				sharedPixiRuntime.detach(element, attachToken);
+			}
 
 			if (engine.app === app) {
 				engine.app = null;
@@ -1404,12 +1378,7 @@ export default function NetworkGraph() {
 
 			engine.canvas = null;
 			scheduleRenderRef.current = null;
-
-			if (appInitialized) {
-				safeDestroyApp();
-			} else {
-				safeDestroyLayers();
-			}
+			destroyLayers(layers);
 		};
 	}, [setSelectedCharId]);
 
@@ -1418,13 +1387,6 @@ export default function NetworkGraph() {
 			className="relative flex h-full w-full flex-1 items-center justify-end overflow-hidden"
 			ref={containerRef}
 		>
-			<canvas
-				aria-label="Network graph"
-				className="absolute inset-0 block h-full w-full pointer-events-auto"
-				data-layer="pixi"
-				ref={canvasRef}
-			/>
-
 			{networkMode === "group" && (
 				<div className="pointer-events-none absolute top-6 left-6 z-10 flex flex-col gap-2">
 					{groups.map((group) => (

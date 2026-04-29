@@ -197,11 +197,11 @@ describe("NetworkGraph", () => {
 		});
 
 		const { container } = render(<NetworkGraph />);
-		const pixiCanvas = container.querySelector(
-			"canvas[data-layer='pixi']",
-		) as HTMLCanvasElement;
+		let pixiCanvas: HTMLCanvasElement | null = null;
 
 		await waitFor(() => {
+			pixiCanvas = container.querySelector("canvas[data-layer='pixi']");
+			expect(pixiCanvas).not.toBeNull();
 			expect(resizeCallback).not.toBeNull();
 		});
 
@@ -210,7 +210,7 @@ describe("NetworkGraph", () => {
 		});
 
 		await act(async () => {
-			pixiCanvas.dispatchEvent(
+			pixiCanvas?.dispatchEvent(
 				new PointerEvent("pointerdown", {
 					bubbles: true,
 					clientX: 200,
@@ -218,7 +218,7 @@ describe("NetworkGraph", () => {
 					pointerId: 1,
 				}),
 			);
-			pixiCanvas.dispatchEvent(
+			pixiCanvas?.dispatchEvent(
 				new PointerEvent("pointerup", {
 					bubbles: true,
 					clientX: 200,

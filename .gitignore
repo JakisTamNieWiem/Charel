@@ -25,3 +25,5 @@ dist-ssr
 .temp
 /docs
 /data
+.agents
+skills-lock.json

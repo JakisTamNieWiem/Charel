@@ -1,5 +1,4 @@
 import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import AppViewport from "@/components/AppViewport";
 import AppSidebar from "@/components/Sidebar/Sidebar";
@@ -31,9 +30,6 @@ function App() {
 
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
-	const pathname = useLocation({
-		select: (location) => location.pathname,
-	});
 	useEffect(() => {
 		checkForUpdates();
 	}, []);
@@ -385,7 +381,7 @@ function App() {
 					className="max-h-screen! max-w-screen! pt-8"
 				>
 					<AppSidebar />
-					<AppViewport pathname={pathname} />
+					<AppViewport />
 				</SidebarProvider>{" "}
 			</motion.div>
 		</>
