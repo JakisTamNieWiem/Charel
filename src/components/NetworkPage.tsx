@@ -1,23 +1,9 @@
 import { Circle, Layers, LayoutGrid } from "lucide-react";
-import CharacterGraph from "@/components/CharacterGraph";
-import ChatWindow from "@/components/chat/ChatWindow";
 import NetworkGraph from "@/components/NetworkGraph";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGraphStore } from "@/store/useGraphStore";
 
-export function CharactersPage() {
-	const selectedCharacter = useGraphStore((state) =>
-		state.characters.find((c) => c.id === state.selectedCharId),
-	);
-
-	return selectedCharacter ? (
-		<CharacterGraph />
-	) : (
-		<h1 className="p-4 z-10 pointer-events-none">Character not found</h1>
-	);
-}
-
-export function NetworkPage() {
+export default function NetworkPage() {
 	const networkMode = useGraphStore((state) => state.networkMode);
 	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
 
@@ -45,8 +31,4 @@ export function NetworkPage() {
 			</div>
 		</>
 	);
-}
-
-export function ChatPage() {
-	return <ChatWindow />;
 }

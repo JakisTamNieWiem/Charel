@@ -1,17 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { getVersion } from "@tauri-apps/api/app";
-import {
-	Cloud,
-	CloudOff,
-	Layers,
-	Link,
-	Loader2,
-	MessageCircle,
-	Network,
-	Settings,
-	Users,
-} from "lucide-react";
+import { Cloud, CloudOff, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,73 +14,24 @@ import {
 import { useChats } from "@/hooks/use-chats";
 import { useLatestMessages } from "@/hooks/use-messages";
 import { useProfile } from "@/hooks/use-profile";
-import {
-	type AppPage,
-	defaultSidebarTabByPage,
-	pagePaths,
-	pathnameToPage,
-	type SidebarTab,
-	sidebarTabToPage,
-} from "@/lib/app-navigation";
+import { getSidebarItemForPath, sidebarNavItems } from "@/lib/app-navigation";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
-import CharacterTab from "./CharacterTab";
-import ChatTab from "./ChatTab";
-import GroupsTab from "./GroupsTab";
 import LoginModal from "./LoginModal";
-import NetworkTab from "./NetworkTab";
-import RelationshipTypesTab from "./RelationshipTypesTab";
-import SettingsTab from "./SettingsTab";
 import ThemeToggle from "./ThemeToggle";
-
-const navItems: {
-	value: SidebarTab;
-	icon: React.ElementType;
-	title: string;
-	page: AppPage;
-}[] = [
-	{
-		value: "characters",
-		icon: Users,
-		title: "Characters",
-		page: "characters",
-	},
-	{
-		value: "network",
-		icon: Network,
-		title: "Network Graph",
-		page: "network",
-	},
-	{ value: "groups", icon: Layers, title: "Groups", page: "network" },
-	{
-		value: "types",
-		icon: Link,
-		title: "Relationship Types",
-		page: "characters",
-	},
-	{ value: "chat", icon: MessageCircle, title: "Chat", page: "chat" },
-	{
-		value: "settings",
-		icon: Settings,
-		title: "Settings",
-		page: "characters",
-	},
-];
 
 export default function AppSidebar() {
 	const navigate = useNavigate();
 	const pathname = useLocation({
 		select: (location) => location.pathname,
 	});
-	const currentPage = pathnameToPage(pathname);
+	const activeItem = getSidebarItemForPath(pathname);
+	const ActivePanel = activeItem.panel;
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
 	const isSyncing = useGraphStore((state) => state.isSyncing);
 	const [session, setSession] = useState<Session | null>(null);
-	const [activeTab, setActiveTab] = useState<SidebarTab>(
-		defaultSidebarTabByPage[currentPage],
-	);
 
 	const [version, setVersion] = useState<string>("");
 
@@ -135,12 +76,6 @@ export default function AppSidebar() {
 		getVersion().then((v) => setVersion(`Version: ${v}`));
 	}, []);
 
-	useEffect(() => {
-		if (sidebarTabToPage[activeTab] !== currentPage) {
-			setActiveTab(defaultSidebarTabByPage[currentPage]);
-		}
-	}, [activeTab, currentPage]);
-
 	const displayName = (() => {
 		if (profile?.displayName) {
 			return profile.displayName;
@@ -162,41 +97,39 @@ export default function AppSidebar() {
 		<Sidebar
 			variant="sidebar"
 			collapsible="icon"
-			className="pt-0 z-[45] pl-0 border-r-0"
+			className="pt-0 z-45 pl-0 border-r-0"
 		>
 			<div className="h-full flex flex-row bg-sidebar">
-				<div className="flex flex-col h-full bg-card/50 border-r border-border shrink-0 w-[var(--sidebar-width-icon)] z-20 shadow-[4px_0_24px_rgba(0,0,0,0.05)]">
+				<div className="flex flex-col h-full bg-card/50 border-r border-border shrink-0 w-(--sidebar-width-icon) z-20 shadow-[4px_0_24px_rgba(0,0,0,0.05)]">
 					<div className="flex flex-col items-center gap-4 py-6 flex-1">
-						{navItems.map(({ value, icon: Icon, title, page }) => (
+						{sidebarNavItems.map((item) => (
 							<button
-								key={value}
+								key={item.value}
 								type="button"
-								title={title}
+								title={item.title}
 								onClick={() => {
-									setActiveTab(value);
-									if (value === "groups") {
-										setNetworkMode("groups");
-									} else if (value === "network") {
-										setNetworkMode("group");
+									if ("networkMode" in item) {
+										setNetworkMode(item.networkMode);
 									}
-									void navigate({ to: pagePaths[page] });
+									void navigate({ to: item.to });
 									contentRef.current?.scrollTo(0, 0);
 								}}
 								className={cn(
 									"relative group flex items-center justify-center w-10 h-10 transition-all duration-500",
-									activeTab === value
+									activeItem.value === item.value
 										? "text-primary"
 										: "text-muted-foreground hover:text-foreground",
 								)}
 							>
-								<Icon
+								<item.icon
 									className={cn(
 										"w-5 h-5 transition-all duration-500 relative z-10",
-										activeTab === value && "scale-110 drop-shadow-sm",
+										activeItem.value === item.value &&
+											"scale-110 drop-shadow-sm",
 									)}
-									strokeWidth={activeTab === value ? 2 : 1.5}
+									strokeWidth={activeItem.value === item.value ? 2 : 1.5}
 								/>
-								{value === "chat" && hasUnread && (
+								{item.value === "chat" && hasUnread && (
 									<span className="absolute top-2 right-2 flex h-2 w-2 z-20">
 										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
 										<span className="relative inline-flex rounded-full h-2 w-2 bg-destructive border-[1.5px] border-background" />
@@ -262,12 +195,7 @@ export default function AppSidebar() {
 					</SidebarHeader>
 					<SidebarContent ref={contentRef} className="px-3 pt-0 pb-4">
 						<SidebarGroup className="p-0">
-							{activeTab === "characters" && <CharacterTab />}
-							{activeTab === "network" && <NetworkTab />}
-							{activeTab === "groups" && <GroupsTab />}
-							{activeTab === "types" && <RelationshipTypesTab />}
-							{activeTab === "chat" && <ChatTab />}
-							{activeTab === "settings" && <SettingsTab />}
+							<ActivePanel />
 						</SidebarGroup>
 					</SidebarContent>
 				</div>

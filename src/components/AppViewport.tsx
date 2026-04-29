@@ -1,10 +1,21 @@
 import { Outlet } from "@tanstack/react-router";
+import { useEffect } from "react";
+import NetworkPage from "@/components/NetworkPage";
 import { cn } from "@/lib/utils";
-import { NetworkPage } from "@/routes/pages";
+import { useGraphStore } from "@/store/useGraphStore";
 import { SidebarInset } from "./ui/sidebar";
 
 export default function AppViewport({ pathname }: { pathname: string }) {
-	const isNetworkPage = pathname === "/network";
+	const isNetworkPage = pathname === "/network" || pathname === "/groups";
+	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
+
+	useEffect(() => {
+		if (pathname === "/network") {
+			setNetworkMode("group");
+		} else if (pathname === "/groups") {
+			setNetworkMode("groups");
+		}
+	}, [pathname, setNetworkMode]);
 
 	return (
 		<SidebarInset
@@ -23,11 +34,14 @@ export default function AppViewport({ pathname }: { pathname: string }) {
 				>
 					<NetworkPage />
 				</div>
-				{!isNetworkPage && (
-					<div className="absolute inset-0">
-						<Outlet />
-					</div>
-				)}
+				<div
+					className={cn(
+						"absolute inset-0",
+						isNetworkPage && "pointer-events-none opacity-0",
+					)}
+				>
+					<Outlet />
+				</div>
 			</main>
 		</SidebarInset>
 	);
