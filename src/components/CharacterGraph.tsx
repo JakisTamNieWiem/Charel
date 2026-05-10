@@ -319,7 +319,7 @@ export default function CharacterGraph() {
 			<g ref={gRef} transform="translate(0, 0) scale(1)">
 				<g
 					key={selectedId ?? "empty-character-graph"}
-					className="character-graph-scene-transition"
+					className="animate-in fade-in-0 zoom-in-95 duration-300 ease-out transform-fill origin-center will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto"
 				>
 					{relationshipData.map(
 						({
@@ -522,7 +522,8 @@ export default function CharacterGraph() {
 				<div
 					ref={stageRef}
 					className={cn(
-						"character-graph-stage-transition absolute top-0 right-0 h-full w-screen touch-none select-none z-0",
+						"animate-in fade-in-0 slide-in-from-bottom-2 zoom-in-95 duration-300 ease-out will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto",
+						"absolute top-0 right-0 z-0 h-full w-screen touch-none select-none",
 						isDragging ? "cursor-grabbing" : "cursor-grab",
 					)}
 					onWheel={handleWheel}
@@ -625,7 +626,7 @@ export default function CharacterGraph() {
 					<header className="pointer-events-none absolute inset-x-0 top-0 flex w-full items-start p-6">
 						<div
 							key={selectedCharacter?.id ?? "empty-character-heading"}
-							className="character-graph-header-transition bg-background/40 backdrop-blur-md p-4 rounded-2xl pointer-events-auto"
+							className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto pointer-events-auto rounded-2xl bg-background/40 p-4 backdrop-blur-md"
 						>
 							<h2
 								style={{ fontFamily: "Geist Variable" }}
@@ -639,22 +640,24 @@ export default function CharacterGraph() {
 						</div>
 					</header>
 
-					<div className="relationship-type-legend pointer-events-auto">
+					<div className="pointer-events-auto absolute top-6 bottom-6 left-6 flex w-[min(11.5rem,calc(100vw-25rem))] flex-col items-start justify-center gap-2 overflow-y-auto max-[920px]:top-auto max-[920px]:right-4 max-[920px]:bottom-[calc(min(44vh,24rem)+1.75rem)] max-[920px]:left-4 max-[920px]:max-h-[5.5rem] max-[920px]:w-auto max-[920px]:flex-row max-[920px]:flex-wrap max-[920px]:items-end max-[920px]:justify-start max-[640px]:hidden">
 						{types.map((type) => (
 							<div
 								key={type.id}
-								className="relationship-type-badge"
+								className="inline-flex min-h-7 max-w-full items-center justify-start gap-2 rounded-full border border-foreground/8 bg-background/84 px-3 py-1.5 pl-[0.45rem] shadow-[0_12px_34px_rgba(0,0,0,0.14)] backdrop-blur-md"
 								style={{ "--legend-color": type.color } as React.CSSProperties}
 							>
-								<div className="relationship-type-dot" />
-								<span>{type.label}</span>
+								<div className="size-[0.65rem] shrink-0 rounded-full bg-(--legend-color) shadow-[0_0_12px_color-mix(in_oklch,var(--legend-color),transparent_66%)]" />
+								<span className="truncate text-[0.64rem] font-black uppercase leading-none tracking-[0.1em] text-foreground/80">
+									{type.label}
+								</span>
 							</div>
 						))}
 					</div>
 
 					{/* Relationship Inspector */}
 					<aside
-						className="relationship-inspector pointer-events-auto"
+						className="pointer-events-auto absolute top-6 right-6 bottom-6 flex w-[min(20rem,calc(100vw-3rem))] animate-in flex-col gap-4 overflow-hidden rounded-xl border border-foreground/10 bg-background/92 p-4 text-foreground shadow-[inset_0_1px_0_color-mix(in_oklch,var(--foreground),transparent_94%),0_22px_70px_rgba(0,0,0,0.24)] backdrop-blur-[18px] fade-in-0 slide-in-from-right-2 duration-200 ease-out before:h-[3px] before:shrink-0 before:rounded-full before:bg-(--relationship-accent) before:shadow-[0_0_22px_color-mix(in_oklch,var(--relationship-accent),transparent_42%)] motion-reduce:animate-none motion-reduce:will-change-auto max-[920px]:top-auto max-[920px]:right-4 max-[920px]:bottom-4 max-[920px]:left-4 max-[920px]:max-h-[min(44vh,24rem)] max-[920px]:w-auto"
 						style={
 							{
 								"--relationship-accent":
@@ -668,21 +671,25 @@ export default function CharacterGraph() {
 								setEditingRel(null); // Null means it's a NEW relation
 								setIsModalOpen(true);
 							}}
-							className="relationship-inspector-new-relation"
+							className="inline-flex h-[2.35rem] w-full items-center justify-center gap-2 rounded-full border border-foreground/12 bg-background/88 px-[1.05rem] pl-[0.95rem] text-[0.72rem] font-black uppercase tracking-[0.12em] text-foreground/96 shadow-[inset_0_1px_0_color-mix(in_oklch,var(--foreground),transparent_92%),0_14px_38px_rgba(0,0,0,0.2)] backdrop-blur-md hover:border-foreground/22 hover:bg-foreground/6 hover:text-foreground"
 						>
 							<Plus className="size-4" /> New Relation
 						</Button>
 
 						{inspectedRelationshipDetails ? (
 							<>
-								<div className="relationship-inspector-topline">
-									<span>Selected relation</span>
-									<strong>{relationValueLabel}</strong>
+								<div className="flex min-w-0 items-center justify-between gap-4">
+									<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+										Selected relation
+									</span>
+									<strong className="text-sm font-black leading-none text-[color-mix(in_oklch,var(--relationship-accent),var(--foreground)_16%)] tabular-nums">
+										{relationValueLabel}
+									</strong>
 								</div>
 
-								<div className="relationship-inspector-people">
-									<div className="relationship-inspector-person">
-										<Avatar className="relationship-inspector-avatar">
+								<div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3 max-[920px]:items-center">
+									<div className="grid min-w-0 justify-items-center gap-3 text-center">
+										<Avatar className="size-[3.35rem] border border-[color-mix(in_oklch,var(--relationship-accent),transparent_40%)] bg-[color-mix(in_oklch,var(--background),var(--foreground)_9%)] shadow-[0_0_0_5px_color-mix(in_oklch,var(--relationship-accent),transparent_88%)]">
 											<AvatarImage
 												src={
 													inspectedRelationshipDetails.fromCharacter?.avatar ??
@@ -696,19 +703,59 @@ export default function CharacterGraph() {
 													.toUpperCase() ?? "??"}
 											</AvatarFallback>
 										</Avatar>
-										<div>
-											<span>From</span>
-											<strong>
+										<div className="min-w-0 max-w-full">
+											<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+												From
+											</span>
+											<strong className="block truncate text-base font-black leading-[1.15] text-foreground/94">
 												{inspectedRelationshipDetails.fromCharacter?.name ??
 													"Unknown"}
 											</strong>
 										</div>
 									</div>
 
-									<div className="relationship-inspector-thread" />
+									<div className="mt-[1.55rem] flex h-3 min-w-16 items-center max-[920px]:min-w-12">
+										<svg
+											aria-hidden="true"
+											className="h-3 w-full overflow-visible"
+											viewBox="0 0 64 12"
+											preserveAspectRatio="none"
+										>
+											<line
+												x1="0"
+												y1="6"
+												x2="64"
+												y2="6"
+												stroke="var(--relationship-accent)"
+												strokeOpacity="0.28"
+												strokeWidth="2"
+												strokeLinecap="round"
+											/>
+											<line
+												className="motion-reduce:hidden"
+												x1="0"
+												y1="6"
+												x2="64"
+												y2="6"
+												stroke="var(--relationship-accent)"
+												strokeWidth="3"
+												strokeLinecap="round"
+												strokeDasharray="14 50"
+												strokeDashoffset="64"
+											>
+												<animate
+													attributeName="stroke-dashoffset"
+													from="64"
+													to="-64"
+													dur="1.4s"
+													repeatCount="indefinite"
+												/>
+											</line>
+										</svg>
+									</div>
 
-									<div className="relationship-inspector-person">
-										<Avatar className="relationship-inspector-avatar">
+									<div className="grid min-w-0 justify-items-center gap-3 text-center">
+										<Avatar className="size-[3.35rem] border border-[color-mix(in_oklch,var(--relationship-accent),transparent_40%)] bg-[color-mix(in_oklch,var(--background),var(--foreground)_9%)] shadow-[0_0_0_5px_color-mix(in_oklch,var(--relationship-accent),transparent_88%)]">
 											<AvatarImage
 												src={
 													inspectedRelationshipDetails.toCharacter?.avatar ??
@@ -722,9 +769,11 @@ export default function CharacterGraph() {
 													.toUpperCase() ?? "??"}
 											</AvatarFallback>
 										</Avatar>
-										<div>
-											<span>To</span>
-											<strong>
+										<div className="min-w-0 max-w-full">
+											<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+												To
+											</span>
+											<strong className="block truncate text-base font-black leading-[1.15] text-foreground/94">
 												{inspectedRelationshipDetails.toCharacter?.name ??
 													"Unknown"}
 											</strong>
@@ -732,32 +781,48 @@ export default function CharacterGraph() {
 									</div>
 								</div>
 
-								<div className="relationship-inspector-type">
+								<div className="flex min-h-[4.25rem] min-w-0 items-center gap-3 rounded-[0.625rem] border border-foreground/8 bg-foreground/4 px-3 py-[0.7rem]">
 									<div
-										className="relationship-inspector-swatch"
+										className="size-[2.35rem] shrink-0 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--foreground),transparent_84%),0_0_24px_color-mix(in_oklch,var(--relationship-accent),transparent_68%)]"
 										style={{
 											backgroundColor:
 												inspectedRelationshipDetails.type?.color ??
 												"var(--primary)",
 										}}
 									/>
-									<div>
-										<span>Type</span>
-										<strong>
+									<div className="grid min-w-0 max-w-full justify-center gap-[0.2rem]">
+										<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+											Type
+										</span>
+										<strong className="block truncate text-base font-black leading-[1.15] text-foreground/94">
 											{inspectedRelationshipDetails.type?.label ?? "Unknown"}
 										</strong>
 									</div>
 								</div>
 
-								<p className="relationship-inspector-copy">
-									{inspectedRelationshipDetails.rel.description ||
-										"No relationship note has been written yet."}
-								</p>
+								<section className="flex min-h-0 flex-auto flex-col overflow-hidden rounded-[0.625rem] border border-foreground/8 bg-foreground/3">
+									<div className="flex items-center gap-[0.55rem] px-3 py-[0.7rem] pb-[0.45rem] after:h-px after:flex-auto after:bg-foreground/10">
+										<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+											Note
+										</span>
+									</div>
+									<p
+										className={cn(
+											"m-0 min-h-0 flex-auto overflow-y-auto px-3 pb-3 text-[0.9rem] font-normal leading-[1.55] text-foreground/88 whitespace-pre-wrap wrap-anywhere",
+											!inspectedRelationshipDetails.rel.description &&
+												"flex items-center justify-center text-center italic text-foreground/54",
+										)}
+									>
+										{inspectedRelationshipDetails.rel.description ||
+											"No relationship note has been written yet."}
+									</p>
+								</section>
 
-								<div className="relationship-inspector-actions">
+								<div className="flex gap-2 pt-1">
 									<Button
 										size="sm"
 										variant="ghost"
+										className="flex-1 justify-center border border-foreground/9 bg-background/82"
 										onClick={(e) => {
 											e.stopPropagation();
 											setEditingRel(inspectedRelationshipDetails.rel);
@@ -770,6 +835,7 @@ export default function CharacterGraph() {
 									<Button
 										size="sm"
 										variant="ghost"
+										className="flex-1 justify-center border border-foreground/9 bg-background/82"
 										onClick={(e) => {
 											e.stopPropagation();
 											setDeletingRel(inspectedRelationshipDetails.rel);
@@ -781,25 +847,29 @@ export default function CharacterGraph() {
 								</div>
 							</>
 						) : (
-							<div className="relationship-browser">
-								<div className="relationship-browser-heading">
-									<div>
-										<span>Character relations</span>
-										<strong>{characterRelationshipRows.length}</strong>
+							<div className="flex min-h-0 flex-auto flex-col gap-3 pt-[0.15rem]">
+								<div className="flex items-center justify-between gap-3">
+									<div className="flex min-w-0 items-baseline gap-2">
+										<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+											Character relations
+										</span>
+										<strong className="text-[0.72rem] font-black text-foreground/84 tabular-nums">
+											{characterRelationshipRows.length}
+										</strong>
 									</div>
 								</div>
 
-								<label className="relationship-search">
+								<label className="flex min-h-9 items-center gap-2 rounded-full border border-foreground/9 bg-background/92 px-3 text-foreground/54">
 									<Search className="size-3.5" />
 									<Input
 										value={relationSearch}
 										onChange={(e) => setRelationSearch(e.target.value)}
-										className="bg-transparent!"
+										className="h-[2.1rem] min-w-0 border-0 bg-transparent! p-0 text-[0.82rem] shadow-none focus-visible:shadow-none"
 										placeholder="Search relations..."
 									/>
 								</label>
 
-								<div className="relationship-list">
+								<div className="flex min-h-0 flex-auto flex-col gap-2 overflow-y-auto pr-[0.2rem]">
 									{characterRelationshipRows.length > 0 ? (
 										characterRelationshipRows.map((row) => {
 											const valueLabel =
@@ -811,7 +881,7 @@ export default function CharacterGraph() {
 												<button
 													type="button"
 													key={row.rowKey}
-													className="relationship-list-item"
+													className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_3.2rem_auto] items-center gap-3 rounded-xl border border-foreground/7 bg-foreground/3 p-[0.65rem] px-[0.7rem] text-left text-foreground transition-[border-color,background,transform] duration-150 ease-out hover:border-[color-mix(in_oklch,var(--relationship-row-accent),transparent_58%)] hover:bg-[color-mix(in_oklch,var(--relationship-row-accent),transparent_91%)] active:translate-y-px max-[920px]:min-h-[3.7rem]"
 													style={
 														{
 															"--relationship-row-accent":
@@ -823,7 +893,7 @@ export default function CharacterGraph() {
 														setInspectedRel(row.rel);
 													}}
 												>
-													<Avatar className="relationship-list-avatar">
+													<Avatar className="size-[2.35rem] border border-[color-mix(in_oklch,var(--relationship-row-accent),transparent_42%)] bg-[color-mix(in_oklch,var(--background),var(--foreground)_8%)]">
 														<AvatarImage
 															src={row.otherCharacter?.avatar ?? undefined}
 															alt={row.otherCharacter?.name}
@@ -834,30 +904,32 @@ export default function CharacterGraph() {
 																.toUpperCase() ?? "??"}
 														</AvatarFallback>
 													</Avatar>
-													<div className="relationship-list-main">
-														<div className="relationship-list-title">
-															<strong>
+													<div className="grid min-w-0 content-center gap-[0.28rem]">
+														<div className="flex min-w-0 items-center gap-[0.35rem]">
+															<strong className="inline-flex min-w-0 flex-auto items-center gap-1 overflow-hidden text-[0.88rem] font-black leading-[1.1] text-ellipsis whitespace-nowrap">
 																{row.otherCharacter?.name ?? "Unknown"}
 																{row.direction === "Outgoing" ? (
-																	<ArrowUpRight className="relationship-list-direction" />
+																	<ArrowUpRight className="size-[0.9rem] shrink-0 text-[color-mix(in_oklch,var(--relationship-row-accent),var(--foreground)_24%)] stroke-[2.5]" />
 																) : (
-																	<ArrowDownLeft className="relationship-list-direction" />
+																	<ArrowDownLeft className="size-[0.9rem] shrink-0 text-[color-mix(in_oklch,var(--relationship-row-accent),var(--foreground)_24%)] stroke-[2.5]" />
 																)}
 															</strong>
 														</div>
-														<div className="relationship-list-meta">
-															<span>{row.type?.label ?? "Unknown"}</span>
+														<div className="flex min-w-0 items-center justify-start gap-[0.35rem]">
+															<span className="truncate text-[0.64rem] font-extrabold uppercase leading-none tracking-[0.08em] text-foreground/54">
+																{row.type?.label ?? "Unknown"}
+															</span>
 														</div>
 													</div>
-													<span className="relationship-list-value">
+													<span className="flex h-full items-center justify-end justify-self-end text-[0.72rem] font-black leading-none text-[color-mix(in_oklch,var(--relationship-row-accent),var(--foreground)_18%)] tabular-nums">
 														{valueLabel}
 													</span>
-													<div className="relationship-list-dot" />
+													<div className="col-start-4 size-[0.55rem] rounded-full bg-(--relationship-row-accent) shadow-[0_0_16px_color-mix(in_oklch,var(--relationship-row-accent),transparent_62%)]" />
 												</button>
 											);
 										})
 									) : (
-										<div className="relationship-list-empty">
+										<div className="grid min-h-20 place-items-center rounded-xl border border-dashed border-foreground/10 text-center text-[0.82rem] italic text-foreground/52">
 											No relations match this search.
 										</div>
 									)}

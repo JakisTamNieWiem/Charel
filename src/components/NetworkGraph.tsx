@@ -27,6 +27,7 @@ const GLOW_SPEED = 0.25;
 const GLOW_SPREAD = 0.18;
 const GLOW_STEPS = 96;
 const GLOW_EDGE_FADE_RANGE = 0.12;
+const GLOW_BASE_COLOR_SCALE = 0.42;
 const LINK_STRAIGHT_SCREEN_WIDTH = 0.9;
 const LINK_CURVED_SCREEN_WIDTH = 1.2;
 const QUALITY_SETTLE_DELAY_MS = 90;
@@ -291,6 +292,14 @@ function srgbChannelToByte(value: number) {
 
 function packRgb(red: number, green: number, blue: number) {
 	return (red << 16) + (green << 8) + blue;
+}
+
+function scaleRgbColor(color: number, scale: number) {
+	return packRgb(
+		Math.round(((color >> 16) & 255) * scale),
+		Math.round(((color >> 8) & 255) * scale),
+		Math.round((color & 255) * scale),
+	);
 }
 
 function parseHexColor(value: string) {
@@ -744,12 +753,16 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 		}
 
 		const linkColor = colorToNumber(link.color, 0x555555);
+		const renderedLinkColor =
+			engine.activeEffects && isNodeActive
+				? scaleRgbColor(linkColor, GLOW_BASE_COLOR_SCALE)
+				: linkColor;
 		const screenWidth =
 			link.cpX != null ? LINK_CURVED_SCREEN_WIDTH : LINK_STRAIGHT_SCREEN_WIDTH;
 
 		drawLinkPath(linkGraphics, link);
 		linkGraphics.stroke({
-			color: linkColor,
+			color: renderedLinkColor,
 			alpha: opacity * 0.65,
 			width: screenWidthToWorld(screenWidth, k),
 			cap: "round",
@@ -894,12 +907,13 @@ function drawFxLayer(engine: EngineState) {
 		}
 
 		const linkColor = colorToNumber(link.color, 0x555555);
+		const baseLinkColor = scaleRgbColor(linkColor, GLOW_BASE_COLOR_SCALE);
 		const segmentPad = 0.35 / GLOW_STEPS;
 
 		drawLinkPath(layers.fx, link);
 		layers.fx.stroke({
-			color: linkColor,
-			alpha: 0.08,
+			color: baseLinkColor,
+			alpha: 0.2,
 			width: screenWidthToWorld(6, k),
 			cap: "round",
 			join: "round",
@@ -907,8 +921,8 @@ function drawFxLayer(engine: EngineState) {
 
 		drawLinkPath(layers.fx, link);
 		layers.fx.stroke({
-			color: linkColor,
-			alpha: 0.22,
+			color: baseLinkColor,
+			alpha: 0.45,
 			width: screenWidthToWorld(1.4, k),
 			cap: "round",
 			join: "round",

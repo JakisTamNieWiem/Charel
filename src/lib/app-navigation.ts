@@ -1,7 +1,6 @@
 import {
 	Layers,
 	Link,
-	MapIcon,
 	MessageCircle,
 	Network,
 	Settings,
@@ -14,7 +13,6 @@ import GroupsTab from "@/components/Sidebar/GroupsTab";
 import NetworkTab from "@/components/Sidebar/NetworkTab";
 import RelationshipTypesTab from "@/components/Sidebar/RelationshipTypesTab";
 import SettingsTab from "@/components/Sidebar/SettingsTab";
-import VirtualTabletopTab from "@/components/VTT/VirtualTabletopTab";
 
 type SidebarNavigationItem = {
 	value: string;
@@ -62,13 +60,6 @@ export const sidebarNavItems = [
 		icon: MessageCircle,
 		title: "Chat",
 		panel: ChatTab,
-	},
-	{
-		value: "vtt",
-		to: "/vtt",
-		icon: MapIcon,
-		title: "VTT",
-		panel: VirtualTabletopTab,
 	},
 	{
 		value: "settings",
