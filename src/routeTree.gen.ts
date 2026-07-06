@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
-import { Route as VttRouteImport } from "./routes/vtt";
 import { Route as TypesRouteImport } from "./routes/types";
 import { Route as SettingsRouteImport } from "./routes/settings";
 import { Route as NetworkRouteImport } from "./routes/network";
@@ -18,11 +17,6 @@ import { Route as ChatRouteImport } from "./routes/chat";
 import { Route as CharactersRouteImport } from "./routes/characters";
 import { Route as IndexRouteImport } from "./routes/index";
 
-const VttRoute = VttRouteImport.update({
-  id: "/vtt",
-  path: "/vtt",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const TypesRoute = TypesRouteImport.update({
   id: "/types",
   path: "/types",
@@ -67,7 +61,6 @@ export interface FileRoutesByFullPath {
   "/network": typeof NetworkRoute;
   "/settings": typeof SettingsRoute;
   "/types": typeof TypesRoute;
-  "/vtt": typeof VttRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
@@ -77,7 +70,6 @@ export interface FileRoutesByTo {
   "/network": typeof NetworkRoute;
   "/settings": typeof SettingsRoute;
   "/types": typeof TypesRoute;
-  "/vtt": typeof VttRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -88,7 +80,6 @@ export interface FileRoutesById {
   "/network": typeof NetworkRoute;
   "/settings": typeof SettingsRoute;
   "/types": typeof TypesRoute;
-  "/vtt": typeof VttRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -99,8 +90,7 @@ export interface FileRouteTypes {
     | "/groups"
     | "/network"
     | "/settings"
-    | "/types"
-    | "/vtt";
+    | "/types";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
@@ -109,8 +99,7 @@ export interface FileRouteTypes {
     | "/groups"
     | "/network"
     | "/settings"
-    | "/types"
-    | "/vtt";
+    | "/types";
   id:
     | "__root__"
     | "/"
@@ -119,8 +108,7 @@ export interface FileRouteTypes {
     | "/groups"
     | "/network"
     | "/settings"
-    | "/types"
-    | "/vtt";
+    | "/types";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -131,18 +119,10 @@ export interface RootRouteChildren {
   NetworkRoute: typeof NetworkRoute;
   SettingsRoute: typeof SettingsRoute;
   TypesRoute: typeof TypesRoute;
-  VttRoute: typeof VttRoute;
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    "/vtt": {
-      id: "/vtt";
-      path: "/vtt";
-      fullPath: "/vtt";
-      preLoaderRoute: typeof VttRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/types": {
       id: "/types";
       path: "/types";
@@ -203,7 +183,6 @@ const rootRouteChildren: RootRouteChildren = {
   NetworkRoute: NetworkRoute,
   SettingsRoute: SettingsRoute,
   TypesRoute: TypesRoute,
-  VttRoute: VttRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
