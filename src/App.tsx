@@ -1,57 +1,30 @@
-import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import AppViewport from "@/components/AppViewport";
 import AppSidebar from "@/components/Sidebar/Sidebar";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship } from "@/types/types";
 import "./styles.css";
-import type { RealtimeChannel, Session } from "@supabase/supabase-js";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "motion/react";
-import {
-	getMessageNotificationPreview,
-	sendChatNotification,
-} from "@/hooks/use-notifications";
-import { getLocalAvatarPath } from "@/lib/avatar-cache";
 import { loadFromDisk, saveToDisk } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { checkForUpdates } from "@/lib/updater";
-import type { Message, RealtimeMessagePayload } from "@/types/chat";
 import LoadingScreen from "./components/LoadingScreen";
 import { SidebarProvider } from "./components/ui/sidebar";
+import { useAuth } from "./hooks/useAuth";
 import { useChatStore } from "./store/useChatStore";
 
 function App() {
 	// Supabase
-	const [session, setSession] = useState<Session | null>(null);
-	const [isAuthResolved, setIsAuthResolved] = useState(false);
+	const { session, loading, isAuthenticated } = useAuth();
 	const [isDataLoaded, setIsDataLoaded] = useState(false);
 	const setSyncing = useGraphStore((s) => s.setSyncing);
-	const queryClient = useQueryClient();
 
 	// Zustand Store
 	const [isLoaded, setIsLoaded] = useState(false);
 	useEffect(() => {
 		checkForUpdates();
 	}, []);
-
-	useEffect(() => {
-		supabase.auth.getSession().then(({ data: { session } }) => {
-			setSession(session);
-			setIsAuthResolved(true);
-		});
-
-		const {
-			data: { subscription },
-		} = supabase.auth.onAuthStateChange((_event, session) => {
-			setSession(session);
-			if (session) {
-				queryClient.invalidateQueries();
-			}
-			setIsLoaded(false); // Force a reload of data when login state changes
-		});
-
-		return () => subscription.unsubscribe();
-	}, [queryClient]);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,7 +42,7 @@ function App() {
 	}, [session]);
 
 	useEffect(() => {
-		if (!isAuthResolved) return;
+		if (!isAuthenticated) return;
 		const initData = async () => {
 			setSyncing(true);
 			if (session) {
@@ -230,110 +203,110 @@ function App() {
 						}
 					},
 				)
-				// Listen for Message changes
-				.on(
-					"postgres_changes",
-					{ event: "INSERT", schema: "public", table: "Messages" },
-					async (payload) => {
-						const msg = payload.new as RealtimeMessagePayload;
-						const chatId = msg.chat;
+				// // Listen for Message changes
+				// .on(
+				// 	"postgres_changes",
+				// 	{ event: "INSERT", schema: "public", table: "Messages" },
+				// 	async (payload) => {
+				// 		const msg = payload.new as RealtimeMessagePayload;
+				// 		const chatId = msg.chat;
 
-						// Directly inject into the cache so the message appears immediately
-						// without waiting for the invalidation refetch round-trip.
-						queryClient.setQueryData<InfiniteData<Message[], unknown>>(
-							["messages", chatId],
-							(current) => {
-								if (!current || current.pages.length === 0) return current;
-								if (current.pages.flat().some((m) => m.id === msg.id))
-									return current;
-								const pages = [...current.pages];
-								pages[pages.length - 1] = [
-									...pages[pages.length - 1],
-									msg as Message,
-								];
-								return { ...current, pages };
-							},
-						);
+				// 		// Directly inject into the cache so the message appears immediately
+				// 		// without waiting for the invalidation refetch round-trip.
+				// 		queryClient.setQueryData<InfiniteData<Message[], unknown>>(
+				// 			["messages", chatId],
+				// 			(current) => {
+				// 				if (!current || current.pages.length === 0) return current;
+				// 				if (current.pages.flat().some((m) => m.id === msg.id))
+				// 					return current;
+				// 				const pages = [...current.pages];
+				// 				pages[pages.length - 1] = [
+				// 					...pages[pages.length - 1],
+				// 					msg as Message,
+				// 				];
+				// 				return { ...current, pages };
+				// 			},
+				// 		);
 
-						// Invalidate for eventual consistency (fetches character join etc.)
-						queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
-						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
-						queryClient.invalidateQueries({ queryKey: ["chats"] });
+				// 		// Invalidate for eventual consistency (fetches character join etc.)
+				// 		queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
+				// 		queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
+				// 		queryClient.invalidateQueries({ queryKey: ["chats"] });
 
-						// Send native notification if not active chat or app is not focused
-						if (
-							useChatStore.getState().activeChatId !== chatId ||
-							!document.hasFocus()
-						) {
-							const { data } = await supabase
-								.from("Messages")
-								.select("*, character:Characters!characterId(name, avatar)")
-								.eq("id", msg.id)
-								.single();
+				// 		// Send native notification if not active chat or app is not focused
+				// 		if (
+				// 			useChatStore.getState().activeChatId !== chatId ||
+				// 			!document.hasFocus()
+				// 		) {
+				// 			const { data } = await supabase
+				// 				.from("Messages")
+				// 				.select("*, character:Characters!characterId(name, avatar)")
+				// 				.eq("id", msg.id)
+				// 				.single();
 
-							if (data) {
-								const charName = data.character?.name || "Someone";
-								const content = (data as Message).content;
+				// 			if (data) {
+				// 				const charName = data.character?.name || "Someone";
+				// 				const content = (data as Message).content;
 
-								// Skip system messages — they don't need notifications
-								if (content.startsWith("[system]")) return;
+				// 				// Skip system messages — they don't need notifications
+				// 				if (content.startsWith("[system]")) return;
 
-								const preview = getMessageNotificationPreview(content);
+				// 				const preview = getMessageNotificationPreview(content);
 
-								// Use group cover if available, otherwise fall back to sender avatar
-								const { data: chatData } = await supabase
-									.from("Chats")
-									.select("isGroup, cover")
-									.eq("id", chatId)
-									.single();
+				// 				// Use group cover if available, otherwise fall back to sender avatar
+				// 				const { data: chatData } = await supabase
+				// 					.from("Chats")
+				// 					.select("isGroup, cover")
+				// 					.eq("id", chatId)
+				// 					.single();
 
-								const avatarUrl =
-									chatData?.isGroup && chatData.cover
-										? chatData.cover
-										: data.character?.avatar;
+				// 				const avatarUrl =
+				// 					chatData?.isGroup && chatData.cover
+				// 						? chatData.cover
+				// 						: data.character?.avatar;
 
-								const localAvatar = await getLocalAvatarPath(avatarUrl);
-								sendChatNotification({
-									charName,
-									body: preview,
-									avatar: localAvatar,
-								});
-							}
-						}
-					},
-				)
-				.on(
-					"postgres_changes",
-					{ event: "UPDATE", schema: "public", table: "Messages" },
-					(payload) => {
-						const msg = payload.new as RealtimeMessagePayload;
-						queryClient.invalidateQueries({ queryKey: ["messages", msg.chat] });
-						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
-					},
-				)
-				.on(
-					"postgres_changes",
-					{ event: "DELETE", schema: "public", table: "Messages" },
-					() => {
-						queryClient.invalidateQueries({ queryKey: ["messages"] });
-						queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
-					},
-				)
-				// Listen for Chat changes
-				.on(
-					"postgres_changes",
-					{ event: "*", schema: "public", table: "Chats" },
-					() => {
-						queryClient.invalidateQueries({ queryKey: ["chats"] });
-					},
-				)
+				// 				const localAvatar = await getLocalAvatarPath(avatarUrl);
+				// 				sendChatNotification({
+				// 					charName,
+				// 					body: preview,
+				// 					avatar: localAvatar,
+				// 				});
+				// 			}
+				// 		}
+				// 	},
+				// )
+				// .on(
+				// 	"postgres_changes",
+				// 	{ event: "UPDATE", schema: "public", table: "Messages" },
+				// 	(payload) => {
+				// 		const msg = payload.new as RealtimeMessagePayload;
+				// 		queryClient.invalidateQueries({ queryKey: ["messages", msg.chat] });
+				// 		queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
+				// 	},
+				// )
+				// .on(
+				// 	"postgres_changes",
+				// 	{ event: "DELETE", schema: "public", table: "Messages" },
+				// 	() => {
+				// 		queryClient.invalidateQueries({ queryKey: ["messages"] });
+				// 		queryClient.invalidateQueries({ queryKey: ["latestMessages"] });
+				// 	},
+				// )
+				// // Listen for Chat changes
+				// .on(
+				// 	"postgres_changes",
+				// 	{ event: "*", schema: "public", table: "Chats" },
+				// 	() => {
+				// 		queryClient.invalidateQueries({ queryKey: ["chats"] });
+				// 	},
+				// )
 				.subscribe();
 		}
 
 		return () => {
 			if (channel) supabase.removeChannel(channel);
 		};
-	}, [session, isAuthResolved, setSyncing, queryClient]);
+	}, [session, setSyncing, isAuthenticated]);
 
 	useEffect(() => {
 		const unsubscribe = useGraphStore.subscribe((state, prevState) => {
