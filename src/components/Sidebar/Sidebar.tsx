@@ -27,7 +27,9 @@ export default function AppSidebar() {
 	const activeItem = getSidebarItemForPath(pathname);
 	const ActivePanel = activeItem.panel;
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
-	const isSyncing = useGraphStore((state) => state.isSyncing);
+	const syncStatus = useGraphStore((state) => state.syncStatus);
+	const syncError = useGraphStore((state) => state.syncError);
+	const isSyncing = syncStatus === "syncing";
 	const { session, signOut } = useAuth();
 	const { data: version = "" } = useQuery({
 		queryKey: ["app-version"],
@@ -56,6 +58,14 @@ export default function AppSidebar() {
 		if (profile?.role === "player") return "AUTHORIZED_USER";
 		return "GUEST_ACCESS";
 	})();
+	const syncLabel =
+		syncStatus === "syncing"
+			? "SYNCING"
+			: syncStatus === "connected"
+				? "CONNECTED"
+				: syncStatus === "error"
+					? "SYNC ERROR"
+					: "OFFLINE";
 
 	return (
 		<Sidebar
@@ -126,9 +136,10 @@ export default function AppSidebar() {
 									variant="ghost"
 									size="sm"
 									disabled={isSyncing}
+									title={syncError ?? undefined}
 									className={cn(
 										"flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest h-7 px-2",
-										session
+										syncStatus === "connected"
 											? "text-primary hover:text-primary/80"
 											: "text-destructive hover:text-destructive/80",
 									)}
@@ -142,13 +153,13 @@ export default function AppSidebar() {
 								>
 									{isSyncing ? (
 										<Loader2 className="w-3 h-3 animate-spin" />
-									) : session ? (
+									) : syncStatus === "connected" ? (
 										<Cloud className="w-3 h-3" />
 									) : (
 										<CloudOff className="w-3 h-3" />
 									)}
 
-									{isSyncing ? "SYNCING" : session ? "CONNECTED" : "OFFLINE"}
+									{syncLabel}
 								</Button>
 								<div className="h-4 w-px bg-border/50 mx-1" />
 								<ThemeToggle />

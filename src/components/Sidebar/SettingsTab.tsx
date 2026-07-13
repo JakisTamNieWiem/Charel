@@ -1,11 +1,14 @@
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
-import { Download, Plus } from "lucide-react";
+import { Download, Plus, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthProvider";
-import { useGraphStore } from "@/store/useGraphStore";
+import { loadGraphBackup, parseGraphSnapshot } from "@/lib/storage";
+import { createGraphSnapshot, useGraphStore } from "@/store/useGraphStore";
+import type { GraphSnapshot } from "@/types/types";
 import {
 	SidebarPanel,
 	SidebarSection,
@@ -21,16 +24,28 @@ export default function SettingsTab() {
 	const relationshipTypes = useGraphStore((state) => state.relationshipTypes);
 	const relationships = useGraphStore((state) => state.relationships);
 	const groups = useGraphStore((state) => state.groups);
+	const syncStatus = useGraphStore((state) => state.syncStatus);
 	const { session } = useAuth();
+	const canRestore = !session || syncStatus === "error";
+
+	const restoreSnapshot = (snapshot: GraphSnapshot) => {
+		const history = useGraphStore.temporal.getState();
+		history.pause();
+		try {
+			importData(snapshot);
+			history.clear();
+		} finally {
+			history.resume();
+		}
+	};
 
 	const handleExport = async () => {
-		const data = {
-			version: "1.0.0",
+		const data = createGraphSnapshot({
 			characters: allCharacters,
-			relationshipTypes: relationshipTypes,
-			relationships: relationships,
-			groups: groups,
-		};
+			relationshipTypes,
+			relationships,
+			groups,
+		});
 
 		try {
 			const filePath = await save({
@@ -45,12 +60,28 @@ export default function SettingsTab() {
 
 			if (filePath) {
 				await writeTextFile(filePath, JSON.stringify(data, null, 2));
-				alert("Data exported successfully!");
+				toast.success("Data exported successfully");
 			}
 		} catch (error) {
 			console.error("Export failed:", error);
-			alert("Failed to export data.");
+			toast.error("Failed to export data");
 		}
+	};
+
+	const handleBackupRestore = async () => {
+		const snapshot = await loadGraphBackup();
+		if (!snapshot) {
+			toast.error("No valid recovery snapshot found");
+			return;
+		}
+		if (
+			!window.confirm("Replace current graph data with the recovery snapshot?")
+		) {
+			return;
+		}
+
+		restoreSnapshot(snapshot);
+		toast.success("Recovery snapshot restored");
 	};
 
 	return (
@@ -66,8 +97,22 @@ export default function SettingsTab() {
 						<Button
 							variant="ghost"
 							size="xs"
-							disabled={!!session}
-							title={session ? "Disabled when Online" : undefined}
+							disabled={!canRestore}
+							title={
+								canRestore
+									? "Restore recovery snapshot"
+									: "Disabled while connected"
+							}
+							onClick={() => void handleBackupRestore()}
+							className="text-[0.625rem] font-bold uppercase tracking-[0.08em] hover:bg-(--sidebar-foreground)/8"
+						>
+							<RotateCcw className="w-3 h-3" /> Restore
+						</Button>
+						<Button
+							variant="ghost"
+							size="xs"
+							disabled={!canRestore}
+							title={!canRestore ? "Disabled while connected" : undefined}
 							onClick={() => {
 								const input = document.createElement("input");
 								input.type = "file";
@@ -80,12 +125,15 @@ export default function SettingsTab() {
 									const reader = new FileReader();
 									reader.onload = (re) => {
 										try {
-											const json = JSON.parse(re.target?.result as string);
-											importData(json);
-											alert("Data imported successfully!");
+											const snapshot = parseGraphSnapshot(
+												JSON.parse(re.target?.result as string),
+											);
+											if (!snapshot) throw new Error("Invalid graph snapshot");
+											restoreSnapshot(snapshot);
+											toast.success("Data imported successfully");
 										} catch (err) {
 											console.error(err);
-											alert("Invalid JSON file");
+											toast.error("Invalid graph data file");
 										}
 									};
 									reader.readAsText(file);

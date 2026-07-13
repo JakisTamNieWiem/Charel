@@ -1,5 +1,3 @@
-// src/lib/storage.ts
-
 import {
 	BaseDirectory,
 	exists,
@@ -7,57 +5,69 @@ import {
 	readTextFile,
 	writeTextFile,
 } from "@tauri-apps/plugin-fs";
-import type {
-	Character,
-	Group,
-	Relationship,
-	RelationshipType,
-} from "@/types/types";
+import type { GraphSnapshot } from "@/types/types";
 
 const FILE_NAME = "graph-data.json";
 
-export interface JsonData {
-	version: string;
-	characters: Character[];
-	relationshipTypes: RelationshipType[];
-	relationships: Relationship[];
-	groups: Group[];
+export function isDesktopTauri() {
+	return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-export async function saveToDisk(data: JsonData) {
+export function parseGraphSnapshot(value: unknown): GraphSnapshot | null {
+	if (!value || typeof value !== "object") return null;
+	const data = value as Record<string, unknown>;
+	if (
+		(data.version !== "2" && data.version !== "1.0.0") ||
+		!Array.isArray(data.characters) ||
+		!Array.isArray(data.relationshipTypes) ||
+		!Array.isArray(data.relationships) ||
+		!Array.isArray(data.groups)
+	) {
+		return null;
+	}
+
+	return {
+		version: "2",
+		characters: data.characters as GraphSnapshot["characters"],
+		relationshipTypes:
+			data.relationshipTypes as GraphSnapshot["relationshipTypes"],
+		relationships: data.relationships as GraphSnapshot["relationships"],
+		groups: data.groups as GraphSnapshot["groups"],
+	};
+}
+
+export async function saveGraphBackup(data: GraphSnapshot) {
+	if (!isDesktopTauri()) return;
+
 	try {
-		// 1. Check if the AppData folder for our app exists, if not, create it
 		const dirExists = await exists("", { baseDir: BaseDirectory.AppData });
 		if (!dirExists) {
 			await mkdir("", { baseDir: BaseDirectory.AppData });
 		}
 
-		// 2. Write the JSON file
 		await writeTextFile(FILE_NAME, JSON.stringify(data, null, 2), {
 			baseDir: BaseDirectory.AppData,
 		});
 	} catch (error) {
-		console.error("Failed to save data to disk:", error);
+		console.error("Failed to save graph backup:", error);
 	}
 }
 
-export async function loadFromDisk() {
+export async function loadGraphBackup() {
+	if (!isDesktopTauri()) return null;
+
 	try {
-		// 1. Check if the file exists
 		const fileExists = await exists(FILE_NAME, {
 			baseDir: BaseDirectory.AppData,
 		});
-		if (!fileExists) {
-			return null; // No saved data yet
-		}
+		if (!fileExists) return null;
 
-		// 2. Read and parse the file
 		const contents = await readTextFile(FILE_NAME, {
 			baseDir: BaseDirectory.AppData,
 		});
-		return JSON.parse(contents);
+		return parseGraphSnapshot(JSON.parse(contents));
 	} catch (error) {
-		console.error("Failed to load data from disk:", error);
+		console.error("Failed to load graph backup:", error);
 		return null;
 	}
 }

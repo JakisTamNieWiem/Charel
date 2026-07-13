@@ -30,9 +30,22 @@ export interface Relationship {
 	value: number | null; // optional override of the type's default value (-1 to 1)
 }
 
-export interface AppData {
+export interface GraphData {
 	characters: Character[];
 	relationshipTypes: RelationshipType[];
 	relationships: Relationship[];
 	groups: Group[];
 }
+
+export interface GraphSnapshot extends GraphData {
+	version: "2";
+}
+
+export type GraphSyncStatus =
+	| "initializing"
+	| "offline"
+	| "syncing"
+	| "connected"
+	| "error";
+
+export type AppData = GraphData;

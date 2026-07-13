@@ -1,16 +1,19 @@
 import { useEffect } from "react";
 import AppViewport from "@/components/AppViewport";
+import LoadingScreen from "@/components/LoadingScreen";
 import AppSidebar from "@/components/Sidebar/Sidebar";
+import { useGraphBackup } from "@/hooks/useGraphBackup";
 import { useGraphStore } from "@/store/useGraphStore";
 import "./styles.css";
-import { saveToDisk } from "@/lib/storage";
 import { SidebarProvider } from "./components/ui/sidebar";
 import { useAuth } from "./context/AuthProvider";
 import { useRealtimeSync } from "./hooks/useRealtimeSync";
 
 function App() {
 	const { session, loading } = useAuth();
+	const isInitialized = useGraphStore((state) => state.isInitialized);
 	useRealtimeSync();
+	useGraphBackup();
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -27,30 +30,7 @@ function App() {
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [session]);
 
-	useEffect(() => {
-		const unsubscribe = useGraphStore.subscribe((state, prevState) => {
-			// Don't save if we haven't finished the initial load yet
-			if (loading || session) return;
-
-			// Optional: Only save if the actual graph data changed (ignore UI state like selectedCharId)
-			if (
-				state.characters !== prevState.characters ||
-				state.relationships !== prevState.relationships ||
-				state.relationshipTypes !== prevState.relationshipTypes ||
-				state.groups !== prevState.groups
-			) {
-				saveToDisk({
-					version: "2",
-					characters: state.characters,
-					relationships: state.relationships,
-					relationshipTypes: state.relationshipTypes,
-					groups: state.groups,
-				});
-			}
-		});
-
-		return () => unsubscribe();
-	}, [loading, session]);
+	if (loading || !isInitialized) return <LoadingScreen />;
 
 	return (
 		<div className="flex h-screen w-screen overflow-hidden bg-sidebar font-sans text-foreground">
