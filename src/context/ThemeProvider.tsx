@@ -123,19 +123,21 @@ export function ThemeProvider({
 		};
 	}, []);
 
-	// 1. Apply Dark/Light mode
 	useEffect(() => {
 		const root = window.document.documentElement;
-		root.classList.remove("light", "dark");
-		if (theme === "system") {
-			const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-				.matches
-				? "dark"
-				: "light";
-			root.classList.add(systemTheme);
-		} else {
-			root.classList.add(theme);
-		}
+		const preference = window.matchMedia("(prefers-color-scheme: dark)");
+		const applyTheme = () => {
+			root.classList.remove("light", "dark");
+			root.classList.add(
+				theme === "system" ? (preference.matches ? "dark" : "light") : theme,
+			);
+		};
+
+		applyTheme();
+		if (theme !== "system") return;
+
+		preference.addEventListener("change", applyTheme);
+		return () => preference.removeEventListener("change", applyTheme);
 	}, [theme]);
 
 	// 2. Apply Theme Color Classes & Inject Custom CSS
