@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { Input } from "@/components//ui/input";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { processAvatarImage } from "@/lib/utils";
 import type { Character } from "@/types/types";
@@ -36,14 +37,11 @@ export default function CharacterModal({
 		if (!file) return;
 
 		try {
-			// Process the image
 			const base64Avatar = await processAvatarImage(file);
-
-			// Update your state with the new base64 string
 			setFormData((prev) => ({ ...prev, avatar: base64Avatar }));
 		} catch (error) {
 			console.error("Failed to process image:", error);
-			alert("Failed to process image.");
+			toast.error("Failed to process image.");
 		}
 	};
 	return (
@@ -107,15 +105,17 @@ export default function CharacterModal({
 						</Field>
 						<div className="text-center text-white/50 mt-1">OR</div>
 						<div>
-							{/* Preview the Avatar */}
-							<div
-								className="w-24 h-24 rounded-full border border-white/20 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-								onClick={() => fileInputRef.current?.click()} // Clicking the image opens the file picker
+							<Button
+								type="button"
+								variant="ghost"
+								aria-label="Upload avatar"
+								className="h-24 w-24 cursor-pointer overflow-hidden rounded-full border border-white/20 p-0 transition-opacity hover:opacity-80"
+								onClick={() => fileInputRef.current?.click()}
 							>
 								{formData.avatar ? (
 									<img
 										src={formData.avatar}
-										alt="Avatar"
+										alt=""
 										className="w-full h-full object-cover"
 									/>
 								) : (
@@ -123,9 +123,8 @@ export default function CharacterModal({
 										Click to upload
 									</div>
 								)}
-							</div>
+							</Button>
 
-							{/* The Hidden File Input */}
 							<input
 								type="file"
 								accept="image/png, image/jpeg, image/webp"
@@ -141,7 +140,7 @@ export default function CharacterModal({
 						render={
 							<Button
 								variant={"secondary"}
-								className="flex-1 p-3 border border-white/10 rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
+								className="flex-1 rounded-lg border border-white/10 p-3 text-xs font-bold uppercase tracking-widest transition-colors"
 							>
 								Cancel
 							</Button>
@@ -153,7 +152,7 @@ export default function CharacterModal({
 								onClick={() => {
 									onSave(formData);
 								}}
-								className="flex-1 p-3rounded-lgtransition-colors uppercase text-xs font-bold tracking-widest"
+								className="flex-1 rounded-lg p-3 text-xs font-bold uppercase tracking-widest transition-colors"
 							>
 								Save
 							</Button>

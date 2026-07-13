@@ -12,7 +12,6 @@ type SidebarNavigationItem = {
 	icon: ElementType;
 	title: string;
 	panel: ComponentType;
-	networkMode?: "group" | "groups";
 };
 
 export const sidebarNavItems = [
@@ -29,7 +28,6 @@ export const sidebarNavItems = [
 		icon: Network,
 		title: "Network Graph",
 		panel: NetworkTab,
-		networkMode: "group",
 	},
 	{
 		value: "groups",
@@ -37,7 +35,6 @@ export const sidebarNavItems = [
 		icon: Layers,
 		title: "Groups",
 		panel: GroupsTab,
-		networkMode: "groups",
 	},
 	{
 		value: "types",

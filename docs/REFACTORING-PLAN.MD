@@ -50,10 +50,36 @@ Commits: `c7c2001`, `69c6933`
 - Made the theme editor parse only the preset stylesheet instead of the complete application stylesheet.
 - Combined custom-theme hydration and filesystem watching into one lifecycle effect.
 
+## 5. Harden editing and persistence boundaries
+
+Commit: `8d6dfcd`
+
+- Validated every imported snapshot row instead of casting array contents.
+- Changed group name and color editing to one draft commit when focus leaves the card.
+- Moved offline graph history shortcuts into a focused hook that ignores form controls and composition.
+- Added regression coverage for snapshot parsing, group drafts, history shortcuts, offline cascades, and failed remote rollback.
+
+## 6. Extract graph calculations and rendering internals
+
+Commits: `1fd6ee9`, `1fab3e7`
+
+- Extracted network statistics into a pure indexed calculation with dedicated tests.
+- Counted both incoming and outgoing links for connectivity while preserving incoming sentiment ratings.
+- Included characters without links in least-connected results.
+- Moved Pixi drawing, color conversion, layers, and engine types into an internal renderer module without changing the shared runtime lifecycle.
+- Kept React store selection, layout memoization, DOM events, observers, frames, and timers in the component.
+- Made system theme mode follow later operating-system preference changes.
+
+## 7. Remove remaining duplicate UI work
+
+- Made route loaders the only owner of network mode changes.
+- Avoided subscribing to Tauri backup changes in browser sessions.
+- Replaced the avatar upload click target with a semantic button and surfaced processing failures through the app toast system.
+
 ## Deferred work
 
 - Chat and VTT reactivation, data models, subscriptions, UI, and tests.
-- Further `NetworkGraph` renderer splitting unless a concrete renderer change needs it.
+- Further Pixi renderer splitting without a concrete renderer change.
 - Bundle-size optimization beyond the current lazy route boundaries.
 - New persistence abstractions, SQLite, or repository layers without a demonstrated need.
 

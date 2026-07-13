@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { saveGraphBackup } from "@/lib/storage";
+import { isDesktopTauri, saveGraphBackup } from "@/lib/storage";
 import { createGraphSnapshot, useGraphStore } from "@/store/useGraphStore";
 
 export function useGraphBackup() {
 	useEffect(() => {
+		if (!isDesktopTauri()) return;
+
 		let timeout: ReturnType<typeof setTimeout> | undefined;
 		let pendingWrite = Promise.resolve();
 

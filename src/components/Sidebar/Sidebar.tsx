@@ -38,8 +38,6 @@ export default function AppSidebar() {
 	});
 
 	const { data: profile } = useProfile();
-	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
-
 	const contentRef = useRef<HTMLDivElement>(null);
 
 	const displayName = (() => {
@@ -82,9 +80,6 @@ export default function AppSidebar() {
 								type="button"
 								title={item.title}
 								onClick={() => {
-									if ("networkMode" in item) {
-										setNetworkMode(item.networkMode);
-									}
 									void navigate({ to: item.to });
 									contentRef.current?.scrollTo(0, 0);
 								}}
