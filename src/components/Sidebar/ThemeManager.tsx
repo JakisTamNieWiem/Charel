@@ -3,7 +3,6 @@ import { readTextFile } from "@tauri-apps/plugin-fs";
 import { Palette, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { type CustomTheme, useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,6 +14,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { type CustomTheme, useTheme } from "@/context/ThemeProvider";
 import {
 	applyThemePreview,
 	clearThemePreview,

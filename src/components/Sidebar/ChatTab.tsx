@@ -33,10 +33,10 @@ import {
 	useContacts,
 	useCreateChat,
 	useUpdateContactNickname,
-} from "@/hooks/use-chats";
-import { useLatestMessages } from "@/hooks/use-messages";
-import { useUnreadChats } from "@/hooks/use-notifications";
-import { useProfile } from "@/hooks/use-profile";
+} from "@/hooks/useChats";
+import { useLatestMessages } from "@/hooks/useMessages";
+import { useUnreadChats } from "@/hooks/useNotifications";
+import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";

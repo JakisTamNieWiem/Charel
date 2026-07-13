@@ -1,12 +1,10 @@
-import type { Session } from "@supabase/supabase-js";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Download, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthProvider";
 import { useGraphStore } from "@/store/useGraphStore";
 import {
 	SidebarPanel,
@@ -23,12 +21,7 @@ export default function SettingsTab() {
 	const relationshipTypes = useGraphStore((state) => state.relationshipTypes);
 	const relationships = useGraphStore((state) => state.relationships);
 	const groups = useGraphStore((state) => state.groups);
-	const [session, setSession] = useState<Session | null>(null);
-
-	useEffect(() => {
-		supabase.auth.getSession().then(({ data }) => setSession(data.session));
-		supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-	}, []);
+	const { session } = useAuth();
 
 	const handleExport = async () => {
 		const data = {

@@ -4,7 +4,7 @@ import {
 	type CustomTheme,
 	ThemeProvider,
 	useTheme,
-} from "@/components/ThemeProvider";
+} from "@/context/ThemeProvider";
 
 const themeStorageMocks = vi.hoisted(() => ({
 	loadStoredCustomThemes: vi.fn<() => Promise<CustomTheme[]>>(),

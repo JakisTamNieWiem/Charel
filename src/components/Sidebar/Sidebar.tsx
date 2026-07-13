@@ -1,8 +1,8 @@
-import type { Session } from "@supabase/supabase-js";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { getVersion } from "@tauri-apps/api/app";
 import { Cloud, CloudOff, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Sidebar,
@@ -11,13 +11,10 @@ import {
 	SidebarHeader,
 	SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { useChats } from "@/hooks/use-chats";
-import { useLatestMessages } from "@/hooks/use-messages";
-import { useProfile } from "@/hooks/use-profile";
+import { useAuth } from "@/context/AuthProvider";
+import { useProfile } from "@/hooks/useProfile";
 import { getSidebarItemForPath, sidebarNavItems } from "@/lib/app-navigation";
-import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
 import LoginModal from "./LoginModal";
 import ThemeToggle from "./ThemeToggle";
@@ -31,50 +28,17 @@ export default function AppSidebar() {
 	const ActivePanel = activeItem.panel;
 	const [loginModalOpen, setLoginModalOpen] = useState(false);
 	const isSyncing = useGraphStore((state) => state.isSyncing);
-	const [session, setSession] = useState<Session | null>(null);
-
-	const [version, setVersion] = useState<string>("");
+	const { session, signOut } = useAuth();
+	const { data: version = "" } = useQuery({
+		queryKey: ["app-version"],
+		queryFn: async () => `Version: ${await getVersion()}`,
+		staleTime: Infinity,
+	});
 
 	const { data: profile } = useProfile();
-	const { data: chats = [] } = useChats();
-	const chatIds = useMemo(() => chats.map((c) => c.id), [chats]);
-	const { data: latestMessages = {} } = useLatestMessages(chatIds);
-	const activeSpeakerId = useChatStore((state) => state.activeSpeakerId);
-
-	const characters = useGraphStore((state) => state.characters);
 	const setNetworkMode = useGraphStore((state) => state.setNetworkMode);
 
-	const hasUnread = useMemo(() => {
-		if (!activeSpeakerId || chats.length === 0) return false;
-		return chats.some((chat) => {
-			const members = chat.members || [];
-			const me = members.find((m) => m.characterId === activeSpeakerId);
-			if (!me) return false;
-			if (!chat.isGroup) {
-				const other = members.find((m) => m.characterId !== activeSpeakerId);
-				if (!other) return false;
-				const otherCharacter = characters.find(
-					(c) => c.id === other.characterId,
-				);
-				if (!otherCharacter?.phoneNumber?.trim()) return false;
-			}
-
-			const lastMsg = latestMessages[chat.id];
-			if (!lastMsg) return false;
-			if (lastMsg.characterId === activeSpeakerId) return false;
-
-			if (!me.lastReadAt) return true;
-			return new Date(lastMsg.created_at) > new Date(me.lastReadAt);
-		});
-	}, [activeSpeakerId, chats, characters, latestMessages]);
-
 	const contentRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		supabase.auth.getSession().then(({ data }) => setSession(data.session));
-		supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-		getVersion().then((v) => setVersion(`Version: ${v}`));
-	}, []);
 
 	const displayName = (() => {
 		if (profile?.displayName) {
@@ -129,12 +93,6 @@ export default function AppSidebar() {
 									)}
 									strokeWidth={activeItem.value === item.value ? 2 : 1.5}
 								/>
-								{item.value === "chat" && hasUnread && (
-									<span className="absolute top-2 right-2 flex h-2 w-2 z-20">
-										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-										<span className="relative inline-flex rounded-full h-2 w-2 bg-destructive border-[1.5px] border-background" />
-									</span>
-								)}
 							</button>
 						))}
 					</div>
@@ -174,9 +132,13 @@ export default function AppSidebar() {
 											? "text-primary hover:text-primary/80"
 											: "text-destructive hover:text-destructive/80",
 									)}
-									onClick={() =>
-										session ? supabase.auth.signOut() : setLoginModalOpen(true)
-									}
+									onClick={() => {
+										if (session) {
+											void signOut();
+										} else {
+											setLoginModalOpen(true);
+										}
+									}}
 								>
 									{isSyncing ? (
 										<Loader2 className="w-3 h-3 animate-spin" />

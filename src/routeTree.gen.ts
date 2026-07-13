@@ -13,7 +13,6 @@ import { Route as TypesRouteImport } from "./routes/types";
 import { Route as SettingsRouteImport } from "./routes/settings";
 import { Route as NetworkRouteImport } from "./routes/network";
 import { Route as GroupsRouteImport } from "./routes/groups";
-import { Route as ChatRouteImport } from "./routes/chat";
 import { Route as CharactersRouteImport } from "./routes/characters";
 import { Route as IndexRouteImport } from "./routes/index";
 
@@ -37,11 +36,6 @@ const GroupsRoute = GroupsRouteImport.update({
   path: "/groups",
   getParentRoute: () => rootRouteImport,
 } as any);
-const ChatRoute = ChatRouteImport.update({
-  id: "/chat",
-  path: "/chat",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const CharactersRoute = CharactersRouteImport.update({
   id: "/characters",
   path: "/characters",
@@ -56,7 +50,6 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/characters": typeof CharactersRoute;
-  "/chat": typeof ChatRoute;
   "/groups": typeof GroupsRoute;
   "/network": typeof NetworkRoute;
   "/settings": typeof SettingsRoute;
@@ -65,7 +58,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/characters": typeof CharactersRoute;
-  "/chat": typeof ChatRoute;
   "/groups": typeof GroupsRoute;
   "/network": typeof NetworkRoute;
   "/settings": typeof SettingsRoute;
@@ -75,7 +67,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/characters": typeof CharactersRoute;
-  "/chat": typeof ChatRoute;
   "/groups": typeof GroupsRoute;
   "/network": typeof NetworkRoute;
   "/settings": typeof SettingsRoute;
@@ -86,25 +77,16 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/characters"
-    | "/chat"
     | "/groups"
     | "/network"
     | "/settings"
     | "/types";
   fileRoutesByTo: FileRoutesByTo;
-  to:
-    | "/"
-    | "/characters"
-    | "/chat"
-    | "/groups"
-    | "/network"
-    | "/settings"
-    | "/types";
+  to: "/" | "/characters" | "/groups" | "/network" | "/settings" | "/types";
   id:
     | "__root__"
     | "/"
     | "/characters"
-    | "/chat"
     | "/groups"
     | "/network"
     | "/settings"
@@ -114,7 +96,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   CharactersRoute: typeof CharactersRoute;
-  ChatRoute: typeof ChatRoute;
   GroupsRoute: typeof GroupsRoute;
   NetworkRoute: typeof NetworkRoute;
   SettingsRoute: typeof SettingsRoute;
@@ -151,13 +132,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof GroupsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/chat": {
-      id: "/chat";
-      path: "/chat";
-      fullPath: "/chat";
-      preLoaderRoute: typeof ChatRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/characters": {
       id: "/characters";
       path: "/characters";
@@ -178,7 +152,6 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CharactersRoute: CharactersRoute,
-  ChatRoute: ChatRoute,
   GroupsRoute: GroupsRoute,
   NetworkRoute: NetworkRoute,
   SettingsRoute: SettingsRoute,

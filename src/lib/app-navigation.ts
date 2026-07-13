@@ -1,14 +1,6 @@
-import {
-	Layers,
-	Link,
-	MessageCircle,
-	Network,
-	Settings,
-	Users,
-} from "lucide-react";
+import { Layers, Link, Network, Settings, Users } from "lucide-react";
 import type { ComponentType, ElementType } from "react";
 import CharacterTab from "@/components/Sidebar/CharacterTab";
-import ChatTab from "@/components/Sidebar/ChatTab";
 import GroupsTab from "@/components/Sidebar/GroupsTab";
 import NetworkTab from "@/components/Sidebar/NetworkTab";
 import RelationshipTypesTab from "@/components/Sidebar/RelationshipTypesTab";
@@ -53,13 +45,6 @@ export const sidebarNavItems = [
 		icon: Link,
 		title: "Relationship Types",
 		panel: RelationshipTypesTab,
-	},
-	{
-		value: "chat",
-		to: "/chat",
-		icon: MessageCircle,
-		title: "Chat",
-		panel: ChatTab,
 	},
 	{
 		value: "settings",
