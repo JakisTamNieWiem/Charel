@@ -1,8 +1,8 @@
-import { useEffect } from "react";
 import AppViewport from "@/components/AppViewport";
 import LoadingScreen from "@/components/LoadingScreen";
 import AppSidebar from "@/components/Sidebar/Sidebar";
 import { useGraphBackup } from "@/hooks/useGraphBackup";
+import { useGraphHistoryShortcuts } from "@/hooks/useGraphHistoryShortcuts";
 import { useGraphStore } from "@/store/useGraphStore";
 import "./styles.css";
 import { SidebarProvider } from "./components/ui/sidebar";
@@ -14,21 +14,7 @@ function App() {
 	const isInitialized = useGraphStore((state) => state.isInitialized);
 	useRealtimeSync();
 	useGraphBackup();
-
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (session) return;
-			if (e.ctrlKey && e.key === "z") {
-				useGraphStore.temporal.getState().undo();
-			}
-			if (e.ctrlKey && e.shiftKey && e.key === "z") {
-				useGraphStore.temporal.getState().redo();
-			}
-		};
-
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [session]);
+	useGraphHistoryShortcuts(!session);
 
 	if (loading || !isInitialized) return <LoadingScreen />;
 

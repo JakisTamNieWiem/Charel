@@ -1,5 +1,5 @@
 import { Plus, Trash2, X } from "lucide-react";
-import { useRef } from "react";
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Group } from "@/types/types";
+import type { Character, Group } from "@/types/types";
 import {
 	SidebarEmptyState,
 	SidebarPanel,
@@ -104,6 +104,157 @@ function getRandomGroupColor() {
 	return hslToHex(Math.round(Math.random() * 360), 0.7, 0.5);
 }
 
+type GroupCardProps = {
+	group: Group;
+	members: Character[];
+	availableToAdd: Character[];
+	onUpdate: (group: Group) => Promise<void>;
+	onDelete: (id: string) => Promise<void>;
+	onAssign: (characterId: string, groupId: string | null) => Promise<void>;
+};
+
+export function GroupCard({
+	group,
+	members,
+	availableToAdd,
+	onUpdate,
+	onDelete,
+	onAssign,
+}: GroupCardProps) {
+	const [draft, setDraft] = useState(group);
+
+	const commitDraft = () => {
+		if (draft.name !== group.name || draft.color !== group.color) {
+			void onUpdate(draft);
+		}
+	};
+
+	return (
+		<SidebarPanel
+			className="group overflow-hidden"
+			onBlur={(event) => {
+				if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+					return;
+				}
+				commitDraft();
+			}}
+		>
+			<div className="flex items-center gap-2 border-b border-(--sidebar-foreground)/8 px-3 py-2.5">
+				<label
+					className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-full"
+					style={{ backgroundColor: draft.color }}
+					title="Group color"
+				>
+					<Input
+						type="color"
+						value={getColorInputValue(draft.color)}
+						onChange={(event) =>
+							setDraft((current) => ({
+								...current,
+								color: event.target.value,
+							}))
+						}
+						className="absolute inset-0 size-full cursor-pointer opacity-0"
+						aria-label="Group color"
+					/>
+				</label>
+				<Input
+					value={draft.name}
+					onChange={(event) =>
+						setDraft((current) => ({
+							...current,
+							name: event.target.value,
+						}))
+					}
+					onKeyDown={(event) => {
+						if (event.key === "Enter") event.currentTarget.blur();
+						if (event.key === "Escape") setDraft(group);
+					}}
+					className={cn(
+						sidebarInputClass,
+						"h-8 flex-1 border-transparent bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:bg-(--sidebar-foreground)/5",
+					)}
+				/>
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					title="Delete group"
+					onClick={() => void onDelete(group.id)}
+					className="opacity-45 hover:bg-(--sidebar-foreground)/8 hover:text-red-400 group-hover:opacity-100"
+				>
+					<Trash2 className="w-3 h-3" />
+				</Button>
+			</div>
+
+			<div className="space-y-1 p-2">
+				<div className="flex items-center justify-between px-1 pb-1">
+					<span className="text-[0.625rem] font-mono font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
+						Members
+					</span>
+					<span className="text-[0.625rem] font-mono text-muted-foreground/55 tabular-nums">
+						{members.length}
+					</span>
+				</div>
+				{members.map((character) => (
+					<div
+						key={character.id}
+						className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-(--sidebar-foreground)/5"
+					>
+						<Avatar className="size-6">
+							<AvatarImage src={character.avatar ?? undefined} />
+							<AvatarFallback className="text-[8px]">
+								{character.name.slice(0, 2)}
+							</AvatarFallback>
+						</Avatar>
+						<span className="flex-1 truncate text-xs font-medium">
+							{character.name}
+						</span>
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							title="Remove from group"
+							onClick={() => void onAssign(character.id, null)}
+							className="opacity-35 hover:bg-(--sidebar-foreground)/8 hover:text-red-400 hover:opacity-100"
+						>
+							<X className="w-3 h-3" />
+						</Button>
+					</div>
+				))}
+
+				<Select
+					value=""
+					disabled={availableToAdd.length === 0}
+					onValueChange={(value) => {
+						if (value) void onAssign(value, group.id);
+					}}
+				>
+					<SelectTrigger
+						disabled={availableToAdd.length === 0}
+						className="mt-2 h-8 w-full rounded-md border border-dashed border-(--sidebar-foreground)/12 bg-(--sidebar-foreground)/4 px-2 text-[0.6875rem] font-mono uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:border-(--sidebar-foreground)/20 hover:bg-(--sidebar-foreground)/6 disabled:opacity-35"
+					>
+						<SelectValue
+							placeholder={
+								availableToAdd.length === 0
+									? "All characters assigned"
+									: "+ Add character..."
+							}
+						/>
+					</SelectTrigger>
+					<SelectContent>
+						<SelectGroup>
+							{availableToAdd.map((character) => (
+								<SelectItem key={character.id} value={character.id}>
+									{character.name}
+								</SelectItem>
+							))}
+						</SelectGroup>
+					</SelectContent>
+				</Select>
+			</div>
+		</SidebarPanel>
+	);
+}
+
 export default function GroupsTab() {
 	const allCharacters = useGraphStore((state) => state.characters);
 	const groups = useGraphStore((state) => state.groups);
@@ -113,7 +264,6 @@ export default function GroupsTab() {
 	const assignCharacterToGroup = useGraphStore(
 		(state) => state.assignCharacterToGroup,
 	);
-	const debounceTimer = useRef<number | null>(null);
 	const ungroupedCharacters = allCharacters.filter((c) => !c.groupId);
 
 	return (
@@ -149,133 +299,20 @@ export default function GroupsTab() {
 				<div className="space-y-3">
 					{groups.map((group) => {
 						const members = allCharacters.filter((c) => c.groupId === group.id);
-						const unassigned = allCharacters
-							.filter((c) => !c.groupId || c.groupId === group.id)
+						const availableToAdd = allCharacters
+							.filter((character) => !character.groupId)
 							.sort((a, b) => a.name.localeCompare(b.name));
-						const availableToAdd = unassigned.filter(
-							(c) => c.groupId !== group.id,
-						);
 
 						return (
-							<SidebarPanel key={group.id} className="group overflow-hidden">
-								<div className="flex items-center gap-2 border-b border-(--sidebar-foreground)/8 px-3 py-2.5">
-									<label
-										className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-full"
-										style={{ backgroundColor: group.color }}
-										title="Group color"
-									>
-										<Input
-											type="color"
-											value={getColorInputValue(group.color)}
-											onChange={(e) => {
-												const editedGroup = {
-													id: group.id,
-													name: group.name,
-													color: e.target.value,
-												};
-												if (debounceTimer.current)
-													clearTimeout(debounceTimer.current);
-												debounceTimer.current = window.setTimeout(() => {
-													updateGroup(editedGroup as Group);
-												}, 500);
-											}}
-											className="absolute inset-0 size-full cursor-pointer opacity-0"
-											aria-label="Group color"
-										/>
-									</label>
-									<Input
-										value={group.name}
-										onChange={(e) =>
-											updateGroup({
-												id: group.id,
-												name: e.target.value,
-												color: group.color,
-											})
-										}
-										className={cn(
-											sidebarInputClass,
-											"h-8 flex-1 border-transparent bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:bg-(--sidebar-foreground)/5",
-										)}
-									/>
-									<Button
-										variant="ghost"
-										size="icon-xs"
-										title="Delete group"
-										onClick={() => deleteGroup(group.id)}
-										className="opacity-45 hover:bg-(--sidebar-foreground)/8 hover:text-red-400 group-hover:opacity-100"
-									>
-										<Trash2 className="w-3 h-3" />
-									</Button>
-								</div>
-
-								<div className="space-y-1 p-2">
-									<div className="flex items-center justify-between px-1 pb-1">
-										<span className="text-[0.625rem] font-mono font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
-											Members
-										</span>
-										<span className="text-[0.625rem] font-mono text-muted-foreground/55 tabular-nums">
-											{members.length}
-										</span>
-									</div>
-									{members.map((char) => (
-										<div
-											key={char.id}
-											className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-(--sidebar-foreground)/5"
-										>
-											<Avatar className="size-6">
-												<AvatarImage src={char.avatar ?? undefined} />
-												<AvatarFallback className="text-[8px]">
-													{char.name.slice(0, 2)}
-												</AvatarFallback>
-											</Avatar>
-											<span className="flex-1 truncate text-xs font-medium">
-												{char.name}
-											</span>
-											<Button
-												variant="ghost"
-												size="icon-xs"
-												title="Remove from group"
-												onClick={() => assignCharacterToGroup(char.id, null)}
-												className="opacity-35 hover:bg-(--sidebar-foreground)/8 hover:text-red-400 hover:opacity-100"
-											>
-												<X className="w-3 h-3" />
-											</Button>
-										</div>
-									))}
-
-									<Select
-										value=""
-										disabled={availableToAdd.length === 0}
-										onValueChange={(val) => {
-											if (val) {
-												assignCharacterToGroup(val, group.id);
-											}
-										}}
-									>
-										<SelectTrigger
-											disabled={availableToAdd.length === 0}
-											className="mt-2 h-8 w-full rounded-md border border-dashed border-(--sidebar-foreground)/12 bg-(--sidebar-foreground)/4 px-2 text-[0.6875rem] font-mono uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:border-(--sidebar-foreground)/20 hover:bg-(--sidebar-foreground)/6 disabled:opacity-35"
-										>
-											<SelectValue
-												placeholder={
-													availableToAdd.length === 0
-														? "All characters assigned"
-														: "+ Add character..."
-												}
-											/>
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												{availableToAdd.map((c) => (
-													<SelectItem key={c.id} value={c.id}>
-														{c.name}
-													</SelectItem>
-												))}
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-								</div>
-							</SidebarPanel>
+							<GroupCard
+								key={`${group.id}:${group.name}:${group.color}`}
+								group={group}
+								members={members}
+								availableToAdd={availableToAdd}
+								onUpdate={updateGroup}
+								onDelete={deleteGroup}
+								onAssign={assignCharacterToGroup}
+							/>
 						);
 					})}
 				</div>
