@@ -10,6 +10,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import type { NetworkCurveStyle } from "@/lib/network-graph";
+import { buildNetworkStats, type CharacterStat } from "@/lib/network-stats";
 import { useGraphStore } from "@/store/useGraphStore";
 import {
 	SidebarPanel,
@@ -27,16 +28,6 @@ const curveStyleOptions: Array<{ value: NetworkCurveStyle; label: string }> = [
 	{ value: "fractal", label: "Fractal" },
 ];
 
-interface CharStat {
-	id: string;
-	name: string;
-	avatar: string | null;
-	connectionCount: number;
-	avgValue: number;
-	totalPositive: number;
-	totalNegative: number;
-}
-
 export default function NetworkTab() {
 	const characters = useGraphStore((s) => s.characters);
 	const relationships = useGraphStore((s) => s.relationships);
@@ -44,188 +35,16 @@ export default function NetworkTab() {
 	const groups = useGraphStore((s) => s.groups);
 	const networkCurveStyle = useGraphStore((s) => s.networkCurveStyle);
 	const setNetworkCurveStyle = useGraphStore((s) => s.setNetworkCurveStyle);
-	const stats = useMemo(() => {
-		const typeValueMap = new Map(types.map((t) => [t.id, t.value ?? 0]));
-		const relValue = (r: { typeId: string; value: number | null }) =>
-			r.value ?? typeValueMap.get(r.typeId) ?? 0;
-
-		const allValues = relationships.map(relValue);
-		const sorted = [...allValues].sort((a, b) => a - b);
-
-		const charStats: CharStat[] = characters.map((c) => {
-			const rels = relationships.filter((r) => r.toId === c.id);
-			const values = rels.map(relValue);
-			const avg =
-				values.length > 0
-					? values.reduce((a, b) => a + b, 0) / values.length
-					: 0;
-
-			return {
-				id: c.id,
-				name: c.name,
-				avatar: c.avatar,
-				connectionCount: rels.length,
-				avgValue: avg,
-				totalPositive: values.filter((v) => v > 0).length,
-				totalNegative: values.filter((v) => v < 0).length,
-			};
-		});
-
-		const withConnections = charStats.filter((c) => c.connectionCount > 0);
-		const mostLikeable = [...withConnections].sort(
-			(a, b) => b.avgValue - a.avgValue,
-		)[0];
-		const mostDisliked = [...withConnections].sort(
-			(a, b) => a.avgValue - b.avgValue,
-		)[0];
-		const mostConnected = [...charStats].sort(
-			(a, b) => b.connectionCount - a.connectionCount,
-		)[0];
-		const leastConnected = [...withConnections].sort(
-			(a, b) => a.connectionCount - b.connectionCount,
-		)[0];
-
-		const pairAvgs = new Map<
-			string,
-			{ sum: number; count: number; fromId: string; toId: string }
-		>();
-		for (const r of relationships) {
-			const pairKey = [r.fromId, r.toId].sort().join("|");
-			const existing = pairAvgs.get(pairKey);
-			const val = relValue(r);
-			if (existing) {
-				existing.sum += val;
-				existing.count += 1;
-			} else {
-				pairAvgs.set(pairKey, {
-					sum: val,
-					count: 1,
-					fromId: r.fromId,
-					toId: r.toId,
-				});
-			}
-		}
-
-		let bestRel: { from: string; to: string; value: number } | null = null;
-		let worstRel: { from: string; to: string; value: number } | null = null;
-		for (const pair of pairAvgs.values()) {
-			const avg = pair.sum / pair.count;
-			const fromChar = characters.find((c) => c.id === pair.fromId);
-			const toChar = characters.find((c) => c.id === pair.toId);
-			if (!fromChar || !toChar) continue;
-			if (!bestRel || avg > bestRel.value) {
-				bestRel = { from: fromChar.name, to: toChar.name, value: avg };
-			}
-			if (!worstRel || avg < worstRel.value) {
-				worstRel = { from: fromChar.name, to: toChar.name, value: avg };
-			}
-		}
-
-		const totalRelationships = relationships.length;
-		const totalCharacters = characters.length;
-		const avgRelValue =
-			totalRelationships > 0
-				? allValues.reduce((a, b) => a + b, 0) / totalRelationships
-				: 0;
-
-		const median =
-			sorted.length === 0
-				? 0
-				: sorted.length % 2 === 1
-					? sorted[Math.floor(sorted.length / 2)]
-					: (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
-
-		const variance =
-			allValues.length > 0
-				? allValues.reduce((sum, v) => sum + (v - avgRelValue) ** 2, 0) /
-					allValues.length
-				: 0;
-		const stdDev = Math.sqrt(variance);
-
-		const maxEdges =
-			totalCharacters > 1 ? (totalCharacters * (totalCharacters - 1)) / 2 : 0;
-		const density = maxEdges > 0 ? pairAvgs.size / maxEdges : 0;
-
-		const edgeKeys = new Set(relationships.map((r) => `${r.fromId}|${r.toId}`));
-		const reciprocalCount = relationships.filter((r) =>
-			edgeKeys.has(`${r.toId}|${r.fromId}`),
-		).length;
-		const reciprocity =
-			totalRelationships > 0 ? reciprocalCount / totalRelationships : 0;
-
-		const histBins = 10;
-		const histogram = Array.from({ length: histBins }, () => 0);
-		for (const v of allValues) {
-			const bin = Math.min(
-				histBins - 1,
-				Math.max(0, Math.floor(((v + 1) / 2) * histBins)),
-			);
-			histogram[bin]++;
-		}
-
-		const connCounts = charStats.map((c) => c.connectionCount);
-		const maxConn = Math.max(0, ...connCounts);
-		const connBins = Math.min(10, maxConn + 1);
-		const connHistogram = Array.from({ length: connBins }, () => 0);
-		if (connBins > 0) {
-			for (const cnt of connCounts) {
-				const bin = Math.min(
-					connBins - 1,
-					Math.floor((cnt / (maxConn + 1)) * connBins),
-				);
-				connHistogram[bin]++;
-			}
-		}
-
-		const positiveCount = allValues.filter((v) => v > 0).length;
-		const negativeCount = allValues.filter((v) => v < 0).length;
-		const neutralCount = allValues.filter((v) => v === 0).length;
-
-		const groupStats = groups.map((g) => {
-			const members = characters.filter((c) => c.groupId === g.id);
-			const memberIds = new Set(members.map((c) => c.id));
-			const internalRels = relationships.filter(
-				(r) => memberIds.has(r.fromId) && memberIds.has(r.toId),
-			);
-			const avgVal =
-				internalRels.length > 0
-					? internalRels.reduce((a, r) => a + relValue(r), 0) /
-						internalRels.length
-					: 0;
-			return {
-				name: g.name,
-				color: g.color,
-				memberCount: members.length,
-				internalRelations: internalRels.length,
-				avgValue: avgVal,
-			};
-		});
-
-		return {
-			charStats,
-			mostLikeable,
-			mostDisliked,
-			mostConnected,
-			leastConnected,
-			bestRel,
-			worstRel,
-			totalRelationships,
-			totalCharacters,
-			avgRelValue,
-			median,
-			variance,
-			stdDev,
-			density,
-			reciprocity,
-			histogram,
-			connHistogram,
-			maxConn,
-			positiveCount,
-			negativeCount,
-			neutralCount,
-			groupStats,
-		};
-	}, [characters, relationships, types, groups]);
+	const stats = useMemo(
+		() =>
+			buildNetworkStats({
+				characters,
+				relationships,
+				relationshipTypes: types,
+				groups,
+			}),
+		[characters, relationships, types, groups],
+	);
 
 	return (
 		<SidebarTabRoot className="gap-5">
@@ -552,7 +371,7 @@ function CharacterStatRow({
 	detail,
 }: {
 	title: string;
-	char: CharStat;
+	char: CharacterStat;
 	detailColor: string;
 	detail?: string;
 }) {
@@ -613,10 +432,10 @@ function RatingLeaderboard({
 	data,
 }: {
 	title: string;
-	data: CharStat[];
+	data: CharacterStat[];
 }) {
 	const sorted = [...data]
-		.filter((c) => c.connectionCount > 0)
+		.filter((c) => c.incomingCount > 0)
 		.sort((a, b) => b.avgValue - a.avgValue);
 
 	return (
