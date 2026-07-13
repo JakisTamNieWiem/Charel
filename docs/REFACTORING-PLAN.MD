@@ -72,6 +72,8 @@ Commits: `1fd6ee9`, `1fab3e7`
 
 ## 7. Remove remaining duplicate UI work
 
+Commit: `9e76b24`
+
 - Made route loaders the only owner of network mode changes.
 - Avoided subscribing to Tauri backup changes in browser sessions.
 - Replaced the avatar upload click target with a semantic button and surfaced processing failures through the app toast system.
