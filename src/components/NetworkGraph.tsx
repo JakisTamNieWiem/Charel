@@ -6,7 +6,7 @@ import {
 	Sprite,
 	Text,
 	type TextOptions,
-	Texture,
+	type Texture,
 } from "pixi.js";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -19,6 +19,7 @@ import {
 	type LayoutData,
 	NODE_SIZE,
 } from "@/lib/network-graph";
+import { getAvatarTexture } from "@/lib/pixi-avatar-cache";
 import { sharedPixiRuntime } from "@/lib/pixi-runtime";
 import { useGraphStore } from "@/store/useGraphStore";
 import { Badge } from "./ui/badge";
@@ -77,15 +78,6 @@ type EngineState = {
 	animFrameId: number;
 	settleTimer: number | null;
 };
-
-type AvatarTextureEntry = {
-	texture: Texture | null;
-	loading: boolean;
-	failed: boolean;
-	callbacks: Set<() => void>;
-};
-
-const avatarTextureCache = new Map<string, AvatarTextureEntry>();
 
 function radialAnchorX(cos: number) {
 	return cos > 0.5 ? 0 : cos < -0.5 ? 1 : 0.5;
@@ -550,76 +542,6 @@ function addText(
 	layer.addChild(label);
 
 	return label;
-}
-
-function notifyAvatarTextureReady(entry: AvatarTextureEntry) {
-	const callbacks = Array.from(entry.callbacks);
-
-	entry.callbacks.clear();
-
-	for (const callback of callbacks) {
-		callback();
-	}
-}
-
-function getAvatarTexture(avatarUrl: string, onReady: () => void) {
-	const cached = avatarTextureCache.get(avatarUrl);
-
-	if (cached) {
-		if (cached.loading) {
-			cached.callbacks.add(onReady);
-		}
-
-		return { failed: cached.failed, texture: cached.texture };
-	}
-
-	const entry: AvatarTextureEntry = {
-		texture: null,
-		loading: true,
-		failed: false,
-		callbacks: new Set([onReady]),
-	};
-	const image = new Image();
-	const finish = () => {
-		if (entry.texture || entry.failed) {
-			return;
-		}
-
-		if (!image.naturalWidth || !image.naturalHeight) {
-			entry.loading = false;
-			entry.failed = true;
-			queueMicrotask(() => notifyAvatarTextureReady(entry));
-			return;
-		}
-
-		try {
-			entry.texture = Texture.from(image, true);
-			entry.loading = false;
-		} catch {
-			entry.loading = false;
-			entry.failed = true;
-		}
-
-		queueMicrotask(() => notifyAvatarTextureReady(entry));
-	};
-	const fail = () => {
-		entry.loading = false;
-		entry.failed = true;
-		queueMicrotask(() => notifyAvatarTextureReady(entry));
-	};
-
-	avatarTextureCache.set(avatarUrl, entry);
-	image.decoding = "async";
-
-	if (!avatarUrl.startsWith("data:") && !avatarUrl.startsWith("blob:")) {
-		image.crossOrigin = "anonymous";
-	}
-
-	image.onload = finish;
-	image.onerror = fail;
-	image.src = avatarUrl;
-
-	return { failed: false, texture: null };
 }
 
 function addAvatarSprite(
