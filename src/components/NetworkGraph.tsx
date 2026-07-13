@@ -22,7 +22,7 @@ import {
 import { getAvatarTexture } from "@/lib/pixi-avatar-cache";
 import { sharedPixiRuntime } from "@/lib/pixi-runtime";
 import { useGraphStore } from "@/store/useGraphStore";
-import { Badge } from "./ui/badge";
+import NetworkGraphOverlay from "./NetworkGraphOverlay";
 
 const GLOW_SPEED = 0.25;
 const GLOW_SPREAD = 0.18;
@@ -1323,43 +1323,11 @@ export default function NetworkGraph() {
 			className="relative flex h-full w-full flex-1 items-center justify-end overflow-hidden"
 			ref={containerRef}
 		>
-			{networkMode === "group" && (
-				<div className="pointer-events-none absolute top-6 left-6 z-10 flex flex-col gap-2">
-					{groups.map((group) => (
-						<div
-							key={group.id}
-							className="flex cursor-default items-center gap-2 rounded-full border border-foreground/5 bg-card/40 px-3 py-1.5 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
-						>
-							<div
-								className="h-2 w-2 rounded-full"
-								style={{ backgroundColor: group.color }}
-							/>
-							<span className="text-[10px] font-bold uppercase tracking-widest text-foreground/70">
-								{group.name}
-							</span>
-						</div>
-					))}
-				</div>
-			)}
-
-			<div className="pointer-events-none z-10 flex w-min flex-col flex-wrap-reverse gap-3 p-6">
-				{types.map((type) => (
-					<Badge
-						variant="secondary"
-						key={type.id}
-						style={{ "--badge-color": type.color } as React.CSSProperties}
-						className="self-start border border-foreground/5 bg-card/40 p-2.5 pr-1 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
-					>
-						<span className="text-[10px] font-bold uppercase tracking-widest">
-							{type.label}
-						</span>
-						<div
-							className="ml-2 h-3 w-3 rounded-full"
-							style={{ backgroundColor: type.color }}
-						/>
-					</Badge>
-				))}
-			</div>
+			<NetworkGraphOverlay
+				groups={groups}
+				types={types}
+				showGroups={networkMode === "group"}
+			/>
 		</div>
 	);
 }
