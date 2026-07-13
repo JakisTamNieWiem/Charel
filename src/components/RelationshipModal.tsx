@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship } from "@/types/types";
 import { Button } from "./ui/button";
@@ -53,27 +53,15 @@ export default function RelationshipModal({
 		.sort((a, b) => a.name.localeCompare(b.name));
 	const types = useGraphStore((state) => state.relationshipTypes);
 	const [formData, setFormData] = useState(
-		initialData || {
-			fromId,
-			toId: characters.find((c) => c.id !== fromId)?.id || "",
-			typeId: types[0]?.id || "",
-			description: "",
-			value: null,
-		},
+		() =>
+			initialData || {
+				fromId,
+				toId: characters.find((c) => c.id !== fromId)?.id || "",
+				typeId: types[0]?.id || "",
+				description: "",
+				value: null,
+			},
 	);
-	useEffect(() => {
-		if (open) {
-			setFormData(
-				initialData || {
-					fromId,
-					toId: characters.find((c) => c.id !== fromId)?.id || "",
-					typeId: types[0]?.id || "",
-					description: "",
-					value: null, // (Optional) Resets your value slider
-				},
-			);
-		}
-	}, [open, fromId, initialData, characters, types]);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,7 +82,6 @@ export default function RelationshipModal({
 							}
 							onValueChange={(value) => {
 								if (value) setFormData({ ...formData, toId: value });
-								console.log(formData);
 							}}
 							items={toCharacters}
 						>

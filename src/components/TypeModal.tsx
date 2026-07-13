@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { RelationshipType } from "@/types/types";
 import { Button } from "./ui/button";
@@ -20,18 +20,13 @@ export default function TypeModal({
 	const updateType = useGraphStore((state) => state.updateType);
 	const [formData, setFormData] = useState(type);
 
-	useEffect(() => {
-		setFormData(type);
-	}, [type]);
-
 	const isEditing = !!type.id;
 
 	const handleSave = () => {
-		if (!formData.value) formData.value = 0;
 		if (isEditing) {
-			updateType(formData);
+			void updateType(formData);
 		} else {
-			addType(formData);
+			void addType(formData);
 		}
 		onOpenChange(false);
 	};

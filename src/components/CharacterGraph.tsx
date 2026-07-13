@@ -6,14 +6,8 @@ import {
 	Search,
 	Trash2,
 } from "lucide-react";
-import {
-	Fragment,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
+import { useSvgPanZoom } from "@/hooks/useSvgPanZoom";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Relationship } from "@/types/types";
@@ -61,40 +55,6 @@ export default function CharacterGraph() {
 	const [inspectedRel, setInspectedRel] = useState<Relationship | null>(null);
 	const [relationSearch, setRelationSearch] = useState("");
 
-	const gRef = useRef<SVGGElement>(null);
-	const stageRef = useRef<HTMLDivElement>(null);
-	const panRef = useRef({ x: 0, y: 0 });
-	const scaleRef = useRef(1);
-	const [isDragging, setIsDragging] = useState(false);
-	const isDraggingRef = useRef(false); // Sync ref for the event listener
-	const svgRef = useRef<SVGSVGElement>(null); // We need a reference to the SVG element
-	const dragStartRef = useRef({ x: 0, y: 0 }); // Tracks exact absolute mouse start
-	const rafRef = useRef<number | null>(null); // Tracks animation frames for 60fps
-
-	const getMousePositionInSVG = (e: React.PointerEvent) => {
-		if (!svgRef.current) return { x: 0, y: 0 };
-		const svg = svgRef.current;
-		const pt = svg.createSVGPoint();
-		pt.x = e.clientX;
-		pt.y = e.clientY;
-		// The magic line: Converts raw screen pixels to exact SVG viewBox coordinates
-		return pt.matrixTransform(svg.getScreenCTM()?.inverse());
-	};
-	const handleMouseEnterLine = useCallback((rel: Relationship) => {
-		if (isDraggingRef.current) return;
-		setInspectedRel(rel);
-	}, []);
-
-	// Directly mutate the DOM transform
-	const applyTransform = useCallback(() => {
-		if (gRef.current) {
-			gRef.current.setAttribute(
-				"transform",
-				`translate(${panRef.current.x}, ${panRef.current.y}) scale(${scaleRef.current})`,
-			);
-		}
-	}, []);
-
 	// --- LAYOUT MATH ---
 	const relatedRadius = 40;
 	const maxBundleSize = relatedCharacters.reduce((max, char) => {
@@ -121,55 +81,29 @@ export default function CharacterGraph() {
 	const margin = 150;
 	const svgSize = (radius + margin) * 2;
 
-	const centerGraphInWorkspace = useCallback(() => {
-		if (!stageRef.current) return;
-
-		const rect = stageRef.current.getBoundingClientRect();
-		if (!rect.width) return;
-
-		const rootFontSize =
-			Number.parseFloat(
-				window.getComputedStyle(document.documentElement).fontSize,
-			) || 16;
-		const edgeInset = 1.5 * rootFontSize;
-		const legendWidth = Math.min(
-			11.5 * rootFontSize,
-			rect.width - 25 * rootFontSize,
-		);
-		const inspectorWidth = Math.min(
-			20 * rootFontSize,
-			rect.width - 3 * rootFontSize,
-		);
-		const leftBound = edgeInset + Math.max(0, legendWidth);
-		const rightBound = rect.width + Math.max(0, inspectorWidth);
-
-		if (rightBound <= leftBound) {
-			panRef.current = { x: 0, y: 0 };
-		} else {
-			const workspaceCenter = (leftBound + rightBound) / 2;
-			const offsetPx = workspaceCenter - rect.width / 2 + rootFontSize * 2.5;
-			const svgUnitsPerPixel = svgSize / rect.width;
-			panRef.current = { x: offsetPx * svgUnitsPerPixel, y: 0 };
-		}
-
-		scaleRef.current = 1;
-		applyTransform();
-	}, [applyTransform, svgSize]);
-
-	useEffect(() => {
-		if (!selectedId) {
-			setInspectedRel(null);
-			centerGraphInWorkspace();
-			return;
-		}
-		setInspectedRel(null);
-		centerGraphInWorkspace();
-	}, [centerGraphInWorkspace, selectedId]);
-
-	useEffect(() => {
-		window.addEventListener("resize", centerGraphInWorkspace);
-		return () => window.removeEventListener("resize", centerGraphInWorkspace);
-	}, [centerGraphInWorkspace]);
+	const {
+		groupRef,
+		stageRef,
+		svgRef,
+		isDragging,
+		isDraggingRef,
+		handleWheel,
+		handlePointerDown,
+		handlePointerMove,
+		handlePointerUp,
+		handlePointerCancel,
+	} = useSvgPanZoom({
+		svgSize,
+		disabled: isModalOpen,
+		onPanStart: () => setInspectedRel(null),
+	});
+	const handleMouseEnterLine = useCallback(
+		(rel: Relationship) => {
+			if (isDraggingRef.current) return;
+			setInspectedRel(rel);
+		},
+		[isDraggingRef],
+	);
 
 	const relationshipData = useMemo(() => {
 		return relatedCharacters.flatMap((char, i: number) => {
@@ -306,17 +240,9 @@ export default function CharacterGraph() {
 				? `+${inspectedRelationshipDetails.displayValue.toFixed(2)}`
 				: inspectedRelationshipDetails.displayValue.toFixed(2);
 
-	const handleWheel = (e: React.WheelEvent) => {
-		const zoomSensitivity = 0.002;
-		scaleRef.current = Math.max(
-			0.2,
-			Math.min(scaleRef.current - e.deltaY * zoomSensitivity, 4),
-		);
-		applyTransform();
-	};
 	const graphSvgContent = useMemo(() => {
 		return (
-			<g ref={gRef} transform="translate(0, 0) scale(1)">
+			<g ref={groupRef} transform="translate(0, 0) scale(1)">
 				<g
 					key={selectedId ?? "empty-character-graph"}
 					className="animate-in fade-in-0 zoom-in-95 duration-300 ease-out transform-fill origin-center will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto"
@@ -510,10 +436,10 @@ export default function CharacterGraph() {
 		selectedId,
 		radius,
 
-		// 2. Cached Hover Functions (Now stable thanks to useCallback)
 		handleMouseEnterLine,
 		setSelectedCharId,
 		centerRadius,
+		groupRef,
 	]);
 	return (
 		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-transparent">
@@ -527,43 +453,10 @@ export default function CharacterGraph() {
 						isDragging ? "cursor-grabbing" : "cursor-grab",
 					)}
 					onWheel={handleWheel}
-					onPointerDown={(e) => {
-						if (isModalOpen) return;
-						setIsDragging(true);
-						isDraggingRef.current = true;
-						setInspectedRel(null);
-						e.currentTarget.setPointerCapture(e.pointerId);
-						const svgPt = getMousePositionInSVG(e);
-						dragStartRef.current = {
-							x: svgPt.x - panRef.current.x,
-							y: svgPt.y - panRef.current.y,
-						};
-					}}
-					onPointerMove={(e) => {
-						if (!isDraggingRef.current) return;
-						// 2. Calculate the exact new position
-						const svgPt = getMousePositionInSVG(e);
-						panRef.current.x = svgPt.x - dragStartRef.current.x;
-						panRef.current.y = svgPt.y - dragStartRef.current.y;
-
-						// 3. 60 FPS Optimization (Debounce DOM updates to screen refresh rate)
-						if (!rafRef.current) {
-							rafRef.current = requestAnimationFrame(() => {
-								applyTransform();
-								rafRef.current = null;
-							});
-						}
-					}}
-					onPointerUp={() => {
-						setIsDragging(false);
-						isDraggingRef.current = false;
-						if (rafRef.current) cancelAnimationFrame(rafRef.current);
-						rafRef.current = null;
-					}}
-					onPointerCancel={() => {
-						setIsDragging(false);
-						isDraggingRef.current = false;
-					}}
+					onPointerDown={handlePointerDown}
+					onPointerMove={handlePointerMove}
+					onPointerUp={handlePointerUp}
+					onPointerCancel={handlePointerCancel}
 				>
 					<svg
 						ref={svgRef}
@@ -939,7 +832,7 @@ export default function CharacterGraph() {
 					</aside>
 				</div>
 				{/* Modals */}
-				{selectedId && (
+				{selectedId && isModalOpen && (
 					<RelationshipModal
 						fromId={editingRel ? editingRel.fromId : selectedId}
 						initialData={editingRel ?? undefined}
