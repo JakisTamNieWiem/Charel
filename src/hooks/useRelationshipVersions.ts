@@ -62,6 +62,7 @@ export function useRelationshipHistory(relationshipId: string | undefined) {
 export function useMarkRelationshipVersionsRead() {
 	const { session } = useAuth();
 	const queryClient = useQueryClient();
+	const unreadQueryKey = relationshipVersionKeys.unread(session?.user.id ?? "");
 
 	return useMutation({
 		mutationFn: async ({
@@ -77,14 +78,26 @@ export function useMarkRelationshipVersionsRead() {
 			});
 			if (error) throw error;
 		},
-		onSuccess: async () => {
+		onMutate: ({ relationshipId }) => {
+			const previous =
+				queryClient.getQueryData<UnreadRelationshipVersion[]>(unreadQueryKey);
+			queryClient.setQueryData<UnreadRelationshipVersion[]>(
+				unreadQueryKey,
+				(current) =>
+					current?.filter((row) => row.relationship_id !== relationshipId) ??
+					[],
+			);
+			return { previous };
+		},
+		onError: (_error, _variables, context) => {
+			queryClient.setQueryData(unreadQueryKey, context?.previous);
+			toast.error("Could not mark relationship update as read");
+		},
+		onSettled: async () => {
 			if (!session) return;
 			await queryClient.invalidateQueries({
-				queryKey: relationshipVersionKeys.unread(session.user.id),
+				queryKey: unreadQueryKey,
 			});
-		},
-		onError: () => {
-			toast.error("Could not mark relationship update as read");
 		},
 	});
 }

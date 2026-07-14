@@ -1,7 +1,9 @@
 import { Edit2, Plus, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CharacterModal from "@/components/CharacterModal";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useUnreadRelationshipVersions } from "@/hooks/useRelationshipVersions";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character } from "@/types/types";
@@ -21,6 +23,8 @@ export default function CharacterTab() {
 	const deleteCharacter = useGraphStore((state) => state.deleteCharacter);
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
+	const { data: unreadRelationshipVersions = [] } =
+		useUnreadRelationshipVersions();
 	const [hoveredId, setHoveredId] = useState<string | null>(null);
 
 	const [editingCharacter, setEditingCharacter] = useState<
@@ -63,6 +67,10 @@ export default function CharacterTab() {
 
 	const sortedCharacters = [...allCharacters].sort((a, b) =>
 		a.name.localeCompare(b.name),
+	);
+	const charactersWithUpdates = useMemo(
+		() => new Set(unreadRelationshipVersions.map((version) => version.from_id)),
+		[unreadRelationshipVersions],
 	);
 
 	return (
@@ -112,18 +120,26 @@ export default function CharacterTab() {
 									: "shadow-none",
 							)}
 						>
-							<div className="relative size-12 shrink-0 overflow-hidden rounded-full border border-(--sidebar-foreground)/12 bg-muted shadow-[0_0_0_3px_color-mix(in_oklab,var(--sidebar-foreground)_5%,transparent)]">
-								{char.avatar ? (
-									<img
-										src={char.avatar}
-										loading="lazy"
-										className="h-full w-full object-cover pointer-events-none"
-										alt=""
+							<div className="relative size-12 shrink-0">
+								<div className="size-full overflow-hidden rounded-full border border-(--sidebar-foreground)/12 bg-muted shadow-[0_0_0_3px_color-mix(in_oklab,var(--sidebar-foreground)_5%,transparent)]">
+									{char.avatar ? (
+										<img
+											src={char.avatar}
+											loading="lazy"
+											className="h-full w-full object-cover pointer-events-none"
+											alt=""
+										/>
+									) : (
+										<div className="flex h-full w-full items-center justify-center text-[0.6875rem] font-bold uppercase text-muted-foreground">
+											{char.name.substring(0, 2)}
+										</div>
+									)}
+								</div>
+								{charactersWithUpdates.has(char.id) && (
+									<Badge
+										aria-label={`${char.name} has unread relationship updates`}
+										className="absolute top-0 right-0 size-3 rounded-full border-2 border-sidebar p-0 shadow-sm"
 									/>
-								) : (
-									<div className="flex h-full w-full items-center justify-center text-[0.6875rem] font-bold uppercase text-muted-foreground">
-										{char.name.substring(0, 2)}
-									</div>
 								)}
 							</div>
 
