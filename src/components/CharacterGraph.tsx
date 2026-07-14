@@ -851,13 +851,7 @@ export default function CharacterGraph() {
 					<ConfirmModal
 						title="Delete Relationship"
 						message={`Are you sure you want to delete relationship from ${allChars.find((c) => c.id === deletingRel.fromId)?.name} to ${allChars.find((c) => c.id === deletingRel.toId)?.name}?`}
-						onConfirm={() =>
-							deleteRelationship(
-								deletingRel.fromId,
-								deletingRel.toId,
-								deletingRel.typeId,
-							)
-						}
+						onConfirm={() => deleteRelationship(deletingRel)}
 						open={!!deletingRel}
 						onOpenChange={(open) => {
 							if (!open) setDeletingRel(null);

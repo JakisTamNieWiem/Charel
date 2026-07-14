@@ -1,5 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthProvider";
+import { relationshipVersionKeys } from "@/hooks/useRelationshipVersions";
 import {
 	applyRelationshipChange,
 	applyRowChange,
@@ -31,6 +33,7 @@ function setRealtimeState(state: Partial<GraphState>) {
 
 export function useRealtimeSync() {
 	const { session, loading } = useAuth();
+	const queryClient = useQueryClient();
 
 	useEffect(() => {
 		const store = useGraphStore.getState();
@@ -131,6 +134,9 @@ export function useRealtimeSync() {
 							payload as RowChange<Relationship>,
 						),
 					});
+					void queryClient.invalidateQueries({
+						queryKey: relationshipVersionKeys.all,
+					});
 				},
 			)
 			.on<RelationshipType>(
@@ -159,5 +165,5 @@ export function useRealtimeSync() {
 			active = false;
 			void supabase.removeChannel(channel);
 		};
-	}, [loading, session]);
+	}, [loading, queryClient, session]);
 }

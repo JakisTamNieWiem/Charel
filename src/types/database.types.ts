@@ -264,6 +264,92 @@ export type Database = {
         }
         Relationships: []
       }
+      relationship_version_reads: {
+        Row: {
+          last_read_version_id: number
+          relationship_id: string
+          user_id: string
+        }
+        Insert: {
+          last_read_version_id: number
+          relationship_id: string
+          user_id: string
+        }
+        Update: {
+          last_read_version_id?: number
+          relationship_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relationship_version_reads_last_read_version_id_fkey"
+            columns: ["last_read_version_id"]
+            isOneToOne: false
+            referencedRelation: "relationship_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relationship_version_reads_relationship_id_fkey"
+            columns: ["relationship_id"]
+            isOneToOne: false
+            referencedRelation: "Relationships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      relationship_versions: {
+        Row: {
+          change_kind: string
+          changed_at: string
+          changed_by: string | null
+          description: string
+          effective_value: number
+          from_id: string
+          id: number
+          relationship_id: string
+          relationship_type_id: string
+          to_id: string
+          type_label: string
+          value_override: number | null
+        }
+        Insert: {
+          change_kind: string
+          changed_at?: string
+          changed_by?: string | null
+          description: string
+          effective_value: number
+          from_id: string
+          id?: number
+          relationship_id: string
+          relationship_type_id: string
+          to_id: string
+          type_label: string
+          value_override?: number | null
+        }
+        Update: {
+          change_kind?: string
+          changed_at?: string
+          changed_by?: string | null
+          description?: string
+          effective_value?: number
+          from_id?: string
+          id?: number
+          relationship_id?: string
+          relationship_type_id?: string
+          to_id?: string
+          type_label?: string
+          value_override?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relationship_versions_relationship_id_fkey"
+            columns: ["relationship_id"]
+            isOneToOne: false
+            referencedRelation: "Relationships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Relationships: {
         Row: {
           created_at: string
@@ -673,6 +759,15 @@ export type Database = {
     Functions: {
       check_character_limit: { Args: never; Returns: boolean }
       generate_unique_phone: { Args: never; Returns: string }
+      get_unread_relationship_versions: {
+        Args: never
+        Returns: {
+          from_id: string
+          latest_version_id: number
+          relationship_id: string
+          unread_count: number
+        }[]
+      }
       is_tabletop_campaign_member: {
         Args: { target_campaign_id: string }
         Returns: boolean
@@ -680,6 +775,10 @@ export type Database = {
       is_tabletop_campaign_owner: {
         Args: { target_campaign_id: string }
         Returns: boolean
+      }
+      mark_relationship_versions_read: {
+        Args: { p_last_read_version_id: number; p_relationship_id: string }
+        Returns: undefined
       }
     }
     Enums: {
