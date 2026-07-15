@@ -64,10 +64,16 @@ export default function CharacterGraph() {
 			),
 		[unreadRelationshipVersions],
 	);
-	const charactersWithUnreadRelationships = useMemo(
-		() => new Set(unreadRelationshipVersions.map((version) => version.from_id)),
-		[unreadRelationshipVersions],
-	);
+	const charactersWithUnreadRelationships = useMemo(() => {
+		const characterIds = new Set<string>();
+		for (const version of unreadRelationshipVersions) {
+			const relationship = relationships.find(
+				(current) => current.id === version.relationship_id,
+			);
+			if (relationship) characterIds.add(relationship.toId);
+		}
+		return characterIds;
+	}, [relationships, unreadRelationshipVersions]);
 
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),

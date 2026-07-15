@@ -149,8 +149,9 @@ describe("relationship update notifications", () => {
 	it("shows the relationship dot and marks the row as read when opened", () => {
 		render(<CharacterGraph />);
 
+		expect(screen.queryByTestId("graph-notification-character-1")).toBeNull();
 		const graphNotification = screen.getByTestId(
-			"graph-notification-character-1",
+			"graph-notification-character-2",
 		);
 		expect(
 			graphNotification
