@@ -1,38 +1,46 @@
-export interface Character {
-	id: string;
-	name: string;
-	description: string;
-	avatar: string | null;
-	groupId: string | null;
-	phoneNumber?: string;
-	ownerId: string;
-}
+import type { Tables } from "@/types/database.types";
 
-export interface Group {
-	id: string;
-	name: string;
-	color: string;
-}
+type WithOptionalFields<T, K extends keyof T> = Omit<T, K> &
+	Partial<Pick<T, K>>;
 
-export interface RelationshipType {
-	id: string;
-	label: string;
-	color: string;
-	description: string;
-	value: number; // -1 (hostile) to 1 (close/positive)
-}
+export type Character = WithOptionalFields<
+	Tables<"Characters">,
+	"created_at" | "phoneNumber" | "status" | "updated_at"
+>;
 
-export interface Relationship {
-	fromId: string;
-	toId: string;
-	typeId: string;
-	description: string;
-	value: number | null; // optional override of the type's default value (-1 to 1)
-}
+export type Group = WithOptionalFields<Tables<"Groups">, "updated_at">;
 
-export interface AppData {
+export type RelationshipType = WithOptionalFields<
+	Tables<"RelationshipTypes">,
+	"updated_at"
+>;
+
+export type Relationship = WithOptionalFields<
+	Tables<"Relationships">,
+	"created_at" | "id" | "updated_at"
+>;
+
+export type RelationshipInput = Omit<
+	Relationship,
+	"created_at" | "id" | "updated_at"
+>;
+
+export interface GraphData {
 	characters: Character[];
 	relationshipTypes: RelationshipType[];
 	relationships: Relationship[];
 	groups: Group[];
 }
+
+export interface GraphSnapshot extends GraphData {
+	version: "2";
+}
+
+export type GraphSyncStatus =
+	| "initializing"
+	| "offline"
+	| "syncing"
+	| "connected"
+	| "error";
+
+export type AppData = GraphData;

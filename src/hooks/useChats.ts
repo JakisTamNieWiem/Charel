@@ -281,7 +281,11 @@ export function useUpdateContactNickname() {
 		},
 	});
 
-	return withNamedMutation(mutation, "updateContactNickname", mutation.mutateAsync);
+	return withNamedMutation(
+		mutation,
+		"updateContactNickname",
+		mutation.mutateAsync,
+	);
 }
 
 export function useMarkAsRead() {

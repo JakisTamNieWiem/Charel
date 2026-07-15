@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,23 +104,19 @@ function PopoverColorControl({
 	const currentValue = isOklchValue(value)
 		? formatOklchValue(oklchValue)
 		: formatRgbaValue(rgbaValue);
-
-	useEffect(() => {
-		if (!open) {
-			setOklchValue(parseOklchValue(value));
-			setRgbaValue(parseColorValue(value) ?? { r: 0, g: 0, b: 0, a: 1 });
-		}
-	}, [open, value]);
+	const displayValue = open ? currentValue : value;
 
 	return (
 		<Popover
 			open={open}
 			onOpenChange={(nextOpen) => {
-				setOpen(nextOpen);
-
-				if (!nextOpen) {
+				if (nextOpen) {
+					setOklchValue(parseOklchValue(value));
+					setRgbaValue(parseColorValue(value) ?? { r: 0, g: 0, b: 0, a: 1 });
+				} else {
 					onChange(currentValue);
 				}
+				setOpen(nextOpen);
 			}}
 		>
 			<PopoverTrigger
@@ -135,9 +131,9 @@ function PopoverColorControl({
 					>
 						<div
 							className="h-3.5 w-3.5 shrink-0 rounded-full border shadow-sm"
-							style={{ backgroundColor: currentValue }}
+							style={{ backgroundColor: displayValue }}
 						/>
-						<span className="truncate text-[10px]">{currentValue}</span>
+						<span className="truncate text-[10px]">{displayValue}</span>
 					</Button>
 				}
 			/>
@@ -266,41 +262,25 @@ function ColorField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 }
 
 function TextField({ varKey, value, onChange }: ThemeVariableFieldProps) {
-	const [localValue, setLocalValue] = useState(value);
-
-	useEffect(() => {
-		setLocalValue(value);
-	}, [value]);
-
 	return (
 		<FieldShell varKey={varKey}>
 			<Input
 				className="h-8 rounded-lg border-border/70 bg-background font-mono text-[11px]"
-				value={localValue}
-				onChange={(event) => setLocalValue(event.target.value)}
-				onBlur={() => onChange(localValue)}
-				onKeyDown={(event) => {
-					if (event.key === "Enter") {
-						event.currentTarget.blur();
-					}
-				}}
+				value={value}
+				onChange={(event) => onChange(event.target.value)}
 			/>
 		</FieldShell>
 	);
 }
 
 function LengthField({ varKey, value, onChange }: ThemeVariableFieldProps) {
-	const [localValue, setLocalValue] = useState(() => parseLengthValue(value));
-
-	useEffect(() => {
-		setLocalValue(parseLengthValue(value));
-	}, [value]);
+	const localValue = parseLengthValue(value);
 
 	if (!localValue) {
 		return <TextField varKey={varKey} value={value} onChange={onChange} />;
 	}
 
-	const commit = (nextValue = localValue) => {
+	const commit = (nextValue: NonNullable<typeof localValue>) => {
 		onChange(formatLengthValue(nextValue.value, nextValue.unit));
 	};
 
@@ -313,16 +293,11 @@ function LengthField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 					step="0.01"
 					value={localValue.value}
 					onChange={(event) =>
-						setLocalValue((current) =>
-							current
-								? {
-										...current,
-										value: Number.parseFloat(event.target.value || "0"),
-									}
-								: current,
-						)
+						commit({
+							...localValue,
+							value: Number.parseFloat(event.target.value || "0"),
+						})
 					}
-					onBlur={() => commit()}
 				/>
 				<Select
 					value={localValue.unit}
@@ -332,7 +307,6 @@ function LengthField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 						}
 
 						const nextValue = { ...localValue, unit: nextUnit };
-						setLocalValue(nextValue);
 						commit(nextValue);
 					}}
 				>
@@ -352,13 +326,9 @@ function LengthField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 }
 
 function NumberField({ varKey, value, onChange }: ThemeVariableFieldProps) {
-	const [localValue, setLocalValue] = useState(() => Number.parseFloat(value));
+	const localValue = Number.parseFloat(value);
 	const isOpacity = varKey.includes("opacity");
 	const safeValue = Number.isFinite(localValue) ? localValue : 0;
-
-	useEffect(() => {
-		setLocalValue(Number.parseFloat(value));
-	}, [value]);
 
 	return (
 		<FieldShell varKey={varKey}>
@@ -371,7 +341,6 @@ function NumberField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 						step={0.01}
 						onValueChange={(nextValue) => {
 							const next = getSliderValue(nextValue, safeValue);
-							setLocalValue(next);
 							onChange(next.toFixed(2));
 						}}
 					/>
@@ -381,12 +350,7 @@ function NumberField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 					type="number"
 					step={isOpacity ? "0.01" : "1"}
 					value={safeValue}
-					onChange={(event) =>
-						setLocalValue(Number.parseFloat(event.target.value))
-					}
-					onBlur={() =>
-						onChange(isOpacity ? safeValue.toFixed(2) : String(safeValue))
-					}
+					onChange={(event) => onChange(event.target.value)}
 				/>
 			</div>
 		</FieldShell>
@@ -456,29 +420,25 @@ function ShadowField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 	const [layers, setLayers] = useState<BoxShadowLayer[]>(
 		() => parseShadowValue(value) ?? [],
 	);
+	const visibleLayers = open ? layers : (parseShadowValue(value) ?? []);
 
-	useEffect(() => {
-		if (!open) {
-			setLayers(parseShadowValue(value) ?? []);
-		}
-	}, [open, value]);
-
-	if (layers.length === 0) {
+	if (visibleLayers.length === 0) {
 		return <TextField varKey={varKey} value={value} onChange={onChange} />;
 	}
 
-	const shadowPreview = formatShadowValue(layers);
+	const shadowPreview = formatShadowValue(visibleLayers);
 
 	return (
 		<FieldShell varKey={varKey}>
 			<Popover
 				open={open}
 				onOpenChange={(nextOpen) => {
-					setOpen(nextOpen);
-
-					if (!nextOpen) {
+					if (nextOpen) {
+						setLayers(parseShadowValue(value) ?? []);
+					} else {
 						onChange(formatShadowValue(layers));
 					}
+					setOpen(nextOpen);
 				}}
 			>
 				<PopoverTrigger
@@ -489,7 +449,8 @@ function ShadowField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 						>
 							<div className="min-w-0 space-y-1">
 								<div className="truncate font-mono text-[10px] text-muted-foreground">
-									{layers.length} layer{layers.length > 1 ? "s" : ""}
+									{visibleLayers.length} layer
+									{visibleLayers.length > 1 ? "s" : ""}
 								</div>
 								<div className="truncate font-mono text-[10px]">
 									{shadowPreview}
@@ -503,7 +464,7 @@ function ShadowField({ varKey, value, onChange }: ThemeVariableFieldProps) {
 					}
 				/>
 				<PopoverContent className="w-[26rem] space-y-3" sideOffset={8}>
-					{layers.map((layer, index) => (
+					{visibleLayers.map((layer, index) => (
 						<ShadowLayerEditor
 							key={`${varKey}-${layer.x}-${layer.y}-${layer.blur}-${layer.spread}-${layer.color}`}
 							label={`Layer ${index + 1}`}

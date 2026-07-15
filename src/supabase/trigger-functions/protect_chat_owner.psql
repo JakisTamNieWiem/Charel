@@ -1,0 +1,14 @@
+CREATE OR REPLACE FUNCTION public.protect_chat_owner()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    VOLATILE SECURITY DEFINER
+    COST 100
+AS $BODY$
+ 
+BEGIN
+  -- Force the NEW ownerId to stay exactly the same as the OLD ownerId
+  NEW."ownerId" = OLD."ownerId";
+
+  RETURN NEW;
+END;
+$BODY$;

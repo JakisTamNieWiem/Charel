@@ -11,13 +11,13 @@ import {
 	useRemoveChatMember,
 	useRenameChat,
 	useUpdateChatCover,
-} from "@/hooks/use-chats";
+} from "@/hooks/useChats";
 import {
 	useDeleteMessage,
 	useEditMessage,
 	useMessages,
-} from "@/hooks/use-messages";
-import { useSendMessage } from "@/hooks/use-sendMessage";
+} from "@/hooks/useMessages";
+import { useSendMessage } from "@/hooks/useSendMessage";
 import { formatDateHeader } from "@/lib/chat-utils";
 import { useChatStore } from "@/store/useChatStore";
 import { useGraphStore } from "@/store/useGraphStore";
@@ -433,7 +433,11 @@ export default function ChatWindow() {
 				onSave={(cover) =>
 					activeChatId &&
 					activeSpeakerId &&
-					updateChatCover({ chatId: activeChatId, cover, characterId: activeSpeakerId })
+					updateChatCover({
+						chatId: activeChatId,
+						cover,
+						characterId: activeSpeakerId,
+					})
 				}
 			/>
 		</div>

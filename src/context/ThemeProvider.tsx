@@ -1,12 +1,5 @@
 // src/components/ThemeProvider.tsx
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useEffectEvent,
-	useMemo,
-	useState,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
 	normalizeThemeValues,
 	serializeThemeCssWithFontImports,
@@ -91,54 +84,29 @@ export function ThemeProvider({
 		];
 	}, [customThemes]);
 
-	const refreshCustomThemes = useEffectEvent(async () => {
-		const loadedThemes = await loadStoredCustomThemes();
-		setCustomThemes(sortCustomThemes(loadedThemes));
-		return loadedThemes;
-	});
-
 	useEffect(() => {
-		let cancelled = false;
+		let disposed = false;
+		let unwatch: (() => void) | null = null;
+		const refresh = async () => {
+			const loadedThemes = await loadStoredCustomThemes();
+			if (!disposed) setCustomThemes(sortCustomThemes(loadedThemes));
+		};
 
-		void refreshCustomThemes()
-			.then((loadedThemes) => {
-				if (cancelled) {
-					return;
-				}
-
-				setCustomThemes(sortCustomThemes(loadedThemes));
-			})
+		void refresh()
 			.catch((error) => {
 				console.error("Failed to hydrate custom themes:", error);
 			})
 			.finally(() => {
-				if (!cancelled) {
-					setCustomThemesLoaded(true);
-				}
+				if (!disposed) setCustomThemesLoaded(true);
 			});
 
-		return () => {
-			cancelled = true;
-		};
-	}, []);
-
-	useEffect(() => {
-		let isDisposed = false;
-		let unwatch: (() => void) | null = null;
-
-		void watchStoredCustomThemes(async () => {
-			if (isDisposed) {
-				return;
-			}
-
-			try {
-				await refreshCustomThemes();
-			} catch (error) {
+		void watchStoredCustomThemes(() => {
+			void refresh().catch((error) => {
 				console.error("Failed to refresh custom themes:", error);
-			}
+			});
 		})
 			.then((stopWatching) => {
-				if (isDisposed) {
+				if (disposed) {
 					stopWatching?.();
 					return;
 				}
@@ -150,24 +118,26 @@ export function ThemeProvider({
 			});
 
 		return () => {
-			isDisposed = true;
+			disposed = true;
 			unwatch?.();
 		};
 	}, []);
 
-	// 1. Apply Dark/Light mode
 	useEffect(() => {
 		const root = window.document.documentElement;
-		root.classList.remove("light", "dark");
-		if (theme === "system") {
-			const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-				.matches
-				? "dark"
-				: "light";
-			root.classList.add(systemTheme);
-		} else {
-			root.classList.add(theme);
-		}
+		const preference = window.matchMedia("(prefers-color-scheme: dark)");
+		const applyTheme = () => {
+			root.classList.remove("light", "dark");
+			root.classList.add(
+				theme === "system" ? (preference.matches ? "dark" : "light") : theme,
+			);
+		};
+
+		applyTheme();
+		if (theme !== "system") return;
+
+		preference.addEventListener("change", applyTheme);
+		return () => preference.removeEventListener("change", applyTheme);
 	}, [theme]);
 
 	// 2. Apply Theme Color Classes & Inject Custom CSS

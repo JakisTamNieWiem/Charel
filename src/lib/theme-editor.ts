@@ -1,4 +1,4 @@
-import stylesSource from "@/styles.css?raw";
+import stylesSource from "@/theme-presets.css?raw";
 
 export type ThemeMode = "light" | "dark";
 export type ThemeVariableMap = Record<string, string>;

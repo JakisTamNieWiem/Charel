@@ -1,5 +1,5 @@
-import { exists, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { join, tempDir } from "@tauri-apps/api/path";
+import { exists, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 
 // In-memory cache: remote URL → local file path (survives the session, not across restarts)
 const cache = new Map<string, string>();
@@ -11,9 +11,12 @@ const cache = new Map<string, string>();
  *
  * Returns null if the URL is empty or the download fails.
  */
-export async function getLocalAvatarPath(url: string | null | undefined): Promise<string | null> {
+export async function getLocalAvatarPath(
+	url: string | null | undefined,
+): Promise<string | null> {
 	if (!url) return null;
-	if (cache.has(url)) return cache.get(url)!;
+	const cachedPath = cache.get(url);
+	if (cachedPath) return cachedPath;
 
 	try {
 		const tmp = await tempDir();
@@ -27,7 +30,9 @@ export async function getLocalAvatarPath(url: string | null | undefined): Promis
 		const ext = url.startsWith("data:")
 			? (url.match(/data:image\/(\w+)/)?.[1] ?? "jpg")
 			: (url.split("?")[0].split(".").pop()?.toLowerCase() ?? "jpg");
-		const hash = btoa(encodeURIComponent(url)).replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
+		const hash = btoa(encodeURIComponent(url))
+			.replace(/[^a-zA-Z0-9]/g, "")
+			.slice(0, 40);
 		const filePath = await join(avatarDir, `${hash}.${ext}`);
 
 		if (!(await exists(filePath))) {
@@ -41,7 +46,8 @@ export async function getLocalAvatarPath(url: string | null | undefined): Promis
 				await writeFile(filePath, bytes);
 			} else {
 				const response = await fetch(url);
-				if (!response.ok) throw new Error(`Failed to fetch avatar: ${response.status}`);
+				if (!response.ok)
+					throw new Error(`Failed to fetch avatar: ${response.status}`);
 				const buffer = await response.arrayBuffer();
 				await writeFile(filePath, new Uint8Array(buffer));
 			}

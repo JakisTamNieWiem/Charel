@@ -1,0 +1,55 @@
+CREATE OR REPLACE FUNCTION public.handle_new_contact()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    VOLATILE SECURITY DEFINER
+    COST 100
+AS $BODY$
+ 
+DECLARE
+  existing_chat_id uuid;
+  new_chat_id uuid;
+  from_user_id uuid;
+  to_user_id uuid;
+  from_name text;
+  to_name text;
+BEGIN
+  -- STEP 1: Check if a private chat already exists between these two characters.
+  -- We join ChatsMembers twice to find a chat where BOTH characters are already present.
+  SELECT c.id INTO existing_chat_id
+  FROM "public"."Chats" c
+  JOIN "public"."ChatsMembers" cm1 ON c.id = cm1."chatId"
+  JOIN "public"."ChatsMembers" cm2 ON c.id = cm2."chatId"
+  WHERE c."isGroup" = FALSE
+    AND cm1."characterId" = NEW."fromId"
+    AND cm2."characterId" = NEW."toId"
+  LIMIT 1;
+
+  -- STEP 2: If the chat doesn't exist, create it!
+  IF existing_chat_id IS NULL THEN
+    
+    -- Fetch the Human User IDs (owners) and Names from the Characters table
+    SELECT "ownerId"::uuid, name INTO from_user_id, from_name 
+    FROM "public"."Characters" WHERE id = NEW."fromId";
+    
+    SELECT "ownerId"::uuid, name INTO to_user_id, to_name 
+    FROM "public"."Characters" WHERE id = NEW."toId";
+
+    -- Create the new private Chat 
+    -- We assign the initiator as the owner, and set isGroup to FALSE
+    INSERT INTO "public"."Chats" ("ownerId", "isGroup", name)
+    VALUES (from_user_id, FALSE, from_name || ' & ' || to_name)
+    RETURNING id INTO new_chat_id;
+
+    -- Add the initiator (fromId) to the chat
+    INSERT INTO "public"."ChatsMembers" ("chatId", "userId", "characterId")
+    VALUES (new_chat_id, from_user_id, NEW."fromId");
+
+    -- Add the receiver (toId) to the chat
+    INSERT INTO "public"."ChatsMembers" ("chatId", "userId", "characterId")
+    VALUES (new_chat_id, to_user_id, NEW."toId");
+
+  END IF;
+
+  RETURN NEW;
+END;
+$BODY$;

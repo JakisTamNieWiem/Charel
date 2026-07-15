@@ -1,11 +1,26 @@
-import { Edit2, Plus, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Bell, Edit2, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CharacterModal from "@/components/CharacterModal";
+import UnreadRelationshipChangesDialog from "@/components/UnreadRelationshipChangesDialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+} from "@/components/ui/input-group";
+import { useUnreadRelationshipVersions } from "@/hooks/useRelationshipVersions";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character } from "@/types/types";
 import ConfirmModal from "../ConfirmModal";
+import {
+	SidebarEmptyState,
+	SidebarSection,
+	SidebarTabHeader,
+	SidebarTabRoot,
+	sidebarRowClass,
+} from "./SidebarTabLayout";
 
 export default function CharacterTab() {
 	const allCharacters = useGraphStore((state) => state.characters);
@@ -14,7 +29,11 @@ export default function CharacterTab() {
 	const deleteCharacter = useGraphStore((state) => state.deleteCharacter);
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
+	const { data: unreadRelationshipVersions = [] } =
+		useUnreadRelationshipVersions();
 	const [hoveredId, setHoveredId] = useState<string | null>(null);
+	const [characterSearch, setCharacterSearch] = useState("");
+	const [isUnreadDialogOpen, setIsUnreadDialogOpen] = useState(false);
 
 	const [editingCharacter, setEditingCharacter] = useState<
 		Character | "new" | null
@@ -54,25 +73,89 @@ export default function CharacterTab() {
 		}
 	}, [selectedId]);
 
-	return (
-		<div>
-			<div className="p-2 pr-0 min-h-9 flex items-center justify-between sticky top-0 bg-sidebar z-50">
-				<h2 className="text-xs font-mono uppercase tracking-widest opacity-50">
-					Characters
-				</h2>
-				<Button
-					onClick={() => setEditingCharacter("new")}
-					variant="ghost"
-					className=""
-				>
-					<Plus className="w-4 h-4" />
-				</Button>
-			</div>
+	const filteredCharacters = useMemo(() => {
+		const search = characterSearch.trim().toLocaleLowerCase();
+		return [...allCharacters]
+			.filter(
+				(character) =>
+					!search || character.name.toLocaleLowerCase().includes(search),
+			)
+			.sort((a, b) => a.name.localeCompare(b.name));
+	}, [allCharacters, characterSearch]);
+	const charactersWithUpdates = useMemo(
+		() => new Set(unreadRelationshipVersions.map((version) => version.from_id)),
+		[unreadRelationshipVersions],
+	);
+	const unreadChangeCount = unreadRelationshipVersions.reduce(
+		(total, version) => total + version.unread_count,
+		0,
+	);
 
-			<div className=" space-y-2">
-				{[...allCharacters]
-					.sort((a, b) => a.name.localeCompare(b.name))
-					.map((char) => (
+	return (
+		<SidebarTabRoot className="gap-0">
+			<SidebarTabHeader
+				title="Characters"
+				count={allCharacters.length}
+				action={
+					<>
+						<Button
+							onClick={() => setIsUnreadDialogOpen(true)}
+							variant="ghost"
+							size="icon-sm"
+							title="Unread relationship changes"
+							aria-label={`Unread relationship changes: ${unreadChangeCount}`}
+							disabled={unreadChangeCount === 0}
+							className="relative hover:bg-(--sidebar-foreground)/8"
+						>
+							<Bell />
+							{unreadChangeCount > 0 && (
+								<Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[0.625rem] tabular-nums">
+									{unreadChangeCount}
+								</Badge>
+							)}
+						</Button>
+						<Button
+							onClick={() => setEditingCharacter("new")}
+							variant="ghost"
+							size="icon-sm"
+							title="New character"
+							aria-label="New character"
+							className="hover:bg-(--sidebar-foreground)/8"
+						>
+							<Plus />
+						</Button>
+					</>
+				}
+			/>
+
+			<SidebarSection className="space-y-0">
+				<div className="sticky top-[3.25rem] z-40 -mx-3 bg-sidebar px-3 py-3">
+					<InputGroup>
+						<InputGroupAddon>
+							<Search aria-hidden="true" />
+						</InputGroupAddon>
+						<InputGroupInput
+							value={characterSearch}
+							onChange={(event) => setCharacterSearch(event.target.value)}
+							placeholder="Search characters"
+							aria-label="Search characters"
+						/>
+					</InputGroup>
+				</div>
+
+				{allCharacters.length === 0 && (
+					<SidebarEmptyState title="No characters yet">
+						Add a character to begin mapping the cast.
+					</SidebarEmptyState>
+				)}
+				{allCharacters.length > 0 && filteredCharacters.length === 0 && (
+					<SidebarEmptyState title="No matching characters">
+						Try a different name.
+					</SidebarEmptyState>
+				)}
+
+				<div className="flex flex-col gap-2">
+					{filteredCharacters.map((char) => (
 						<div
 							key={char.id}
 							onMouseEnter={() => setHoveredId(char.id)}
@@ -83,56 +166,55 @@ export default function CharacterTab() {
 							}}
 							onClick={() => setSelectedCharId(char.id)}
 							className={cn(
-								"group/character px-3 py-2 rounded-lg border transition-[background-color,border-color,transform,shadow] duration-150 cursor-pointer flex items-center relative scroll-mt-16",
-
-								// 1. ACTIVE STATE (When physically clicking the mouse down)
-								// Applies a deep inner shadow, darkens the background, and slightly shrinks the element
-								"active:scale-[0.99] active:bg-(--sidebar-foreground)/7",
-								"active:shadow-[inset_0_4px_8px_rgba(0,0,0,0.15)] dark:active:shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]",
-								"active:border-transparent",
-
-								// 2. SELECTED vs UNSELECTED STATE
+								sidebarRowClass,
+								"group/character flex min-h-[4.75rem] cursor-pointer items-center gap-3 px-3 py-2.5 scroll-mt-16",
 								selectedId === char.id
 									? [
-											// Selected: Slightly pressed in (Shallow inner shadow)
-											"bg-(--sidebar-foreground)/5 border-(--sidebar-foreground)/10",
-											"shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)]",
+											"border-(--sidebar-primary)/20 bg-(--sidebar-primary)/8",
+											"shadow-[inset_0_2px_5px_rgba(0,0,0,0.22)]",
 										]
-									: [
-											// Unselected: Flat, pops slightly on hover
-											"bg-transparent border-transparent shadow-none",
-											"hover:bg-(--sidebar-foreground)/5",
-										],
+									: "shadow-none",
 							)}
 						>
-							<div className="size-14 mr-3 shrink-0 rounded-full overflow-hidden border border-white/10 bg-muted relative">
-								{char.avatar ? (
-									<img
-										src={char.avatar}
-										loading="lazy"
-										className="h-full w-full object-cover pointer-events-none"
-										alt=""
+							<div className="relative size-12 shrink-0">
+								<div className="size-full overflow-hidden rounded-full border border-(--sidebar-foreground)/12 bg-muted shadow-[0_0_0_3px_color-mix(in_oklab,var(--sidebar-foreground)_5%,transparent)]">
+									{char.avatar ? (
+										<img
+											src={char.avatar}
+											loading="lazy"
+											className="h-full w-full object-cover pointer-events-none"
+											alt=""
+										/>
+									) : (
+										<div className="flex h-full w-full items-center justify-center text-[0.6875rem] font-bold uppercase text-muted-foreground">
+											{char.name.substring(0, 2)}
+										</div>
+									)}
+								</div>
+								{charactersWithUpdates.has(char.id) && (
+									<Badge
+										aria-label={`${char.name} has unread relationship updates`}
+										className="absolute top-0 right-0 size-3 rounded-full border-2 border-sidebar bg-primary p-0 shadow-sm"
 									/>
-								) : (
-									<div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase opacity-40">
-										{char.name.substring(0, 2)}
-									</div>
 								)}
 							</div>
 
-							<div className="flex-1 min-w-0 w-full">
-								<h3 className="font-medium truncate">{char.name}</h3>
-								<p className="text-xs opacity-50 truncate">
+							<div className="min-w-0 flex-1">
+								<h3 className="truncate text-sm font-semibold leading-snug">
+									{char.name}
+								</h3>
+								<p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">
 									{char.description}
 								</p>
 							</div>
 
 							{hoveredId === char.id && (
-								<div className="opacity-0 group-hover/character:opacity-100 flex flex-col gap-1">
+								<div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover/character:opacity-100">
 									<Button
 										size="icon-xs"
 										variant="ghost"
-										className="p-0 hover:text-blue-400 hover:bg-transparent!"
+										title="Edit character"
+										className="hover:bg-(--sidebar-foreground)/8 hover:text-blue-400"
 										onClick={(e) => {
 											e.stopPropagation();
 											setEditingCharacter(char);
@@ -143,11 +225,12 @@ export default function CharacterTab() {
 									<Button
 										size="icon-xs"
 										variant="ghost"
+										title="Delete character"
 										onClick={(e) => {
 											e.stopPropagation();
 											setDeletingCharacter(char);
 										}}
-										className="p-0 hover:text-red-400 hover:bg-transparent!"
+										className="hover:bg-(--sidebar-foreground)/8 hover:text-red-400"
 									>
 										<Trash2 className="size-4" />
 									</Button>
@@ -155,7 +238,14 @@ export default function CharacterTab() {
 							)}
 						</div>
 					))}
-			</div>
+				</div>
+			</SidebarSection>
+
+			<UnreadRelationshipChangesDialog
+				open={isUnreadDialogOpen}
+				onOpenChange={setIsUnreadDialogOpen}
+				unreadVersions={unreadRelationshipVersions}
+			/>
 
 			{deletingCharacter && (
 				<ConfirmModal
@@ -189,6 +279,6 @@ export default function CharacterTab() {
 					}}
 				/>
 			)}
-		</div>
+		</SidebarTabRoot>
 	);
 }

@@ -1,0 +1,25 @@
+CREATE OR REPLACE FUNCTION public.is_tabletop_campaign_member(IN target_campaign_id uuid)
+    RETURNS boolean
+    LANGUAGE 'sql'
+    STABLE SECURITY DEFINER
+    PARALLEL UNSAFE
+    COST 100
+    
+    SET search_path=public
+AS $BODY$
+ 
+	select (
+		exists (
+			select 1
+			from public.tabletop_campaign_members member
+			where member.campaign_id = target_campaign_id
+				and member.user_id = auth.uid()
+		)
+		or exists (
+			select 1
+			from public.tabletop_campaigns campaign
+			where campaign.id = target_campaign_id
+				and campaign.owner_user_id = auth.uid()
+		)
+	);
+$BODY$;

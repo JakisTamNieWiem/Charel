@@ -15,7 +15,7 @@ export default function Titlebar() {
 					onClick={() => appWindow.minimize()}
 					variant="ghost"
 					title="minimize"
-					className="size-6 p-1"
+					className="size-5 p-1"
 				>
 					<Minus />
 				</Button>
@@ -23,7 +23,7 @@ export default function Titlebar() {
 					onClick={() => appWindow.toggleMaximize()}
 					variant="ghost"
 					title="maximize"
-					className="size-6 p-1"
+					className="size-5 p-1"
 				>
 					<Square />
 				</Button>
@@ -31,7 +31,7 @@ export default function Titlebar() {
 					onClick={() => appWindow.close()}
 					variant="destructive"
 					title="close"
-					className="size-6 p-1"
+					className="size-5 p-1"
 				>
 					<X />
 				</Button>

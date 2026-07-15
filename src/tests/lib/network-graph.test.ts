@@ -75,6 +75,41 @@ describe("network-graph helpers", () => {
 		expect(layout.links[0].cpY).toBeTypeOf("number");
 	});
 
+	it("computes relationship geometry for alternate curve styles", () => {
+		const cubic = buildNetworkLayout(
+			characters,
+			relationships,
+			types,
+			groups,
+			"global",
+			"cubic",
+		);
+		const sine = buildNetworkLayout(
+			characters,
+			relationships,
+			types,
+			groups,
+			"global",
+			"sine",
+		);
+		const fractal = buildNetworkLayout(
+			characters,
+			relationships,
+			types,
+			groups,
+			"global",
+			"fractal",
+		);
+
+		expect(cubic.links[0].curveStyle).toBe("cubic");
+		expect(cubic.links[0].cp1X).toBeTypeOf("number");
+		expect(cubic.links[0].cp2Y).toBeTypeOf("number");
+		expect(sine.links[0].curveStyle).toBe("sine");
+		expect(sine.links[0].waveAmplitude).toBeTypeOf("number");
+		expect(fractal.links[0].curveStyle).toBe("fractal");
+		expect(fractal.links[0].pathPoints?.length).toBeGreaterThan(2);
+	});
+
 	it("keeps single-node grouped layout centered and hit-testable", () => {
 		const layout = buildNetworkLayout(
 			[characters[0]],
@@ -92,6 +127,29 @@ describe("network-graph helpers", () => {
 		});
 		expect(findNodeAtPosition(layout.nodes, 0, 0)?.id).toBe("a");
 		expect(findNodeAtPosition(layout.nodes, 100, 100)).toBeNull();
+	});
+
+	it("builds a groups-only layout with grouped nodes and no links", () => {
+		const layout = buildNetworkLayout(
+			characters,
+			relationships,
+			types,
+			groups,
+			"groups",
+		);
+
+		expect(layout.nodes).toHaveLength(2);
+		expect(layout.links).toHaveLength(0);
+		expect(layout.groups).toHaveLength(2);
+		expect(layout.groups.map((group) => group.name)).toEqual(["Blue", "Red"]);
+		expect(layout.groups.map((group) => group.memberCount)).toEqual([1, 1]);
+		expect(layout.groups[0].cx).toBeLessThan(layout.groups[1].cx);
+		expect(layout.nodes.find((node) => node.id === "b")).toMatchObject({
+			groupCx: layout.groups[0].cx,
+			groupCy: layout.groups[0].cy,
+			x: layout.groups[0].cx,
+			y: layout.groups[0].cy,
+		});
 	});
 
 	it("computes viewport visibility and avatar tiers", () => {

@@ -1,4 +1,12 @@
-import { Plus } from "lucide-react";
+import {
+	ArrowDownLeft,
+	ArrowUpRight,
+	Edit2,
+	History as HistoryIcon,
+	Plus,
+	Search,
+	Trash2,
+} from "lucide-react";
 import {
 	Fragment,
 	useCallback,
@@ -7,25 +15,65 @@ import {
 	useRef,
 	useState,
 } from "react";
+import RelationshipHistoryDialog from "@/components/RelationshipHistoryDialog";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/context/AuthProvider";
+import {
+	useMarkRelationshipVersionsRead,
+	useUnreadRelationshipVersions,
+} from "@/hooks/useRelationshipVersions";
+import { useSvgPanZoom } from "@/hooks/useSvgPanZoom";
+import { isSameRelationship } from "@/lib/realtime-graph";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Relationship } from "@/types/types";
 import ConfirmModal from "./ConfirmModal";
 import RelationshipModal from "./RelationshipModal";
-import { Badge } from "./ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { Input } from "./ui/input";
+
+function getRelationshipKey(rel: Relationship) {
+	return rel.id ?? `${rel.fromId}-${rel.toId}-${rel.typeId}`;
+}
+
+const RELATIONSHIP_HOVER_READ_DELAY = 700;
 
 export default function CharacterGraph() {
+	const { session } = useAuth();
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 
 	const allChars = useGraphStore((state) => state.characters);
 	const relationships = useGraphStore((state) => state.relationships);
 	const types = useGraphStore((state) => state.relationshipTypes);
-	const addRelationship = useGraphStore((state) => state.addRelationship); // Added for New Relation
+	const addRelationship = useGraphStore((state) => state.addRelationship);
 	const updateRelationship = useGraphStore((state) => state.updateRelationship);
 	const deleteRelationship = useGraphStore((state) => state.deleteRelationship);
+	const { data: unreadRelationshipVersions = [] } =
+		useUnreadRelationshipVersions();
+	const { mutate: markRelationshipVersionsRead } =
+		useMarkRelationshipVersionsRead();
+	const unreadVersionsByRelationship = useMemo(
+		() =>
+			new Map(
+				unreadRelationshipVersions.map((version) => [
+					version.relationship_id,
+					version,
+				]),
+			),
+		[unreadRelationshipVersions],
+	);
+	const charactersWithUnreadRelationships = useMemo(() => {
+		const characterIds = new Set<string>();
+		for (const version of unreadRelationshipVersions) {
+			const relationship = relationships.find(
+				(current) => current.id === version.relationship_id,
+			);
+			if (relationship) characterIds.add(relationship.toId);
+		}
+		return characterIds;
+	}, [relationships, unreadRelationshipVersions]);
 
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
@@ -46,58 +94,15 @@ export default function CharacterGraph() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingRel, setEditingRel] = useState<Relationship | null>(null);
 	const [deletingRel, setDeletingRel] = useState<Relationship | null>(null);
+	const [historyRel, setHistoryRel] = useState<Relationship | null>(null);
 
-	const [hoveredRel, setHoveredRel] = useState<Relationship | null>(null);
-
-	const gRef = useRef<SVGGElement>(null);
-	const panRef = useRef({ x: 0, y: 0 });
-	const scaleRef = useRef(1);
-	const [isDragging, setIsDragging] = useState(false);
-	const isDraggingRef = useRef(false); // Sync ref for the event listener
-	const svgRef = useRef<SVGSVGElement>(null); // We need a reference to the SVG element
-	const dragStartRef = useRef({ x: 0, y: 0 }); // Tracks exact absolute mouse start
-	const rafRef = useRef<number | null>(null); // Tracks animation frames for 60fps
-
-	// --- TOOLTIP HOVER STATE ---
-	const hoverTimeout = useRef<number>(null);
-	const [tooltipSide, setTooltipSide] = useState<"top" | "bottom">("top");
-
-	useEffect(() => {
-		return () => {
-			if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-		};
-	}, []);
-
-	const getMousePositionInSVG = (e: React.PointerEvent) => {
-		if (!svgRef.current) return { x: 0, y: 0 };
-		const svg = svgRef.current;
-		const pt = svg.createSVGPoint();
-		pt.x = e.clientX;
-		pt.y = e.clientY;
-		// The magic line: Converts raw screen pixels to exact SVG viewBox coordinates
-		return pt.matrixTransform(svg.getScreenCTM()?.inverse());
-	};
-	const handleMouseEnterLine = useCallback((rel: Relationship) => {
-		if (isDraggingRef.current) return; // Don't show tooltips while dragging
-		if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-		setHoveredRel(rel);
-	}, []);
-
-	const handleMouseLeaveLine = useCallback(() => {
-		hoverTimeout.current = window.setTimeout(() => {
-			setHoveredRel(null);
-		}, 100);
-	}, []);
-
-	// Directly mutate the DOM transform
-	const applyTransform = () => {
-		if (gRef.current) {
-			gRef.current.setAttribute(
-				"transform",
-				`translate(${panRef.current.x}, ${panRef.current.y}) scale(${scaleRef.current})`,
-			);
-		}
-	};
+	const [inspectedRel, setInspectedRel] = useState<Relationship | null>(null);
+	const inspectedUnreadRef = useRef<{
+		latestVersionId: number | null;
+		relationshipId: string;
+	} | null>(null);
+	const hoverReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [relationSearch, setRelationSearch] = useState("");
 
 	// --- LAYOUT MATH ---
 	const relatedRadius = 40;
@@ -124,6 +129,36 @@ export default function CharacterGraph() {
 	);
 	const margin = 150;
 	const svgSize = (radius + margin) * 2;
+	const cancelHoverRead = useCallback(() => {
+		if (hoverReadTimerRef.current === null) return;
+		clearTimeout(hoverReadTimerRef.current);
+		hoverReadTimerRef.current = null;
+	}, []);
+
+	useEffect(() => {
+		return cancelHoverRead;
+	}, [cancelHoverRead]);
+
+	const {
+		groupRef,
+		stageRef,
+		svgRef,
+		isDragging,
+		isDraggingRef,
+		handleWheel,
+		handlePointerDown,
+		handlePointerMove,
+		handlePointerUp,
+		handlePointerCancel,
+	} = useSvgPanZoom({
+		svgSize,
+		disabled: isModalOpen,
+		onPanStart: () => {
+			cancelHoverRead();
+			setInspectedRel(null);
+		},
+	});
+
 	const relationshipData = useMemo(() => {
 		return relatedCharacters.flatMap((char, i: number) => {
 			const angleDeg = (i / relatedCharacters.length) * 360 - 90;
@@ -165,10 +200,6 @@ export default function CharacterGraph() {
 				// Draw all paths from Center to Outer. We will use marker direction to show flow.
 				const path = `M ${startX} 0 Q ${cpX} ${cpY} ${endX} 0`;
 
-				// Exact mathematical center of the quadratic curve (for the Tooltip anchor)
-				const curveMidX = (startX + endX) / 2;
-				const curveMidY = cpY / 2;
-
 				return {
 					rel,
 					type,
@@ -176,8 +207,6 @@ export default function CharacterGraph() {
 					path,
 					isFromCenter,
 					angleDeg,
-					curveMidX,
-					curveMidY,
 					strokeW,
 					edgeOpacity,
 				};
@@ -191,252 +220,393 @@ export default function CharacterGraph() {
 		radius,
 		centerRadius,
 	]);
-	const handleWheel = (e: React.WheelEvent) => {
-		const zoomSensitivity = 0.002;
-		scaleRef.current = Math.max(
-			0.2,
-			Math.min(scaleRef.current - e.deltaY * zoomSensitivity, 4),
+
+	const currentInspectedRel = useMemo(() => {
+		if (!inspectedRel) return null;
+		return (
+			relationships.find((relationship) =>
+				isSameRelationship(relationship, inspectedRel),
+			) ?? inspectedRel
 		);
-		applyTransform();
-	};
+	}, [inspectedRel, relationships]);
+
+	const inspectedRelationshipDetails = useMemo(() => {
+		if (!currentInspectedRel) return null;
+
+		const type = types.find((t) => t.id === currentInspectedRel.typeId);
+		const fromCharacter = allChars.find(
+			(c) => c.id === currentInspectedRel.fromId,
+		);
+		const toCharacter = allChars.find((c) => c.id === currentInspectedRel.toId);
+		const displayValue = currentInspectedRel.value ?? type?.value ?? 0;
+
+		return {
+			rel: currentInspectedRel,
+			type,
+			fromCharacter,
+			toCharacter,
+			displayValue,
+		};
+	}, [allChars, currentInspectedRel, types]);
+
+	const inspectedUnreadVersion = currentInspectedRel?.id
+		? unreadVersionsByRelationship.get(currentInspectedRel.id)
+		: undefined;
+
+	useEffect(() => {
+		if (!currentInspectedRel?.id) {
+			inspectedUnreadRef.current = null;
+			return;
+		}
+
+		const previous = inspectedUnreadRef.current;
+		const latestVersionId = inspectedUnreadVersion?.latest_version_id ?? null;
+		if (
+			latestVersionId !== null &&
+			previous?.relationshipId === currentInspectedRel.id &&
+			previous.latestVersionId !== latestVersionId
+		) {
+			markRelationshipVersionsRead({
+				relationshipId: currentInspectedRel.id,
+				latestVersionId,
+			});
+		}
+
+		inspectedUnreadRef.current = {
+			relationshipId: currentInspectedRel.id,
+			latestVersionId,
+		};
+	}, [
+		currentInspectedRel?.id,
+		inspectedUnreadVersion?.latest_version_id,
+		markRelationshipVersionsRead,
+	]);
+
+	const markRelationshipRead = useCallback(
+		(relationship: Relationship) => {
+			if (!relationship.id) return;
+			const unreadVersion = unreadVersionsByRelationship.get(relationship.id);
+			if (!unreadVersion) return;
+
+			inspectedUnreadRef.current = {
+				relationshipId: relationship.id,
+				latestVersionId: unreadVersion.latest_version_id,
+			};
+			markRelationshipVersionsRead({
+				relationshipId: relationship.id,
+				latestVersionId: unreadVersion.latest_version_id,
+			});
+		},
+		[markRelationshipVersionsRead, unreadVersionsByRelationship],
+	);
+
+	const handleMouseEnterLine = useCallback(
+		(relationship: Relationship) => {
+			if (isDraggingRef.current) return;
+			setInspectedRel(relationship);
+			cancelHoverRead();
+			if (
+				!relationship.id ||
+				!unreadVersionsByRelationship.has(relationship.id)
+			) {
+				return;
+			}
+
+			hoverReadTimerRef.current = setTimeout(() => {
+				markRelationshipRead(relationship);
+				hoverReadTimerRef.current = null;
+			}, RELATIONSHIP_HOVER_READ_DELAY);
+		},
+		[
+			cancelHoverRead,
+			isDraggingRef,
+			markRelationshipRead,
+			unreadVersionsByRelationship,
+		],
+	);
+
+	const characterRelationshipRows = useMemo(() => {
+		if (!selectedId) return [];
+
+		const query = relationSearch.trim().toLowerCase();
+		const occurrenceCounts = new Map<string, number>();
+
+		return relationships
+			.filter((rel) => rel.fromId === selectedId || rel.toId === selectedId)
+			.map((rel) => {
+				const baseKey = getRelationshipKey(rel);
+				const occurrence = occurrenceCounts.get(baseKey) ?? 0;
+				occurrenceCounts.set(baseKey, occurrence + 1);
+				const type = types.find((t) => t.id === rel.typeId);
+				const fromCharacter = allChars.find((c) => c.id === rel.fromId);
+				const toCharacter = allChars.find((c) => c.id === rel.toId);
+				const otherCharacter =
+					rel.fromId === selectedId ? toCharacter : fromCharacter;
+				const displayValue = rel.value ?? type?.value ?? 0;
+				const direction = rel.fromId === selectedId ? "Outgoing" : "Incoming";
+
+				return {
+					rel,
+					rowKey: `${baseKey}-${occurrence}`,
+					type,
+					fromCharacter,
+					toCharacter,
+					otherCharacter,
+					displayValue,
+					direction,
+					searchText: [
+						otherCharacter?.name,
+						type?.label,
+						displayValue.toFixed(2),
+					]
+						.filter(Boolean)
+						.join(" ")
+						.toLowerCase(),
+				};
+			})
+			.filter((row) => !query || row.searchText.includes(query))
+			.sort((a, b) => {
+				const byName = (a.otherCharacter?.name ?? "").localeCompare(
+					b.otherCharacter?.name ?? "",
+				);
+				if (byName !== 0) return byName;
+				return (a.type?.label ?? "").localeCompare(b.type?.label ?? "");
+			});
+	}, [allChars, relationSearch, relationships, selectedId, types]);
+
+	const relationValueLabel =
+		inspectedRelationshipDetails?.displayValue == null
+			? "+0.--"
+			: inspectedRelationshipDetails.displayValue > 0
+				? `+${inspectedRelationshipDetails.displayValue.toFixed(2)}`
+				: inspectedRelationshipDetails.displayValue.toFixed(2);
+	const canEditSelectedCharacter =
+		!session || selectedCharacter?.ownerId === session.user.id;
+	const canEditInspectedRelationship =
+		!session ||
+		inspectedRelationshipDetails?.fromCharacter?.ownerId === session.user.id;
+
 	const graphSvgContent = useMemo(() => {
 		return (
-			<g ref={gRef} transform="translate(0, 0) scale(1)">
-				{relationshipData.map(
-					({
-						rel,
-						type,
-						idx,
-						path,
-						isFromCenter,
-						angleDeg,
-						curveMidX,
-						curveMidY,
+			<g ref={groupRef} transform="translate(0, 0) scale(1)">
+				<g
+					key={selectedId ?? "empty-character-graph"}
+					className="animate-in fade-in-0 zoom-in-95 duration-300 ease-out transform-fill origin-center will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto"
+				>
+					{relationshipData.map(
+						({
+							rel,
+							type,
+							idx,
+							path,
+							isFromCenter,
+							angleDeg,
 
-						edgeOpacity,
-					}) => {
-						const relId = `${rel.fromId}-${rel.toId}-${rel.typeId}-${idx}`;
-						const isActive =
-							hoveredRel &&
-							`${hoveredRel.fromId}-${hoveredRel.toId}-${hoveredRel.typeId}-${idx}` ===
-								relId;
+							edgeOpacity,
+						}) => {
+							const relKey = getRelationshipKey(rel);
+							const relId = `${relKey}-${idx}`;
+							const isActive =
+								inspectedRel && getRelationshipKey(inspectedRel) === relKey;
+							return (
+								<g
+									key={`rel-path-${relId}`}
+									className="cursor-help"
+									transform={` rotate(${angleDeg})`}
+								>
+									{/* Invisible trigger path */}
+									<path
+										data-testid={`relationship-hover-${rel.id ?? relId}`}
+										d={path}
+										fill="none"
+										stroke="transparent"
+										strokeWidth="16"
+										className="pointer-events-auto cursor-help"
+										onMouseEnter={(e) => {
+											e.preventDefault();
+											handleMouseEnterLine(rel);
+										}}
+										onMouseLeave={cancelHoverRead}
+										onPointerDown={(e) => {
+											if (e.pointerType === "mouse" && e.button === 2) return;
+											e.preventDefault();
+											e.stopPropagation();
+											cancelHoverRead();
+											markRelationshipRead(rel);
+											setInspectedRel(rel);
+											setEditingRel(rel);
+										}}
+										onPointerUp={(e) => {
+											// 2. OPEN THE MODAL HERE!
+											// The click cycle is finished, so the overlay won't misinterpret the mouse release.
+											if (e.pointerType === "mouse" && e.button === 2) return;
+											e.preventDefault();
+											e.stopPropagation();
+											setIsModalOpen(true);
+										}}
+										onContextMenu={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											cancelHoverRead();
+											markRelationshipRead(rel);
+											setInspectedRel(rel);
+											setDeletingRel(rel);
+										}}
+									/>
+									{/* Visible path */}
+									<path
+										d={path}
+										fill="none"
+										strokeLinecap="round"
+										strokeWidth="4"
+										// 1. Choose gradient based on direction
+										stroke={
+											isFromCenter
+												? `url(#grad-out-${type?.id})`
+												: `url(#grad-in-${type?.id})`
+										}
+										// 2. Put the arrowhead on the correct side
+										markerEnd={
+											isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
+										}
+										markerStart={
+											!isFromCenter
+												? `url(#arrowhead-${rel.typeId})`
+												: undefined
+										}
+										opacity={isActive ? 1 : edgeOpacity}
+										className="pointer-events-none transition-opacity duration-300"
+									/>
+								</g>
+							);
+						},
+					)}
+
+					{relatedCharacters.map((char, i: number) => {
+						const angle =
+							(i / relatedCharacters.length) * 2 * Math.PI - Math.PI / 2;
+						const cos = Math.cos(angle);
+						const sin = Math.sin(angle);
+						const x = radius * cos;
+						const y = radius * sin;
+
+						// Position name radially outside the circle
+						const textRadius = radius + relatedRadius + 16;
+						const textX = textRadius * cos;
+						const textY = textRadius * sin;
+						const textAnchor =
+							cos > 0.5 ? "start" : cos < -0.5 ? "end" : "middle";
+						const dominantBaseline =
+							sin > 0.5 ? "hanging" : sin < -0.5 ? "auto" : "middle";
+
 						return (
 							<g
-								key={`rel-path-${relId}`}
-								className="cursor-help"
-								transform={` rotate(${angleDeg})`}
+								key={char.id}
+								onPointerDown={(e) => {
+									e.stopPropagation();
+								}}
+								onClick={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									setSelectedCharId(char.id);
+								}}
+								className="cursor-pointer group"
 							>
-								{isActive && (
-									<Tooltip open={true}>
-										<TooltipTrigger
-											render={
-												<circle
-													cy={curveMidY}
-													cx={curveMidX}
-													r="1"
-													fill="transparent"
-													className="pointer-events-none!"
-												/>
-											}
-										></TooltipTrigger>
-										<TooltipContent
-											side={tooltipSide}
-											align="center"
-											className="pointer-events-none!"
-										>
-											<div className="h-full max-h-75 w-45 flex flex-col items-center justify-center pointer-events-none!">
-												<b>
-													{types.find((t) => t.id === hoveredRel.typeId)?.label}{" "}
-													{hoveredRel.value && hoveredRel?.value > 0
-														? `+${hoveredRel.value.toFixed(2)}`
-														: (hoveredRel.value?.toFixed(2) ??
-															types
-																.find((t) => t.id === hoveredRel.typeId)
-																?.value.toFixed(2) ??
-															"+0.--")}
-												</b>
-												<span className="leading-tight pointer-events-none!">
-													{hoveredRel.description}
-												</span>
-
-												<p className="mt-1 text-[10px] opacity-40 italic pointer-events-none!">
-													Left-click Edit | Right-click Delete
-												</p>
-											</div>
-										</TooltipContent>
-									</Tooltip>
+								<circle
+									cx={x}
+									cy={y}
+									r={relatedRadius + 2}
+									fill="#0a0a0a"
+									stroke="white"
+									strokeWidth="1"
+									className="opacity-20 group-hover:opacity-40 transition-opacity"
+								/>
+								<clipPath id={`clip-${char.id}`}>
+									<circle cx={x} cy={y} r={relatedRadius} />
+								</clipPath>
+								<image
+									href={
+										char.avatar || `https://picsum.photos/seed/${char.id}/80/80`
+									}
+									x={x - relatedRadius}
+									y={y - relatedRadius}
+									width={relatedRadius * 2}
+									height={relatedRadius * 2}
+									clipPath={`url(#clip-${char.id})`}
+									// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
+									referrerPolicy="no-referrer"
+								/>
+								{charactersWithUnreadRelationships.has(char.id) && (
+									<g
+										aria-label={`${char.name} has unread relationship updates`}
+										data-testid={`graph-notification-${char.id}`}
+										role="status"
+									>
+										<circle
+											className="fill-primary stroke-background"
+											cx={x + relatedRadius * 0.7}
+											cy={y - relatedRadius * 0.7}
+											r="7"
+											strokeWidth="3"
+										/>
+									</g>
 								)}
-								{/* Invisible trigger path */}
-								<path
-									d={path}
-									fill="none"
-									stroke="transparent"
-									strokeWidth="16"
-									className="pointer-events-auto cursor-help"
-									onMouseMove={(e) => {
-										// We need to find the screen position of the midpoint of the line
-										// We can get this from the path itself or the parent G element
-										const pathElement = e.currentTarget;
-										const bbox = pathElement.getBoundingClientRect();
-										const mouseY = e.clientY;
 
-										// If mouse is above the vertical center of the path's bounding box,
-										// we want the tooltip to be at the bottom (so it doesn't block the line)
-										// If mouse is below, we want it at the top.
-										const midY = bbox.top + bbox.height / 2;
-										setTooltipSide(mouseY < midY ? "bottom" : "top");
-
-										handleMouseEnterLine(rel);
-									}}
-									onMouseEnter={(e) => {
-										e.preventDefault();
-										handleMouseEnterLine(rel);
-									}}
-									onMouseLeave={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										handleMouseLeaveLine();
-									}}
-									onPointerDown={(e) => {
-										if (e.pointerType === "mouse" && e.button === 2) return;
-										e.preventDefault();
-										e.stopPropagation();
-										setEditingRel(rel);
-									}}
-									onPointerUp={(e) => {
-										// 2. OPEN THE MODAL HERE!
-										// The click cycle is finished, so the overlay won't misinterpret the mouse release.
-										if (e.pointerType === "mouse" && e.button === 2) return;
-										e.preventDefault();
-										e.stopPropagation();
-										setIsModalOpen(true);
-									}}
-									onContextMenu={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										setDeletingRel(rel);
-									}}
-								/>
-								{/* Visible path */}
-								<path
-									d={path}
-									fill="none"
-									strokeLinecap="round"
-									strokeWidth="4"
-									// 1. Choose gradient based on direction
-									stroke={
-										isFromCenter
-											? `url(#grad-out-${type?.id})`
-											: `url(#grad-in-${type?.id})`
-									}
-									// 2. Put the arrowhead on the correct side
-									markerEnd={
-										isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
-									}
-									markerStart={
-										!isFromCenter ? `url(#arrowhead-${rel.typeId})` : undefined
-									}
-									opacity={isActive ? 1 : edgeOpacity}
-									className="pointer-events-none transition-opacity duration-300"
-								/>
+								<text
+									x={textX}
+									y={textY}
+									textAnchor={textAnchor}
+									dominantBaseline={dominantBaseline}
+									className="fill-foreground text-[10px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"
+								>
+									{char.name}
+								</text>
 							</g>
 						);
-					},
-				)}
+					})}
 
-				{relatedCharacters.map((char, i: number) => {
-					const angle =
-						(i / relatedCharacters.length) * 2 * Math.PI - Math.PI / 2;
-					const cos = Math.cos(angle);
-					const sin = Math.sin(angle);
-					const x = radius * cos;
-					const y = radius * sin;
-
-					// Position name radially outside the circle
-					const textRadius = radius + relatedRadius + 16;
-					const textX = textRadius * cos;
-					const textY = textRadius * sin;
-					const textAnchor =
-						cos > 0.5 ? "start" : cos < -0.5 ? "end" : "middle";
-					const dominantBaseline =
-						sin > 0.5 ? "hanging" : sin < -0.5 ? "auto" : "middle";
-
-					return (
-						<g
-							key={char.id}
-							onPointerDown={(e) => {
-								e.stopPropagation();
-							}}
-							onClick={(e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								setSelectedCharId(char.id);
-							}}
-							className="cursor-pointer group"
-						>
-							<circle
-								cx={x}
-								cy={y}
-								r={relatedRadius + 2}
-								fill="#0a0a0a"
-								stroke="white"
-								strokeWidth="1"
-								className="opacity-20 group-hover:opacity-40 transition-opacity"
-							/>
-							<clipPath id={`clip-${char.id}`}>
-								<circle cx={x} cy={y} r={relatedRadius} />
-							</clipPath>
-							<image
-								href={
-									char.avatar || `https://picsum.photos/seed/${char.id}/80/80`
-								}
-								x={x - relatedRadius}
-								y={y - relatedRadius}
-								width={relatedRadius * 2}
-								height={relatedRadius * 2}
-								clipPath={`url(#clip-${char.id})`}
-								// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
-								referrerPolicy="no-referrer"
-							/>
-
-							<text
-								x={textX}
-								y={textY}
-								textAnchor={textAnchor}
-								dominantBaseline={dominantBaseline}
-								className="fill-foreground text-[10px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"
-							>
-								{char.name}
-							</text>
-						</g>
-					);
-				})}
-
-				<g className="drop-shadow-2xl">
-					<circle
-						cx={0}
-						cy={0}
-						r={centerRadius + 2}
-						fill="#0a0a0a"
-						stroke="white"
-						strokeWidth="2"
-					/>
-					<clipPath id="clip-center">
-						<circle cx={0} cy={0} r={centerRadius} />
-					</clipPath>
-					<image
-						href={
-							selectedCharacter?.avatar ||
-							`https://picsum.photos/seed/${selectedCharacter?.id}/120/120`
-						}
-						x={-centerRadius}
-						y={-centerRadius}
-						width={centerRadius * 2}
-						height={centerRadius * 2}
-						clipPath="url(#clip-center)"
-						// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
-						referrerPolicy="no-referrer"
-					/>
+					<g className="drop-shadow-2xl">
+						<circle
+							cx={0}
+							cy={0}
+							r={centerRadius + 2}
+							fill="#0a0a0a"
+							stroke="white"
+							strokeWidth="2"
+						/>
+						<clipPath id="clip-center">
+							<circle cx={0} cy={0} r={centerRadius} />
+						</clipPath>
+						<image
+							href={
+								selectedCharacter?.avatar ||
+								`https://picsum.photos/seed/${selectedCharacter?.id}/120/120`
+							}
+							x={-centerRadius}
+							y={-centerRadius}
+							width={centerRadius * 2}
+							height={centerRadius * 2}
+							clipPath="url(#clip-center)"
+							// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
+							referrerPolicy="no-referrer"
+						/>
+						{selectedCharacter &&
+							charactersWithUnreadRelationships.has(selectedCharacter.id) && (
+								<g
+									aria-label={`${selectedCharacter.name} has unread relationship updates`}
+									data-testid={`graph-notification-${selectedCharacter.id}`}
+									role="status"
+								>
+									<circle
+										className="fill-primary stroke-background"
+										cx={centerRadius * 0.7}
+										cy={-centerRadius * 0.7}
+										r="8"
+										strokeWidth="3"
+									/>
+								</g>
+							)}
+					</g>
 				</g>
 			</g>
 		);
@@ -444,65 +614,35 @@ export default function CharacterGraph() {
 		// 1. Data dependencies (These DO change and should trigger redraws)
 		relationshipData,
 		relatedCharacters,
-		hoveredRel,
+		inspectedRel,
 		selectedCharacter,
+		selectedId,
 		radius,
 
-		// 2. Cached Hover Functions (Now stable thanks to useCallback)
 		handleMouseEnterLine,
-		handleMouseLeaveLine,
 		setSelectedCharId,
-		tooltipSide,
-		types.find,
 		centerRadius,
+		cancelHoverRead,
+		charactersWithUnreadRelationships,
+		groupRef,
+		markRelationshipRead,
 	]);
 	return (
 		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-transparent">
 			{/* LAYER 1: THE GRAPH (Anchored to Right edge of Screen) */}
 			<div className="col-start-1 row-start-1 w-full h-full pointer-events-auto z-0">
 				<div
+					ref={stageRef}
 					className={cn(
-						"absolute top-0 right-0 h-full w-screen touch-none select-none z-0",
+						"animate-in fade-in-0 slide-in-from-bottom-2 zoom-in-95 duration-300 ease-out will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto",
+						"absolute top-0 right-0 z-0 h-full w-screen touch-none select-none",
 						isDragging ? "cursor-grabbing" : "cursor-grab",
 					)}
 					onWheel={handleWheel}
-					onPointerDown={(e) => {
-						if (isModalOpen) return;
-						setIsDragging(true);
-						isDraggingRef.current = true;
-						setHoveredRel(null);
-						e.currentTarget.setPointerCapture(e.pointerId);
-						const svgPt = getMousePositionInSVG(e);
-						dragStartRef.current = {
-							x: svgPt.x - panRef.current.x,
-							y: svgPt.y - panRef.current.y,
-						};
-					}}
-					onPointerMove={(e) => {
-						if (!isDraggingRef.current) return;
-						// 2. Calculate the exact new position
-						const svgPt = getMousePositionInSVG(e);
-						panRef.current.x = svgPt.x - dragStartRef.current.x;
-						panRef.current.y = svgPt.y - dragStartRef.current.y;
-
-						// 3. 60 FPS Optimization (Debounce DOM updates to screen refresh rate)
-						if (!rafRef.current) {
-							rafRef.current = requestAnimationFrame(() => {
-								applyTransform();
-								rafRef.current = null;
-							});
-						}
-					}}
-					onPointerUp={() => {
-						setIsDragging(false);
-						isDraggingRef.current = false;
-						if (rafRef.current) cancelAnimationFrame(rafRef.current);
-						rafRef.current = null;
-					}}
-					onPointerCancel={() => {
-						setIsDragging(false);
-						isDraggingRef.current = false;
-					}}
+					onPointerDown={handlePointerDown}
+					onPointerMove={handlePointerMove}
+					onPointerUp={handlePointerUp}
+					onPointerCancel={handlePointerCancel}
 				>
 					<svg
 						ref={svgRef}
@@ -560,10 +700,13 @@ export default function CharacterGraph() {
 					</svg>
 				</div>
 				{/* LAYER 2: THE FOREGROUND UI (Stays strictly within SidebarInset bounds) */}
-				<div className="col-start-1 row-start-1 z-10 w-full h-full flex flex-col justify-between pointer-events-none">
+				<div className="col-start-1 row-start-1 z-10 w-full h-full pointer-events-none">
 					{/* Header */}
-					<header className="w-full p-6 flex items-center justify-between shrink-0 pointer-events-none ">
-						<div className="bg-background/40 backdrop-blur-md p-4 rounded-2xl pointer-events-auto">
+					<header className="pointer-events-none absolute inset-x-0 top-0 flex w-full items-start p-6">
+						<div
+							key={selectedCharacter?.id ?? "empty-character-heading"}
+							className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto pointer-events-auto rounded-2xl bg-background/40 p-4 backdrop-blur-md"
+						>
 							<h2
 								style={{ fontFamily: "Geist Variable" }}
 								className="text-4xl font-bold tracking-tighter uppercase italic serif"
@@ -574,41 +717,353 @@ export default function CharacterGraph() {
 								{selectedCharacter?.description}
 							</p>
 						</div>
-
-						<Button
-							onClick={(e) => {
-								e.stopPropagation();
-								setEditingRel(null); // Null means it's a NEW relation
-								setIsModalOpen(true);
-							}}
-							className="px-4 py-2 font-bold text-xs uppercase tracking-widest rounded-full flex items-center gap-2 pointer-events-auto z-40"
-						>
-							<Plus className="w-4 h-4" /> New Relation
-						</Button>
 					</header>
 
-					{/* Legend Container */}
-					<div className="h-full w-min p-6 flex flex-col flex-wrap-reverse justify-start items-start gap-3 pointer-events-none self-end">
+					<div className="pointer-events-auto absolute top-6 bottom-6 left-6 flex w-[min(11.5rem,calc(100vw-25rem))] flex-col items-start justify-center gap-2 overflow-y-auto max-[920px]:top-auto max-[920px]:right-4 max-[920px]:bottom-[calc(min(44vh,24rem)+1.75rem)] max-[920px]:left-4 max-[920px]:max-h-[5.5rem] max-[920px]:w-auto max-[920px]:flex-row max-[920px]:flex-wrap max-[920px]:items-end max-[920px]:justify-start max-[640px]:hidden">
 						{types.map((type) => (
-							<Badge
-								variant={"secondary"}
+							<div
 								key={type.id}
-								style={{ "--badge-color": type.color } as React.CSSProperties}
-								className="p-2.5 pr-1 bg-card/40 backdrop-blur-md pointer-events-auto border border-foreground/5 transition-all hover:bg-foreground/10"
+								className="inline-flex min-h-7 max-w-full items-center justify-start gap-2 rounded-full border border-foreground/8 bg-background/84 px-3 py-1.5 pl-[0.45rem] shadow-[0_12px_34px_rgba(0,0,0,0.14)] backdrop-blur-md"
+								style={{ "--legend-color": type.color } as React.CSSProperties}
 							>
-								<span className="text-[10px] uppercase font-bold tracking-widest">
+								<div className="size-[0.65rem] shrink-0 rounded-full bg-(--legend-color) shadow-[0_0_12px_color-mix(in_oklch,var(--legend-color),transparent_66%)]" />
+								<span className="truncate text-[0.64rem] font-black uppercase leading-none tracking-[0.1em] text-foreground/80">
 									{type.label}
 								</span>
-								<div
-									className="size-3 rounded-full ml-2"
-									style={{ backgroundColor: type.color }}
-								/>
-							</Badge>
+							</div>
 						))}
 					</div>
+
+					{/* Relationship Inspector */}
+					<aside
+						className="pointer-events-auto absolute top-6 right-6 bottom-6 flex w-[min(20rem,calc(100vw-3rem))] animate-in flex-col gap-4 overflow-hidden rounded-xl border border-foreground/10 bg-background/92 p-4 text-foreground shadow-[inset_0_1px_0_color-mix(in_oklch,var(--foreground),transparent_94%),0_22px_70px_rgba(0,0,0,0.24)] backdrop-blur-[18px] fade-in-0 slide-in-from-right-2 duration-200 ease-out before:h-[3px] before:shrink-0 before:rounded-full before:bg-(--relationship-accent) before:shadow-[0_0_22px_color-mix(in_oklch,var(--relationship-accent),transparent_42%)] motion-reduce:animate-none motion-reduce:will-change-auto max-[920px]:top-auto max-[920px]:right-4 max-[920px]:bottom-4 max-[920px]:left-4 max-[920px]:max-h-[min(44vh,24rem)] max-[920px]:w-auto"
+						style={
+							{
+								"--relationship-accent":
+									inspectedRelationshipDetails?.type?.color ?? "var(--primary)",
+							} as React.CSSProperties
+						}
+					>
+						<Button
+							disabled={!canEditSelectedCharacter}
+							title={
+								canEditSelectedCharacter
+									? "New relationship"
+									: "Only the source character owner can add relationships"
+							}
+							onClick={(e) => {
+								e.stopPropagation();
+								setEditingRel(null);
+								setIsModalOpen(true);
+							}}
+							className="inline-flex h-[2.35rem] w-full shrink-0 items-center justify-center gap-2 rounded-full border border-foreground/12 bg-background/88 px-[1.05rem] pl-[0.95rem] text-[0.72rem] font-black uppercase tracking-[0.12em] text-foreground/96 shadow-[inset_0_1px_0_color-mix(in_oklch,var(--foreground),transparent_92%),0_14px_38px_rgba(0,0,0,0.2)] backdrop-blur-md hover:border-foreground/22 hover:bg-foreground/6 hover:text-foreground"
+						>
+							<Plus data-icon="inline-start" /> New Relation
+						</Button>
+
+						{inspectedRelationshipDetails ? (
+							<>
+								<div className="flex min-w-0 shrink-0 items-center justify-between gap-4">
+									<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+										Selected relation
+									</span>
+									<strong className="text-sm font-black leading-none text-[color-mix(in_oklch,var(--relationship-accent),var(--foreground)_16%)] tabular-nums">
+										{relationValueLabel}
+									</strong>
+								</div>
+
+								<div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3 max-[920px]:items-center">
+									<div className="grid min-w-0 justify-items-center gap-3 text-center">
+										<Avatar className="size-[3.35rem] border border-[color-mix(in_oklch,var(--relationship-accent),transparent_40%)] bg-[color-mix(in_oklch,var(--background),var(--foreground)_9%)] shadow-[0_0_0_5px_color-mix(in_oklch,var(--relationship-accent),transparent_88%)]">
+											<AvatarImage
+												src={
+													inspectedRelationshipDetails.fromCharacter?.avatar ??
+													undefined
+												}
+												alt={inspectedRelationshipDetails.fromCharacter?.name}
+											/>
+											<AvatarFallback>
+												{inspectedRelationshipDetails.fromCharacter?.name
+													.slice(0, 2)
+													.toUpperCase() ?? "??"}
+											</AvatarFallback>
+										</Avatar>
+										<div className="min-w-0 max-w-full">
+											<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+												From
+											</span>
+											<strong className="block truncate text-base font-black leading-[1.15] text-foreground/94">
+												{inspectedRelationshipDetails.fromCharacter?.name ??
+													"Unknown"}
+											</strong>
+										</div>
+									</div>
+
+									<div className="mt-[1.55rem] flex h-3 min-w-16 items-center max-[920px]:min-w-12">
+										<svg
+											aria-hidden="true"
+											className="h-3 w-full overflow-visible"
+											viewBox="0 0 64 12"
+											preserveAspectRatio="none"
+										>
+											<line
+												x1="0"
+												y1="6"
+												x2="64"
+												y2="6"
+												stroke="var(--relationship-accent)"
+												strokeOpacity="0.28"
+												strokeWidth="2"
+												strokeLinecap="round"
+											/>
+											<line
+												className="motion-reduce:hidden"
+												x1="0"
+												y1="6"
+												x2="64"
+												y2="6"
+												stroke="var(--relationship-accent)"
+												strokeWidth="3"
+												strokeLinecap="round"
+												strokeDasharray="14 50"
+												strokeDashoffset="64"
+											>
+												<animate
+													attributeName="stroke-dashoffset"
+													from="64"
+													to="-64"
+													dur="1.4s"
+													repeatCount="indefinite"
+												/>
+											</line>
+										</svg>
+									</div>
+
+									<div className="grid min-w-0 justify-items-center gap-3 text-center">
+										<Avatar className="size-[3.35rem] border border-[color-mix(in_oklch,var(--relationship-accent),transparent_40%)] bg-[color-mix(in_oklch,var(--background),var(--foreground)_9%)] shadow-[0_0_0_5px_color-mix(in_oklch,var(--relationship-accent),transparent_88%)]">
+											<AvatarImage
+												src={
+													inspectedRelationshipDetails.toCharacter?.avatar ??
+													undefined
+												}
+												alt={inspectedRelationshipDetails.toCharacter?.name}
+											/>
+											<AvatarFallback>
+												{inspectedRelationshipDetails.toCharacter?.name
+													.slice(0, 2)
+													.toUpperCase() ?? "??"}
+											</AvatarFallback>
+										</Avatar>
+										<div className="min-w-0 max-w-full">
+											<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+												To
+											</span>
+											<strong className="block truncate text-base font-black leading-[1.15] text-foreground/94">
+												{inspectedRelationshipDetails.toCharacter?.name ??
+													"Unknown"}
+											</strong>
+										</div>
+									</div>
+								</div>
+
+								<div className="flex min-h-[4.25rem] min-w-0 shrink-0 items-center gap-3 rounded-[0.625rem] border border-foreground/8 bg-foreground/4 px-3 py-[0.7rem]">
+									<div
+										className="size-[2.35rem] shrink-0 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--foreground),transparent_84%),0_0_24px_color-mix(in_oklch,var(--relationship-accent),transparent_68%)]"
+										style={{
+											backgroundColor:
+												inspectedRelationshipDetails.type?.color ??
+												"var(--primary)",
+										}}
+									/>
+									<div className="grid min-w-0 max-w-full justify-center gap-[0.2rem]">
+										<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+											Type
+										</span>
+										<strong className="block truncate text-base font-black leading-[1.15] text-foreground/94">
+											{inspectedRelationshipDetails.type?.label ?? "Unknown"}
+										</strong>
+									</div>
+								</div>
+
+								<section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[0.625rem] border border-foreground/8 bg-foreground/3">
+									<div className="flex shrink-0 items-center gap-[0.55rem] px-3 py-[0.7rem] pb-[0.45rem] after:h-px after:flex-auto after:bg-foreground/10">
+										<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+											Note
+										</span>
+									</div>
+									<p
+										className={cn(
+											"m-0 min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-[0.9rem] font-normal leading-[1.55] text-foreground/88 whitespace-pre-wrap wrap-anywhere [scrollbar-gutter:stable]",
+											!inspectedRelationshipDetails.rel.description &&
+												"flex items-center justify-center text-center italic text-foreground/54",
+										)}
+									>
+										{inspectedRelationshipDetails.rel.description ||
+											"No relationship note has been written yet."}
+									</p>
+								</section>
+
+								<div
+									className={cn(
+										"grid shrink-0 gap-2 pt-1",
+										canEditInspectedRelationship
+											? "grid-cols-3"
+											: "grid-cols-1",
+									)}
+								>
+									<Button
+										size="sm"
+										variant="ghost"
+										className="w-full justify-center border border-foreground/9 bg-background/82"
+										disabled={!session || !inspectedRelationshipDetails.rel.id}
+										title={
+											!session
+												? "Sign in to view relationship history"
+												: inspectedRelationshipDetails.rel.id
+													? "View relationship history"
+													: "History is unavailable for legacy offline data"
+										}
+										onClick={(e) => {
+											e.stopPropagation();
+											setHistoryRel(inspectedRelationshipDetails.rel);
+										}}
+									>
+										<HistoryIcon data-icon="inline-start" />
+										History
+									</Button>
+									{canEditInspectedRelationship && (
+										<>
+											<Button
+												size="sm"
+												variant="ghost"
+												className="w-full justify-center border border-foreground/9 bg-background/82"
+												onClick={(e) => {
+													e.stopPropagation();
+													setEditingRel(inspectedRelationshipDetails.rel);
+													setIsModalOpen(true);
+												}}
+											>
+												<Edit2 data-icon="inline-start" />
+												Edit
+											</Button>
+											<Button
+												size="sm"
+												variant="ghost"
+												className="w-full justify-center border border-foreground/9 bg-background/82"
+												onClick={(e) => {
+													e.stopPropagation();
+													setDeletingRel(inspectedRelationshipDetails.rel);
+												}}
+											>
+												<Trash2 data-icon="inline-start" />
+												Delete
+											</Button>
+										</>
+									)}
+								</div>
+							</>
+						) : (
+							<div className="flex min-h-0 flex-auto flex-col gap-3 pt-[0.15rem]">
+								<div className="flex items-center justify-between gap-3">
+									<div className="flex min-w-0 items-baseline gap-2">
+										<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
+											Character relations
+										</span>
+										<strong className="text-[0.72rem] font-black text-foreground/84 tabular-nums">
+											{characterRelationshipRows.length}
+										</strong>
+									</div>
+								</div>
+
+								<label className="flex min-h-9 items-center gap-2 rounded-full border border-foreground/9 bg-background/92 px-3 text-foreground/54">
+									<Search className="size-3.5" />
+									<Input
+										value={relationSearch}
+										onChange={(e) => setRelationSearch(e.target.value)}
+										className="h-[2.1rem] min-w-0 border-0 bg-transparent! p-0 text-[0.82rem] shadow-none focus-visible:shadow-none"
+										placeholder="Search relations..."
+									/>
+								</label>
+
+								<div className="flex min-h-0 flex-auto flex-col gap-2 overflow-y-auto pr-[0.2rem]">
+									{characterRelationshipRows.length > 0 ? (
+										characterRelationshipRows.map((row) => {
+											const valueLabel =
+												row.displayValue > 0
+													? `+${row.displayValue.toFixed(2)}`
+													: row.displayValue.toFixed(2);
+
+											return (
+												<button
+													type="button"
+													key={row.rowKey}
+													className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_3.2rem_auto] items-center gap-3 rounded-xl border border-foreground/7 bg-foreground/3 p-[0.65rem] px-[0.7rem] text-left text-foreground transition-[border-color,background,transform] duration-150 ease-out hover:border-[color-mix(in_oklch,var(--relationship-row-accent),transparent_58%)] hover:bg-[color-mix(in_oklch,var(--relationship-row-accent),transparent_91%)] active:translate-y-px max-[920px]:min-h-[3.7rem]"
+													style={
+														{
+															"--relationship-row-accent":
+																row.type?.color ?? "var(--primary)",
+														} as React.CSSProperties
+													}
+													onClick={(e) => {
+														e.stopPropagation();
+														setInspectedRel(row.rel);
+														markRelationshipRead(row.rel);
+													}}
+												>
+													<Avatar className="size-[2.35rem] border border-[color-mix(in_oklch,var(--relationship-row-accent),transparent_42%)] bg-[color-mix(in_oklch,var(--background),var(--foreground)_8%)]">
+														<AvatarImage
+															src={row.otherCharacter?.avatar ?? undefined}
+															alt={row.otherCharacter?.name}
+														/>
+														<AvatarFallback>
+															{row.otherCharacter?.name
+																.slice(0, 2)
+																.toUpperCase() ?? "??"}
+														</AvatarFallback>
+													</Avatar>
+													<div className="grid min-w-0 content-center gap-[0.28rem]">
+														<div className="flex min-w-0 items-center gap-[0.35rem]">
+															<strong className="inline-flex min-w-0 flex-auto items-center gap-1 overflow-hidden text-[0.88rem] font-black leading-[1.1] text-ellipsis whitespace-nowrap">
+																{row.otherCharacter?.name ?? "Unknown"}
+																{row.direction === "Outgoing" ? (
+																	<ArrowUpRight className="size-[0.9rem] shrink-0 text-[color-mix(in_oklch,var(--relationship-row-accent),var(--foreground)_24%)] stroke-[2.5]" />
+																) : (
+																	<ArrowDownLeft className="size-[0.9rem] shrink-0 text-[color-mix(in_oklch,var(--relationship-row-accent),var(--foreground)_24%)] stroke-[2.5]" />
+																)}
+															</strong>
+														</div>
+														<div className="flex min-w-0 items-center justify-start gap-[0.35rem]">
+															<span className="truncate text-[0.64rem] font-extrabold uppercase leading-none tracking-[0.08em] text-foreground/54">
+																{row.type?.label ?? "Unknown"}
+															</span>
+														</div>
+													</div>
+													<span className="flex h-full items-center justify-end justify-self-end text-[0.72rem] font-black leading-none text-[color-mix(in_oklch,var(--relationship-row-accent),var(--foreground)_18%)] tabular-nums">
+														{valueLabel}
+													</span>
+													{row.direction === "Outgoing" &&
+														row.rel.id &&
+														unreadVersionsByRelationship.has(row.rel.id) && (
+															<Badge
+																aria-label="Unread relationship update"
+																className="col-start-4 size-[0.65rem] rounded-full bg-primary p-0 shadow-[0_0_16px_color-mix(in_oklch,var(--primary),transparent_55%)]"
+															/>
+														)}
+												</button>
+											);
+										})
+									) : (
+										<div className="grid min-h-20 place-items-center rounded-xl border border-dashed border-foreground/10 text-center text-[0.82rem] italic text-foreground/52">
+											No relations match this search.
+										</div>
+									)}
+								</div>
+							</div>
+						)}
+					</aside>
 				</div>
 				{/* Modals */}
-				{selectedId && (
+				{selectedId && isModalOpen && (
 					<RelationshipModal
 						fromId={editingRel ? editingRel.fromId : selectedId}
 						initialData={editingRel ?? undefined}
@@ -627,19 +1082,28 @@ export default function CharacterGraph() {
 					<ConfirmModal
 						title="Delete Relationship"
 						message={`Are you sure you want to delete relationship from ${allChars.find((c) => c.id === deletingRel.fromId)?.name} to ${allChars.find((c) => c.id === deletingRel.toId)?.name}?`}
-						onConfirm={() =>
-							deleteRelationship(
-								deletingRel.fromId,
-								deletingRel.toId,
-								deletingRel.typeId,
-							)
-						}
+						onConfirm={() => deleteRelationship(deletingRel)}
 						open={!!deletingRel}
 						onOpenChange={(open) => {
 							if (!open) setDeletingRel(null);
 						}}
 					/>
 				)}
+				<RelationshipHistoryDialog
+					fromName={
+						allChars.find((character) => character.id === historyRel?.fromId)
+							?.name ?? "Unknown character"
+					}
+					onOpenChange={(open) => {
+						if (!open) setHistoryRel(null);
+					}}
+					open={Boolean(historyRel)}
+					relationshipId={historyRel?.id}
+					toName={
+						allChars.find((character) => character.id === historyRel?.toId)
+							?.name ?? "Unknown character"
+					}
+				/>
 			</div>
 		</div>
 	);

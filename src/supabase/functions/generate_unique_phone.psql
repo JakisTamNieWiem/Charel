@@ -1,0 +1,29 @@
+CREATE OR REPLACE FUNCTION public.generate_unique_phone()
+    RETURNS text
+    LANGUAGE 'plpgsql'
+    VOLATILE
+    PARALLEL UNSAFE
+    COST 100
+    
+AS $BODY$
+ 
+DECLARE
+    new_phone text;
+    is_unique boolean;
+BEGIN
+    LOOP
+        -- Generate a random 9-digit string, padded with leading zeros if necessary
+        new_phone := lpad(floor(random() * 1000000000)::text, 9, '0');
+        
+        -- Check if it already exists
+        SELECT NOT EXISTS (
+            SELECT 1 FROM "public"."Characters" WHERE "phoneNumber" = new_phone
+        ) INTO is_unique;
+
+        -- If it is unique, exit the loop and return the number
+        EXIT WHEN is_unique;
+    END LOOP;
+    
+    RETURN new_phone;
+END;
+$BODY$;
