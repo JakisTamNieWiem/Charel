@@ -20,10 +20,12 @@ export function applyRowChange<T extends { id: string }>(
 	return rows.map((row, rowIndex) => (rowIndex === index ? change.new : row));
 }
 
-function isSameRelationship(
+export function isSameRelationship(
 	left: Partial<Relationship>,
 	right: Partial<Relationship>,
 ) {
+	if (left.id && right.id) return left.id === right.id;
+
 	return (
 		left.fromId === right.fromId &&
 		left.toId === right.toId &&

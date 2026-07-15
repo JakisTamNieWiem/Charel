@@ -3,6 +3,7 @@ import { temporal } from "zundo";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { NetworkCurveStyle } from "@/lib/network-graph";
+import { isSameRelationship } from "@/lib/realtime-graph";
 import { supabase } from "@/lib/supabase";
 import type {
 	Character,
@@ -11,6 +12,7 @@ import type {
 	GraphSyncStatus,
 	Group,
 	Relationship,
+	RelationshipInput,
 	RelationshipType,
 } from "@/types/types";
 
@@ -85,16 +87,12 @@ export interface GraphState extends GraphData {
 	addType: (type: Omit<RelationshipType, "id">) => Promise<void>;
 	updateType: (type: RelationshipType) => Promise<void>;
 	deleteType: (id: string) => Promise<void>;
-	addRelationship: (relationship: Relationship) => Promise<void>;
+	addRelationship: (relationship: RelationshipInput) => Promise<void>;
 	updateRelationship: (
 		oldRelationship: Relationship,
 		newRelationship: Relationship,
 	) => Promise<void>;
-	deleteRelationship: (
-		fromId: string,
-		toId: string,
-		typeId: string,
-	) => Promise<void>;
+	deleteRelationship: (relationship: Relationship) => Promise<void>;
 	addGroup: (group: Omit<Group, "id">) => Promise<void>;
 	updateGroup: (group: Group) => Promise<void>;
 	deleteGroup: (id: string) => Promise<void>;
@@ -287,70 +285,94 @@ export const useGraphStore = create<GraphState>()(
 						errorMessage: "Error deleting relationship type!",
 					}),
 
-				addRelationship: (relationship) =>
-					runOptimisticMutation({
+				addRelationship: (relationship) => {
+					const id = crypto.randomUUID();
+					const now = new Date().toISOString();
+					const newRelationship = {
+						...relationship,
+						id,
+						created_at: now,
+						updated_at: now,
+					};
+
+					return runOptimisticMutation({
 						capture: () => get().relationships,
 						update: () =>
 							set((state) => ({
-								relationships: [...state.relationships, relationship],
+								relationships: [...state.relationships, newRelationship],
 							})),
 						remote: () =>
 							supabase
 								.from("Relationships")
-								.insert(relationship)
+								.insert({ ...relationship, id })
 								.select()
 								.single(),
 						rollback: (relationships) => set({ relationships }),
 						errorMessage: "Error adding relationship!",
-					}),
+					});
+				},
 
-				updateRelationship: (oldRelationship, newRelationship) =>
-					runOptimisticMutation({
+				updateRelationship: (oldRelationship, newRelationship) => {
+					const updatedRelationship = {
+						...oldRelationship,
+						...newRelationship,
+						updated_at: new Date().toISOString(),
+					};
+
+					return runOptimisticMutation({
 						capture: () => get().relationships,
 						update: () =>
 							set((state) => ({
 								relationships: state.relationships.map((current) =>
-									current.fromId === oldRelationship.fromId &&
-									current.toId === oldRelationship.toId &&
-									current.typeId === oldRelationship.typeId
-										? newRelationship
+									isSameRelationship(current, oldRelationship)
+										? updatedRelationship
 										: current,
 								),
 							})),
-						remote: () =>
-							supabase
-								.from("Relationships")
-								.update(newRelationship)
-								.eq("fromId", oldRelationship.fromId)
-								.eq("toId", oldRelationship.toId)
-								.eq("typeId", oldRelationship.typeId)
-								.select()
-								.single(),
+						remote: () => {
+							const query = supabase.from("Relationships").update({
+								fromId: newRelationship.fromId,
+								toId: newRelationship.toId,
+								typeId: newRelationship.typeId,
+								description: newRelationship.description,
+								value: newRelationship.value,
+							});
+
+							const filteredQuery = oldRelationship.id
+								? query.eq("id", oldRelationship.id)
+								: query
+										.eq("fromId", oldRelationship.fromId)
+										.eq("toId", oldRelationship.toId)
+										.eq("typeId", oldRelationship.typeId);
+
+							return filteredQuery.select().single();
+						},
 						rollback: (relationships) => set({ relationships }),
 						errorMessage: "Error updating relationship!",
-					}),
+					});
+				},
 
-				deleteRelationship: (fromId, toId, typeId) =>
+				deleteRelationship: (relationshipToDelete) =>
 					runOptimisticMutation({
 						capture: () => get().relationships,
 						update: () =>
 							set((state) => ({
 								relationships: state.relationships.filter(
 									(relationship) =>
-										relationship.fromId !== fromId ||
-										relationship.toId !== toId ||
-										relationship.typeId !== typeId,
+										!isSameRelationship(relationship, relationshipToDelete),
 								),
 							})),
-						remote: () =>
-							supabase
-								.from("Relationships")
-								.delete()
-								.eq("fromId", fromId)
-								.eq("toId", toId)
-								.eq("typeId", typeId)
-								.select()
-								.single(),
+						remote: () => {
+							const query = supabase.from("Relationships").delete();
+							const filteredQuery = relationshipToDelete.id
+								? query.eq("id", relationshipToDelete.id)
+								: query
+										.eq("fromId", relationshipToDelete.fromId)
+										.eq("toId", relationshipToDelete.toId)
+										.eq("typeId", relationshipToDelete.typeId);
+
+							return filteredQuery.select().single();
+						},
 						rollback: (relationships) => set({ relationships }),
 						errorMessage: "Error deleting relationship!",
 					}),

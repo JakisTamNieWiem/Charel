@@ -48,4 +48,28 @@ describe("realtime graph reducers", () => {
 			}),
 		).toEqual([updated]);
 	});
+
+	it("uses a stable id when relationship fields change", () => {
+		const relationship: Relationship = {
+			id: "relationship-1",
+			fromId: "a",
+			toId: "b",
+			typeId: "friend",
+			description: "Old",
+			value: null,
+		};
+		const updated = {
+			...relationship,
+			toId: "c",
+			description: "New",
+		};
+
+		expect(
+			applyRelationshipChange([relationship], {
+				eventType: "UPDATE",
+				new: updated,
+				old: { id: relationship.id },
+			}),
+		).toEqual([updated]);
+	});
 });

@@ -2,12 +2,28 @@ import {
 	ArrowDownLeft,
 	ArrowUpRight,
 	Edit2,
+	History as HistoryIcon,
 	Plus,
 	Search,
 	Trash2,
 } from "lucide-react";
-import { Fragment, useCallback, useMemo, useState } from "react";
+import {
+	Fragment,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import RelationshipHistoryDialog from "@/components/RelationshipHistoryDialog";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/context/AuthProvider";
+import {
+	useMarkRelationshipVersionsRead,
+	useUnreadRelationshipVersions,
+} from "@/hooks/useRelationshipVersions";
 import { useSvgPanZoom } from "@/hooks/useSvgPanZoom";
+import { isSameRelationship } from "@/lib/realtime-graph";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Relationship } from "@/types/types";
@@ -18,19 +34,46 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 function getRelationshipKey(rel: Relationship) {
-	return `${rel.fromId}-${rel.toId}-${rel.typeId}`;
+	return rel.id ?? `${rel.fromId}-${rel.toId}-${rel.typeId}`;
 }
 
+const RELATIONSHIP_HOVER_READ_DELAY = 700;
+
 export default function CharacterGraph() {
+	const { session } = useAuth();
 	const selectedId = useGraphStore((state) => state.selectedCharId);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 
 	const allChars = useGraphStore((state) => state.characters);
 	const relationships = useGraphStore((state) => state.relationships);
 	const types = useGraphStore((state) => state.relationshipTypes);
-	const addRelationship = useGraphStore((state) => state.addRelationship); // Added for New Relation
+	const addRelationship = useGraphStore((state) => state.addRelationship);
 	const updateRelationship = useGraphStore((state) => state.updateRelationship);
 	const deleteRelationship = useGraphStore((state) => state.deleteRelationship);
+	const { data: unreadRelationshipVersions = [] } =
+		useUnreadRelationshipVersions();
+	const { mutate: markRelationshipVersionsRead } =
+		useMarkRelationshipVersionsRead();
+	const unreadVersionsByRelationship = useMemo(
+		() =>
+			new Map(
+				unreadRelationshipVersions.map((version) => [
+					version.relationship_id,
+					version,
+				]),
+			),
+		[unreadRelationshipVersions],
+	);
+	const charactersWithUnreadRelationships = useMemo(() => {
+		const characterIds = new Set<string>();
+		for (const version of unreadRelationshipVersions) {
+			const relationship = relationships.find(
+				(current) => current.id === version.relationship_id,
+			);
+			if (relationship) characterIds.add(relationship.toId);
+		}
+		return characterIds;
+	}, [relationships, unreadRelationshipVersions]);
 
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
@@ -51,8 +94,14 @@ export default function CharacterGraph() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingRel, setEditingRel] = useState<Relationship | null>(null);
 	const [deletingRel, setDeletingRel] = useState<Relationship | null>(null);
+	const [historyRel, setHistoryRel] = useState<Relationship | null>(null);
 
 	const [inspectedRel, setInspectedRel] = useState<Relationship | null>(null);
+	const inspectedUnreadRef = useRef<{
+		latestVersionId: number | null;
+		relationshipId: string;
+	} | null>(null);
+	const hoverReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [relationSearch, setRelationSearch] = useState("");
 
 	// --- LAYOUT MATH ---
@@ -80,6 +129,15 @@ export default function CharacterGraph() {
 	);
 	const margin = 150;
 	const svgSize = (radius + margin) * 2;
+	const cancelHoverRead = useCallback(() => {
+		if (hoverReadTimerRef.current === null) return;
+		clearTimeout(hoverReadTimerRef.current);
+		hoverReadTimerRef.current = null;
+	}, []);
+
+	useEffect(() => {
+		return cancelHoverRead;
+	}, [cancelHoverRead]);
 
 	const {
 		groupRef,
@@ -95,15 +153,11 @@ export default function CharacterGraph() {
 	} = useSvgPanZoom({
 		svgSize,
 		disabled: isModalOpen,
-		onPanStart: () => setInspectedRel(null),
-	});
-	const handleMouseEnterLine = useCallback(
-		(rel: Relationship) => {
-			if (isDraggingRef.current) return;
-			setInspectedRel(rel);
+		onPanStart: () => {
+			cancelHoverRead();
+			setInspectedRel(null);
 		},
-		[isDraggingRef],
-	);
+	});
 
 	const relationshipData = useMemo(() => {
 		return relatedCharacters.flatMap((char, i: number) => {
@@ -167,22 +221,109 @@ export default function CharacterGraph() {
 		centerRadius,
 	]);
 
-	const inspectedRelationshipDetails = useMemo(() => {
+	const currentInspectedRel = useMemo(() => {
 		if (!inspectedRel) return null;
+		return (
+			relationships.find((relationship) =>
+				isSameRelationship(relationship, inspectedRel),
+			) ?? inspectedRel
+		);
+	}, [inspectedRel, relationships]);
 
-		const type = types.find((t) => t.id === inspectedRel.typeId);
-		const fromCharacter = allChars.find((c) => c.id === inspectedRel.fromId);
-		const toCharacter = allChars.find((c) => c.id === inspectedRel.toId);
-		const displayValue = inspectedRel.value ?? type?.value ?? 0;
+	const inspectedRelationshipDetails = useMemo(() => {
+		if (!currentInspectedRel) return null;
+
+		const type = types.find((t) => t.id === currentInspectedRel.typeId);
+		const fromCharacter = allChars.find(
+			(c) => c.id === currentInspectedRel.fromId,
+		);
+		const toCharacter = allChars.find((c) => c.id === currentInspectedRel.toId);
+		const displayValue = currentInspectedRel.value ?? type?.value ?? 0;
 
 		return {
-			rel: inspectedRel,
+			rel: currentInspectedRel,
 			type,
 			fromCharacter,
 			toCharacter,
 			displayValue,
 		};
-	}, [allChars, inspectedRel, types]);
+	}, [allChars, currentInspectedRel, types]);
+
+	const inspectedUnreadVersion = currentInspectedRel?.id
+		? unreadVersionsByRelationship.get(currentInspectedRel.id)
+		: undefined;
+
+	useEffect(() => {
+		if (!currentInspectedRel?.id) {
+			inspectedUnreadRef.current = null;
+			return;
+		}
+
+		const previous = inspectedUnreadRef.current;
+		const latestVersionId = inspectedUnreadVersion?.latest_version_id ?? null;
+		if (
+			latestVersionId !== null &&
+			previous?.relationshipId === currentInspectedRel.id &&
+			previous.latestVersionId !== latestVersionId
+		) {
+			markRelationshipVersionsRead({
+				relationshipId: currentInspectedRel.id,
+				latestVersionId,
+			});
+		}
+
+		inspectedUnreadRef.current = {
+			relationshipId: currentInspectedRel.id,
+			latestVersionId,
+		};
+	}, [
+		currentInspectedRel?.id,
+		inspectedUnreadVersion?.latest_version_id,
+		markRelationshipVersionsRead,
+	]);
+
+	const markRelationshipRead = useCallback(
+		(relationship: Relationship) => {
+			if (!relationship.id) return;
+			const unreadVersion = unreadVersionsByRelationship.get(relationship.id);
+			if (!unreadVersion) return;
+
+			inspectedUnreadRef.current = {
+				relationshipId: relationship.id,
+				latestVersionId: unreadVersion.latest_version_id,
+			};
+			markRelationshipVersionsRead({
+				relationshipId: relationship.id,
+				latestVersionId: unreadVersion.latest_version_id,
+			});
+		},
+		[markRelationshipVersionsRead, unreadVersionsByRelationship],
+	);
+
+	const handleMouseEnterLine = useCallback(
+		(relationship: Relationship) => {
+			if (isDraggingRef.current) return;
+			setInspectedRel(relationship);
+			cancelHoverRead();
+			if (
+				!relationship.id ||
+				!unreadVersionsByRelationship.has(relationship.id)
+			) {
+				return;
+			}
+
+			hoverReadTimerRef.current = setTimeout(() => {
+				markRelationshipRead(relationship);
+				hoverReadTimerRef.current = null;
+			}, RELATIONSHIP_HOVER_READ_DELAY);
+		},
+		[
+			cancelHoverRead,
+			isDraggingRef,
+			markRelationshipRead,
+			unreadVersionsByRelationship,
+		],
+	);
 
 	const characterRelationshipRows = useMemo(() => {
 		if (!selectedId) return [];
@@ -239,6 +380,11 @@ export default function CharacterGraph() {
 			: inspectedRelationshipDetails.displayValue > 0
 				? `+${inspectedRelationshipDetails.displayValue.toFixed(2)}`
 				: inspectedRelationshipDetails.displayValue.toFixed(2);
+	const canEditSelectedCharacter =
+		!session || selectedCharacter?.ownerId === session.user.id;
+	const canEditInspectedRelationship =
+		!session ||
+		inspectedRelationshipDetails?.fromCharacter?.ownerId === session.user.id;
 
 	const graphSvgContent = useMemo(() => {
 		return (
@@ -270,6 +416,7 @@ export default function CharacterGraph() {
 								>
 									{/* Invisible trigger path */}
 									<path
+										data-testid={`relationship-hover-${rel.id ?? relId}`}
 										d={path}
 										fill="none"
 										stroke="transparent"
@@ -279,10 +426,13 @@ export default function CharacterGraph() {
 											e.preventDefault();
 											handleMouseEnterLine(rel);
 										}}
+										onMouseLeave={cancelHoverRead}
 										onPointerDown={(e) => {
 											if (e.pointerType === "mouse" && e.button === 2) return;
 											e.preventDefault();
 											e.stopPropagation();
+											cancelHoverRead();
+											markRelationshipRead(rel);
 											setInspectedRel(rel);
 											setEditingRel(rel);
 										}}
@@ -297,6 +447,8 @@ export default function CharacterGraph() {
 										onContextMenu={(e) => {
 											e.preventDefault();
 											e.stopPropagation();
+											cancelHoverRead();
+											markRelationshipRead(rel);
 											setInspectedRel(rel);
 											setDeletingRel(rel);
 										}}
@@ -384,6 +536,21 @@ export default function CharacterGraph() {
 									// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 									referrerPolicy="no-referrer"
 								/>
+								{charactersWithUnreadRelationships.has(char.id) && (
+									<g
+										aria-label={`${char.name} has unread relationship updates`}
+										data-testid={`graph-notification-${char.id}`}
+										role="status"
+									>
+										<circle
+											className="fill-primary stroke-background"
+											cx={x + relatedRadius * 0.7}
+											cy={y - relatedRadius * 0.7}
+											r="7"
+											strokeWidth="3"
+										/>
+									</g>
+								)}
 
 								<text
 									x={textX}
@@ -423,6 +590,22 @@ export default function CharacterGraph() {
 							// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 							referrerPolicy="no-referrer"
 						/>
+						{selectedCharacter &&
+							charactersWithUnreadRelationships.has(selectedCharacter.id) && (
+								<g
+									aria-label={`${selectedCharacter.name} has unread relationship updates`}
+									data-testid={`graph-notification-${selectedCharacter.id}`}
+									role="status"
+								>
+									<circle
+										className="fill-primary stroke-background"
+										cx={centerRadius * 0.7}
+										cy={-centerRadius * 0.7}
+										r="8"
+										strokeWidth="3"
+									/>
+								</g>
+							)}
 					</g>
 				</g>
 			</g>
@@ -439,7 +622,10 @@ export default function CharacterGraph() {
 		handleMouseEnterLine,
 		setSelectedCharId,
 		centerRadius,
+		cancelHoverRead,
+		charactersWithUnreadRelationships,
 		groupRef,
+		markRelationshipRead,
 	]);
 	return (
 		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-transparent">
@@ -559,19 +745,25 @@ export default function CharacterGraph() {
 						}
 					>
 						<Button
+							disabled={!canEditSelectedCharacter}
+							title={
+								canEditSelectedCharacter
+									? "New relationship"
+									: "Only the source character owner can add relationships"
+							}
 							onClick={(e) => {
 								e.stopPropagation();
-								setEditingRel(null); // Null means it's a NEW relation
+								setEditingRel(null);
 								setIsModalOpen(true);
 							}}
-							className="inline-flex h-[2.35rem] w-full items-center justify-center gap-2 rounded-full border border-foreground/12 bg-background/88 px-[1.05rem] pl-[0.95rem] text-[0.72rem] font-black uppercase tracking-[0.12em] text-foreground/96 shadow-[inset_0_1px_0_color-mix(in_oklch,var(--foreground),transparent_92%),0_14px_38px_rgba(0,0,0,0.2)] backdrop-blur-md hover:border-foreground/22 hover:bg-foreground/6 hover:text-foreground"
+							className="inline-flex h-[2.35rem] w-full shrink-0 items-center justify-center gap-2 rounded-full border border-foreground/12 bg-background/88 px-[1.05rem] pl-[0.95rem] text-[0.72rem] font-black uppercase tracking-[0.12em] text-foreground/96 shadow-[inset_0_1px_0_color-mix(in_oklch,var(--foreground),transparent_92%),0_14px_38px_rgba(0,0,0,0.2)] backdrop-blur-md hover:border-foreground/22 hover:bg-foreground/6 hover:text-foreground"
 						>
-							<Plus className="size-4" /> New Relation
+							<Plus data-icon="inline-start" /> New Relation
 						</Button>
 
 						{inspectedRelationshipDetails ? (
 							<>
-								<div className="flex min-w-0 items-center justify-between gap-4">
+								<div className="flex min-w-0 shrink-0 items-center justify-between gap-4">
 									<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
 										Selected relation
 									</span>
@@ -580,7 +772,7 @@ export default function CharacterGraph() {
 									</strong>
 								</div>
 
-								<div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3 max-[920px]:items-center">
+								<div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3 max-[920px]:items-center">
 									<div className="grid min-w-0 justify-items-center gap-3 text-center">
 										<Avatar className="size-[3.35rem] border border-[color-mix(in_oklch,var(--relationship-accent),transparent_40%)] bg-[color-mix(in_oklch,var(--background),var(--foreground)_9%)] shadow-[0_0_0_5px_color-mix(in_oklch,var(--relationship-accent),transparent_88%)]">
 											<AvatarImage
@@ -674,7 +866,7 @@ export default function CharacterGraph() {
 									</div>
 								</div>
 
-								<div className="flex min-h-[4.25rem] min-w-0 items-center gap-3 rounded-[0.625rem] border border-foreground/8 bg-foreground/4 px-3 py-[0.7rem]">
+								<div className="flex min-h-[4.25rem] min-w-0 shrink-0 items-center gap-3 rounded-[0.625rem] border border-foreground/8 bg-foreground/4 px-3 py-[0.7rem]">
 									<div
 										className="size-[2.35rem] shrink-0 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--foreground),transparent_84%),0_0_24px_color-mix(in_oklch,var(--relationship-accent),transparent_68%)]"
 										style={{
@@ -693,15 +885,15 @@ export default function CharacterGraph() {
 									</div>
 								</div>
 
-								<section className="flex min-h-0 flex-auto flex-col overflow-hidden rounded-[0.625rem] border border-foreground/8 bg-foreground/3">
-									<div className="flex items-center gap-[0.55rem] px-3 py-[0.7rem] pb-[0.45rem] after:h-px after:flex-auto after:bg-foreground/10">
+								<section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[0.625rem] border border-foreground/8 bg-foreground/3">
+									<div className="flex shrink-0 items-center gap-[0.55rem] px-3 py-[0.7rem] pb-[0.45rem] after:h-px after:flex-auto after:bg-foreground/10">
 										<span className="text-[0.68rem] font-black uppercase leading-[1.1] tracking-[0.12em] text-foreground/52">
 											Note
 										</span>
 									</div>
 									<p
 										className={cn(
-											"m-0 min-h-0 flex-auto overflow-y-auto px-3 pb-3 text-[0.9rem] font-normal leading-[1.55] text-foreground/88 whitespace-pre-wrap wrap-anywhere",
+											"m-0 min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-[0.9rem] font-normal leading-[1.55] text-foreground/88 whitespace-pre-wrap wrap-anywhere [scrollbar-gutter:stable]",
 											!inspectedRelationshipDetails.rel.description &&
 												"flex items-center justify-center text-center italic text-foreground/54",
 										)}
@@ -711,32 +903,63 @@ export default function CharacterGraph() {
 									</p>
 								</section>
 
-								<div className="flex gap-2 pt-1">
+								<div
+									className={cn(
+										"grid shrink-0 gap-2 pt-1",
+										canEditInspectedRelationship
+											? "grid-cols-3"
+											: "grid-cols-1",
+									)}
+								>
 									<Button
 										size="sm"
 										variant="ghost"
-										className="flex-1 justify-center border border-foreground/9 bg-background/82"
+										className="w-full justify-center border border-foreground/9 bg-background/82"
+										disabled={!session || !inspectedRelationshipDetails.rel.id}
+										title={
+											!session
+												? "Sign in to view relationship history"
+												: inspectedRelationshipDetails.rel.id
+													? "View relationship history"
+													: "History is unavailable for legacy offline data"
+										}
 										onClick={(e) => {
 											e.stopPropagation();
-											setEditingRel(inspectedRelationshipDetails.rel);
-											setIsModalOpen(true);
+											setHistoryRel(inspectedRelationshipDetails.rel);
 										}}
 									>
-										<Edit2 className="size-4" />
-										Edit
+										<HistoryIcon data-icon="inline-start" />
+										History
 									</Button>
-									<Button
-										size="sm"
-										variant="ghost"
-										className="flex-1 justify-center border border-foreground/9 bg-background/82"
-										onClick={(e) => {
-											e.stopPropagation();
-											setDeletingRel(inspectedRelationshipDetails.rel);
-										}}
-									>
-										<Trash2 className="size-4" />
-										Delete
-									</Button>
+									{canEditInspectedRelationship && (
+										<>
+											<Button
+												size="sm"
+												variant="ghost"
+												className="w-full justify-center border border-foreground/9 bg-background/82"
+												onClick={(e) => {
+													e.stopPropagation();
+													setEditingRel(inspectedRelationshipDetails.rel);
+													setIsModalOpen(true);
+												}}
+											>
+												<Edit2 data-icon="inline-start" />
+												Edit
+											</Button>
+											<Button
+												size="sm"
+												variant="ghost"
+												className="w-full justify-center border border-foreground/9 bg-background/82"
+												onClick={(e) => {
+													e.stopPropagation();
+													setDeletingRel(inspectedRelationshipDetails.rel);
+												}}
+											>
+												<Trash2 data-icon="inline-start" />
+												Delete
+											</Button>
+										</>
+									)}
 								</div>
 							</>
 						) : (
@@ -784,6 +1007,7 @@ export default function CharacterGraph() {
 													onClick={(e) => {
 														e.stopPropagation();
 														setInspectedRel(row.rel);
+														markRelationshipRead(row.rel);
 													}}
 												>
 													<Avatar className="size-[2.35rem] border border-[color-mix(in_oklch,var(--relationship-row-accent),transparent_42%)] bg-[color-mix(in_oklch,var(--background),var(--foreground)_8%)]">
@@ -817,7 +1041,14 @@ export default function CharacterGraph() {
 													<span className="flex h-full items-center justify-end justify-self-end text-[0.72rem] font-black leading-none text-[color-mix(in_oklch,var(--relationship-row-accent),var(--foreground)_18%)] tabular-nums">
 														{valueLabel}
 													</span>
-													<div className="col-start-4 size-[0.55rem] rounded-full bg-(--relationship-row-accent) shadow-[0_0_16px_color-mix(in_oklch,var(--relationship-row-accent),transparent_62%)]" />
+													{row.direction === "Outgoing" &&
+														row.rel.id &&
+														unreadVersionsByRelationship.has(row.rel.id) && (
+															<Badge
+																aria-label="Unread relationship update"
+																className="col-start-4 size-[0.65rem] rounded-full bg-primary p-0 shadow-[0_0_16px_color-mix(in_oklch,var(--primary),transparent_55%)]"
+															/>
+														)}
 												</button>
 											);
 										})
@@ -851,19 +1082,28 @@ export default function CharacterGraph() {
 					<ConfirmModal
 						title="Delete Relationship"
 						message={`Are you sure you want to delete relationship from ${allChars.find((c) => c.id === deletingRel.fromId)?.name} to ${allChars.find((c) => c.id === deletingRel.toId)?.name}?`}
-						onConfirm={() =>
-							deleteRelationship(
-								deletingRel.fromId,
-								deletingRel.toId,
-								deletingRel.typeId,
-							)
-						}
+						onConfirm={() => deleteRelationship(deletingRel)}
 						open={!!deletingRel}
 						onOpenChange={(open) => {
 							if (!open) setDeletingRel(null);
 						}}
 					/>
 				)}
+				<RelationshipHistoryDialog
+					fromName={
+						allChars.find((character) => character.id === historyRel?.fromId)
+							?.name ?? "Unknown character"
+					}
+					onOpenChange={(open) => {
+						if (!open) setHistoryRel(null);
+					}}
+					open={Boolean(historyRel)}
+					relationshipId={historyRel?.id}
+					toName={
+						allChars.find((character) => character.id === historyRel?.toId)
+							?.name ?? "Unknown character"
+					}
+				/>
 			</div>
 		</div>
 	);
