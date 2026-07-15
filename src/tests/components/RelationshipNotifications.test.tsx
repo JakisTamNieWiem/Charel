@@ -132,6 +132,7 @@ vi.mock("@/store/useGraphStore", () => ({
 describe("relationship update notifications", () => {
 	beforeEach(() => {
 		mocks.markRead.mockReset();
+		graphState.setSelectedCharId.mockReset();
 	});
 
 	it("shows a notification dot on the source character", () => {
@@ -144,6 +145,41 @@ describe("relationship update notifications", () => {
 		expect(
 			screen.queryByLabelText("Bob has unread relationship updates"),
 		).toBeNull();
+	});
+
+	it("filters characters by name", () => {
+		render(<CharacterTab />);
+
+		fireEvent.change(screen.getByLabelText("Search characters"), {
+			target: { value: "bob" },
+		});
+
+		expect(screen.getByText("Bob")).toBeTruthy();
+		expect(screen.queryByText("Alice")).toBeNull();
+	});
+
+	it("lists unread changes and exposes explicit actions", () => {
+		render(<CharacterTab />);
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Unread relationship changes: 1",
+			}),
+		);
+
+		expect(
+			screen.getByRole("heading", { name: "Unread relationship changes" }),
+		).toBeTruthy();
+		expect(screen.getByText("Alice → Bob")).toBeTruthy();
+		expect(screen.getByText("Friend")).toBeTruthy();
+
+		fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
+		expect(mocks.markRead).toHaveBeenCalledWith({
+			relationshipId: "relationship-1",
+			latestVersionId: 8,
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Show character" }));
+		expect(graphState.setSelectedCharId).toHaveBeenCalledWith("character-1");
 	});
 
 	it("shows the relationship dot and marks the row as read when opened", () => {
