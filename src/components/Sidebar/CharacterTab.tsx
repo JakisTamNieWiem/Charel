@@ -1,8 +1,14 @@
-import { Edit2, Plus, Trash2 } from "lucide-react";
+import { Bell, Edit2, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import CharacterModal from "@/components/CharacterModal";
+import UnreadRelationshipChangesDialog from "@/components/UnreadRelationshipChangesDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+} from "@/components/ui/input-group";
 import { useUnreadRelationshipVersions } from "@/hooks/useRelationshipVersions";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
@@ -26,6 +32,8 @@ export default function CharacterTab() {
 	const { data: unreadRelationshipVersions = [] } =
 		useUnreadRelationshipVersions();
 	const [hoveredId, setHoveredId] = useState<string | null>(null);
+	const [characterSearch, setCharacterSearch] = useState("");
+	const [isUnreadDialogOpen, setIsUnreadDialogOpen] = useState(false);
 
 	const [editingCharacter, setEditingCharacter] = useState<
 		Character | "new" | null
@@ -65,12 +73,22 @@ export default function CharacterTab() {
 		}
 	}, [selectedId]);
 
-	const sortedCharacters = [...allCharacters].sort((a, b) =>
-		a.name.localeCompare(b.name),
-	);
+	const filteredCharacters = useMemo(() => {
+		const search = characterSearch.trim().toLocaleLowerCase();
+		return [...allCharacters]
+			.filter(
+				(character) =>
+					!search || character.name.toLocaleLowerCase().includes(search),
+			)
+			.sort((a, b) => a.name.localeCompare(b.name));
+	}, [allCharacters, characterSearch]);
 	const charactersWithUpdates = useMemo(
 		() => new Set(unreadRelationshipVersions.map((version) => version.from_id)),
 		[unreadRelationshipVersions],
+	);
+	const unreadChangeCount = unreadRelationshipVersions.reduce(
+		(total, version) => total + version.unread_count,
+		0,
 	);
 
 	return (
@@ -79,27 +97,63 @@ export default function CharacterTab() {
 				title="Characters"
 				count={allCharacters.length}
 				action={
-					<Button
-						onClick={() => setEditingCharacter("new")}
-						variant="ghost"
-						size="icon-sm"
-						title="New character"
-						className="hover:bg-(--sidebar-foreground)/8"
-					>
-						<Plus className="w-4 h-4" />
-					</Button>
+					<>
+						<Button
+							onClick={() => setIsUnreadDialogOpen(true)}
+							variant="ghost"
+							size="icon-sm"
+							title="Unread relationship changes"
+							aria-label={`Unread relationship changes: ${unreadChangeCount}`}
+							disabled={unreadChangeCount === 0}
+							className="relative hover:bg-(--sidebar-foreground)/8"
+						>
+							<Bell />
+							{unreadChangeCount > 0 && (
+								<Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[0.625rem] tabular-nums">
+									{unreadChangeCount}
+								</Badge>
+							)}
+						</Button>
+						<Button
+							onClick={() => setEditingCharacter("new")}
+							variant="ghost"
+							size="icon-sm"
+							title="New character"
+							aria-label="New character"
+							className="hover:bg-(--sidebar-foreground)/8"
+						>
+							<Plus />
+						</Button>
+					</>
 				}
 			/>
 
 			<SidebarSection>
-				{sortedCharacters.length === 0 && (
+				<InputGroup>
+					<InputGroupAddon>
+						<Search aria-hidden="true" />
+					</InputGroupAddon>
+					<InputGroupInput
+						value={characterSearch}
+						onChange={(event) => setCharacterSearch(event.target.value)}
+						placeholder="Search characters"
+						aria-label="Search characters"
+					/>
+				</InputGroup>
+
+				{allCharacters.length === 0 && (
 					<SidebarEmptyState title="No characters yet">
 						Add a character to begin mapping the cast.
 					</SidebarEmptyState>
 				)}
+				{allCharacters.length > 0 && filteredCharacters.length === 0 && (
+					<SidebarEmptyState title="No matching characters">
+						Try a different name.
+					</SidebarEmptyState>
+				)}
 
-				<div className="space-y-2">
-					{sortedCharacters.map((char) => (
+				<div className="flex flex-col gap-2">
+					{filteredCharacters.map((char) => (
 						<div
 							key={char.id}
 							onMouseEnter={() => setHoveredId(char.id)}
@@ -184,6 +238,12 @@ export default function CharacterTab() {
 					))}
 				</div>
 			</SidebarSection>
+
+			<UnreadRelationshipChangesDialog
+				open={isUnreadDialogOpen}
+				onOpenChange={setIsUnreadDialogOpen}
+				unreadVersions={unreadRelationshipVersions}
+			/>
 
 			{deletingCharacter && (
 				<ConfirmModal
