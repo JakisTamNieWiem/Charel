@@ -37,6 +37,8 @@ function getRelationshipKey(rel: Relationship) {
 	return rel.id ?? `${rel.fromId}-${rel.toId}-${rel.typeId}`;
 }
 
+const RELATIONSHIP_HOVER_READ_DELAY = 700;
+
 export default function CharacterGraph() {
 	const { session } = useAuth();
 	const selectedId = useGraphStore((state) => state.selectedCharId);
@@ -60,6 +62,10 @@ export default function CharacterGraph() {
 					version,
 				]),
 			),
+		[unreadRelationshipVersions],
+	);
+	const charactersWithUnreadRelationships = useMemo(
+		() => new Set(unreadRelationshipVersions.map((version) => version.from_id)),
 		[unreadRelationshipVersions],
 	);
 
@@ -89,6 +95,7 @@ export default function CharacterGraph() {
 		latestVersionId: number | null;
 		relationshipId: string;
 	} | null>(null);
+	const hoverReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [relationSearch, setRelationSearch] = useState("");
 
 	// --- LAYOUT MATH ---
@@ -116,6 +123,15 @@ export default function CharacterGraph() {
 	);
 	const margin = 150;
 	const svgSize = (radius + margin) * 2;
+	const cancelHoverRead = useCallback(() => {
+		if (hoverReadTimerRef.current === null) return;
+		clearTimeout(hoverReadTimerRef.current);
+		hoverReadTimerRef.current = null;
+	}, []);
+
+	useEffect(() => {
+		return cancelHoverRead;
+	}, [cancelHoverRead]);
 
 	const {
 		groupRef,
@@ -131,15 +147,11 @@ export default function CharacterGraph() {
 	} = useSvgPanZoom({
 		svgSize,
 		disabled: isModalOpen,
-		onPanStart: () => setInspectedRel(null),
-	});
-	const handleMouseEnterLine = useCallback(
-		(rel: Relationship) => {
-			if (isDraggingRef.current) return;
-			setInspectedRel(rel);
+		onPanStart: () => {
+			cancelHoverRead();
+			setInspectedRel(null);
 		},
-		[isDraggingRef],
-	);
+	});
 
 	const relationshipData = useMemo(() => {
 		return relatedCharacters.flatMap((char, i: number) => {
@@ -282,6 +294,31 @@ export default function CharacterGraph() {
 		[markRelationshipVersionsRead, unreadVersionsByRelationship],
 	);
 
+	const handleMouseEnterLine = useCallback(
+		(relationship: Relationship) => {
+			if (isDraggingRef.current) return;
+			setInspectedRel(relationship);
+			cancelHoverRead();
+			if (
+				!relationship.id ||
+				!unreadVersionsByRelationship.has(relationship.id)
+			) {
+				return;
+			}
+
+			hoverReadTimerRef.current = setTimeout(() => {
+				markRelationshipRead(relationship);
+				hoverReadTimerRef.current = null;
+			}, RELATIONSHIP_HOVER_READ_DELAY);
+		},
+		[
+			cancelHoverRead,
+			isDraggingRef,
+			markRelationshipRead,
+			unreadVersionsByRelationship,
+		],
+	);
+
 	const characterRelationshipRows = useMemo(() => {
 		if (!selectedId) return [];
 
@@ -373,6 +410,7 @@ export default function CharacterGraph() {
 								>
 									{/* Invisible trigger path */}
 									<path
+										data-testid={`relationship-hover-${rel.id ?? relId}`}
 										d={path}
 										fill="none"
 										stroke="transparent"
@@ -382,10 +420,13 @@ export default function CharacterGraph() {
 											e.preventDefault();
 											handleMouseEnterLine(rel);
 										}}
+										onMouseLeave={cancelHoverRead}
 										onPointerDown={(e) => {
 											if (e.pointerType === "mouse" && e.button === 2) return;
 											e.preventDefault();
 											e.stopPropagation();
+											cancelHoverRead();
+											markRelationshipRead(rel);
 											setInspectedRel(rel);
 											setEditingRel(rel);
 										}}
@@ -400,6 +441,8 @@ export default function CharacterGraph() {
 										onContextMenu={(e) => {
 											e.preventDefault();
 											e.stopPropagation();
+											cancelHoverRead();
+											markRelationshipRead(rel);
 											setInspectedRel(rel);
 											setDeletingRel(rel);
 										}}
@@ -487,6 +530,21 @@ export default function CharacterGraph() {
 									// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 									referrerPolicy="no-referrer"
 								/>
+								{charactersWithUnreadRelationships.has(char.id) && (
+									<g
+										aria-label={`${char.name} has unread relationship updates`}
+										data-testid={`graph-notification-${char.id}`}
+										role="status"
+									>
+										<circle
+											className="fill-primary stroke-background"
+											cx={x + relatedRadius * 0.7}
+											cy={y - relatedRadius * 0.7}
+											r="7"
+											strokeWidth="3"
+										/>
+									</g>
+								)}
 
 								<text
 									x={textX}
@@ -526,6 +584,22 @@ export default function CharacterGraph() {
 							// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 							referrerPolicy="no-referrer"
 						/>
+						{selectedCharacter &&
+							charactersWithUnreadRelationships.has(selectedCharacter.id) && (
+								<g
+									aria-label={`${selectedCharacter.name} has unread relationship updates`}
+									data-testid={`graph-notification-${selectedCharacter.id}`}
+									role="status"
+								>
+									<circle
+										className="fill-primary stroke-background"
+										cx={centerRadius * 0.7}
+										cy={-centerRadius * 0.7}
+										r="8"
+										strokeWidth="3"
+									/>
+								</g>
+							)}
 					</g>
 				</g>
 			</g>
@@ -542,7 +616,10 @@ export default function CharacterGraph() {
 		handleMouseEnterLine,
 		setSelectedCharId,
 		centerRadius,
+		cancelHoverRead,
+		charactersWithUnreadRelationships,
 		groupRef,
+		markRelationshipRead,
 	]);
 	return (
 		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-transparent">
@@ -963,7 +1040,7 @@ export default function CharacterGraph() {
 														unreadVersionsByRelationship.has(row.rel.id) && (
 															<Badge
 																aria-label="Unread relationship update"
-																className="col-start-4 size-[0.65rem] rounded-full p-0 shadow-[0_0_16px_color-mix(in_oklch,var(--primary),transparent_55%)]"
+																className="col-start-4 size-[0.65rem] rounded-full bg-primary p-0 shadow-[0_0_16px_color-mix(in_oklch,var(--primary),transparent_55%)]"
 															/>
 														)}
 												</button>

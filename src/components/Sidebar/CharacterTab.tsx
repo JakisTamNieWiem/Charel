@@ -138,7 +138,7 @@ export default function CharacterTab() {
 								{charactersWithUpdates.has(char.id) && (
 									<Badge
 										aria-label={`${char.name} has unread relationship updates`}
-										className="absolute top-0 right-0 size-3 rounded-full border-2 border-sidebar p-0 shadow-sm"
+										className="absolute top-0 right-0 size-3 rounded-full border-2 border-sidebar bg-primary p-0 shadow-sm"
 									/>
 								)}
 							</div>
