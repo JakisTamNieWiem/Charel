@@ -92,7 +92,7 @@ export default function CharacterTab() {
 	);
 
 	return (
-		<SidebarTabRoot>
+		<SidebarTabRoot className="gap-0">
 			<SidebarTabHeader
 				title="Characters"
 				count={allCharacters.length}
@@ -128,18 +128,20 @@ export default function CharacterTab() {
 				}
 			/>
 
-			<SidebarSection>
-				<InputGroup>
-					<InputGroupAddon>
-						<Search aria-hidden="true" />
-					</InputGroupAddon>
-					<InputGroupInput
-						value={characterSearch}
-						onChange={(event) => setCharacterSearch(event.target.value)}
-						placeholder="Search characters"
-						aria-label="Search characters"
-					/>
-				</InputGroup>
+			<SidebarSection className="space-y-0">
+				<div className="sticky top-[3.25rem] z-40 -mx-3 bg-sidebar px-3 py-3">
+					<InputGroup>
+						<InputGroupAddon>
+							<Search aria-hidden="true" />
+						</InputGroupAddon>
+						<InputGroupInput
+							value={characterSearch}
+							onChange={(event) => setCharacterSearch(event.target.value)}
+							placeholder="Search characters"
+							aria-label="Search characters"
+						/>
+					</InputGroup>
+				</div>
 
 				{allCharacters.length === 0 && (
 					<SidebarEmptyState title="No characters yet">

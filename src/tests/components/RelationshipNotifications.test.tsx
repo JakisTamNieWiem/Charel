@@ -150,7 +150,15 @@ describe("relationship update notifications", () => {
 	it("filters characters by name", () => {
 		render(<CharacterTab />);
 
-		fireEvent.change(screen.getByLabelText("Search characters"), {
+		const searchInput = screen.getByLabelText("Search characters");
+		const stickySearch = searchInput.parentElement?.parentElement;
+		expect(stickySearch?.classList).toContain("sticky");
+		expect(stickySearch?.classList).toContain("top-[3.25rem]");
+		expect(stickySearch?.parentElement?.parentElement?.classList).toContain(
+			"gap-0",
+		);
+
+		fireEvent.change(searchInput, {
 			target: { value: "bob" },
 		});
 
