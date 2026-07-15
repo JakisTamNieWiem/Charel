@@ -48,6 +48,8 @@ export function useRealtimeSync() {
 		}
 
 		let active = true;
+		let dataReady = false;
+		let realtimeError: string | null = null;
 		store.setSyncState("syncing", { initialized: false });
 
 		const initialize = async () => {
@@ -87,7 +89,11 @@ export function useRealtimeSync() {
 			} finally {
 				history.resume();
 			}
-			store.setSyncState("connected", { initialized: true });
+			dataReady = true;
+			store.setSyncState(realtimeError ? "error" : "connected", {
+				error: realtimeError,
+				initialized: true,
+			});
 		};
 
 		void initialize().catch((error: unknown) => {
@@ -152,11 +158,30 @@ export function useRealtimeSync() {
 					});
 				},
 			)
-			.subscribe((status) => {
-				if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+			.subscribe((status, error) => {
+				if (!active) return;
+
+				if (status === "SUBSCRIBED") {
+					realtimeError = null;
+					if (dataReady) {
+						useGraphStore.getState().setSyncState("connected", {
+							initialized: true,
+						});
+					}
+					return;
+				}
+
+				if (
+					status === "CHANNEL_ERROR" ||
+					status === "TIMED_OUT" ||
+					status === "CLOSED"
+				) {
+					console.error("Realtime subscription failed:", status, error);
+					realtimeError =
+						error?.message ?? "Realtime connection was interrupted";
 					useGraphStore.getState().setSyncState("error", {
-						error: "Realtime connection was interrupted",
-						initialized: true,
+						error: realtimeError,
+						initialized: dataReady,
 					});
 				}
 			});
