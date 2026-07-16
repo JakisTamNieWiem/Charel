@@ -64,6 +64,14 @@ const graphState = {
 			groupId: null,
 			ownerId: "owner-2",
 		},
+		{
+			id: "character-3",
+			name: "Charlie",
+			description: "",
+			avatar: null,
+			groupId: null,
+			ownerId: "owner-3",
+		},
 	],
 	deleteCharacter: vi.fn(),
 	deleteRelationship: vi.fn(),
@@ -132,6 +140,15 @@ vi.mock("@/store/useGraphStore", () => ({
 describe("relationship update notifications", () => {
 	beforeEach(() => {
 		mocks.markRead.mockReset();
+		mocks.unread.splice(0, mocks.unread.length, {
+			from_id: "character-1",
+			latest_version_id: 8,
+			relationship_id: "relationship-1",
+			unread_count: 1,
+		});
+		graphState.relationships.splice(1);
+		graphState.relationshipTypes.splice(1);
+		graphState.selectedCharId = "character-1";
 		graphState.setSelectedCharId.mockReset();
 	});
 
@@ -193,9 +210,8 @@ describe("relationship update notifications", () => {
 	it("shows the relationship dot and marks the row as read when opened", () => {
 		render(<CharacterGraph />);
 
-		expect(screen.queryByTestId("graph-notification-character-1")).toBeNull();
 		const graphNotification = screen.getByTestId(
-			"graph-notification-character-2",
+			"graph-notification-relationship-relationship-1",
 		);
 		expect(
 			graphNotification
@@ -222,6 +238,77 @@ describe("relationship update notifications", () => {
 		}).parentElement;
 		expect(actionRow?.classList.contains("grid-cols-3")).toBe(true);
 		expect(actionRow?.classList.contains("shrink-0")).toBe(true);
+	});
+
+	it("shows every unread relationship at its target-side graph edge", () => {
+		graphState.selectedCharId = "character-2";
+		graphState.relationshipTypes.push({
+			id: "type-2",
+			label: "Rival",
+			color: "#ef4444",
+			description: "",
+			value: -0.5,
+		});
+		graphState.relationships.push(
+			{
+				id: "relationship-2",
+				fromId: "character-3",
+				toId: "character-2",
+				typeId: "type-1",
+				description: "",
+				value: null,
+			},
+			{
+				id: "relationship-3",
+				fromId: "character-1",
+				toId: "character-2",
+				typeId: "type-2",
+				description: "",
+				value: null,
+			},
+		);
+		mocks.unread.push(
+			{
+				from_id: "character-3",
+				latest_version_id: 9,
+				relationship_id: "relationship-2",
+				unread_count: 1,
+			},
+			{
+				from_id: "character-1",
+				latest_version_id: 10,
+				relationship_id: "relationship-3",
+				unread_count: 1,
+			},
+		);
+
+		render(<CharacterGraph />);
+
+		const aliceFriend = screen.getByTestId(
+			"graph-notification-relationship-relationship-1",
+		);
+		const charlieFriend = screen.getByTestId(
+			"graph-notification-relationship-relationship-2",
+		);
+		const aliceRival = screen.getByTestId(
+			"graph-notification-relationship-relationship-3",
+		);
+
+		expect(
+			screen.getAllByLabelText("Alice changed a relationship to Bob"),
+		).toHaveLength(2);
+		expect(
+			screen.getByLabelText("Charlie changed a relationship to Bob"),
+		).toBeTruthy();
+		expect(aliceFriend.parentElement?.getAttribute("transform")).toBe(
+			aliceRival.parentElement?.getAttribute("transform"),
+		);
+		expect(aliceFriend.querySelector("circle")?.getAttribute("cy")).not.toBe(
+			aliceRival.querySelector("circle")?.getAttribute("cy"),
+		);
+		expect(charlieFriend.parentElement?.getAttribute("transform")).not.toBe(
+			aliceFriend.parentElement?.getAttribute("transform"),
+		);
 	});
 
 	it("marks a hovered relationship read only after the hover delay", () => {

@@ -64,16 +64,6 @@ export default function CharacterGraph() {
 			),
 		[unreadRelationshipVersions],
 	);
-	const charactersWithUnreadRelationships = useMemo(() => {
-		const characterIds = new Set<string>();
-		for (const version of unreadRelationshipVersions) {
-			const relationship = relationships.find(
-				(current) => current.id === version.relationship_id,
-			);
-			if (relationship) characterIds.add(relationship.toId);
-		}
-		return characterIds;
-	}, [relationships, unreadRelationshipVersions]);
 
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
@@ -199,8 +189,17 @@ export default function CharacterGraph() {
 
 				// Draw all paths from Center to Outer. We will use marker direction to show flow.
 				const path = `M ${startX} 0 Q ${cpX} ${cpY} ${endX} 0`;
+				const notificationProgress = rel.toId === selectedId ? 0.16 : 0.84;
+				const remainingProgress = 1 - notificationProgress;
+				const notificationX =
+					remainingProgress ** 2 * startX +
+					2 * remainingProgress * notificationProgress * cpX +
+					notificationProgress ** 2 * endX;
+				const notificationY =
+					2 * remainingProgress * notificationProgress * cpY;
 
 				return {
+					char,
 					rel,
 					type,
 					idx,
@@ -209,6 +208,8 @@ export default function CharacterGraph() {
 					angleDeg,
 					strokeW,
 					edgeOpacity,
+					notificationX,
+					notificationY,
 				};
 			});
 		});
@@ -395,14 +396,16 @@ export default function CharacterGraph() {
 				>
 					{relationshipData.map(
 						({
+							char,
 							rel,
 							type,
 							idx,
 							path,
 							isFromCenter,
 							angleDeg,
-
 							edgeOpacity,
+							notificationX,
+							notificationY,
 						}) => {
 							const relKey = getRelationshipKey(rel);
 							const relId = `${relKey}-${idx}`;
@@ -477,6 +480,22 @@ export default function CharacterGraph() {
 										opacity={isActive ? 1 : edgeOpacity}
 										className="pointer-events-none transition-opacity duration-300"
 									/>
+									{rel.id && unreadVersionsByRelationship.has(rel.id) && (
+										<g
+											aria-label={`${isFromCenter ? selectedCharacter?.name : char.name} changed a relationship to ${isFromCenter ? char.name : selectedCharacter?.name}`}
+											data-testid={`graph-notification-relationship-${rel.id}`}
+											role="status"
+											className="pointer-events-none"
+										>
+											<circle
+												className="fill-primary stroke-background"
+												cx={notificationX}
+												cy={notificationY}
+												r="6"
+												strokeWidth="3"
+											/>
+										</g>
+									)}
 								</g>
 							);
 						},
@@ -536,22 +555,6 @@ export default function CharacterGraph() {
 									// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 									referrerPolicy="no-referrer"
 								/>
-								{charactersWithUnreadRelationships.has(char.id) && (
-									<g
-										aria-label={`${char.name} has unread relationship updates`}
-										data-testid={`graph-notification-${char.id}`}
-										role="status"
-									>
-										<circle
-											className="fill-primary stroke-background"
-											cx={x + relatedRadius * 0.7}
-											cy={y - relatedRadius * 0.7}
-											r="7"
-											strokeWidth="3"
-										/>
-									</g>
-								)}
-
 								<text
 									x={textX}
 									y={textY}
@@ -590,22 +593,6 @@ export default function CharacterGraph() {
 							// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 							referrerPolicy="no-referrer"
 						/>
-						{selectedCharacter &&
-							charactersWithUnreadRelationships.has(selectedCharacter.id) && (
-								<g
-									aria-label={`${selectedCharacter.name} has unread relationship updates`}
-									data-testid={`graph-notification-${selectedCharacter.id}`}
-									role="status"
-								>
-									<circle
-										className="fill-primary stroke-background"
-										cx={centerRadius * 0.7}
-										cy={-centerRadius * 0.7}
-										r="8"
-										strokeWidth="3"
-									/>
-								</g>
-							)}
 					</g>
 				</g>
 			</g>
@@ -623,9 +610,9 @@ export default function CharacterGraph() {
 		setSelectedCharId,
 		centerRadius,
 		cancelHoverRead,
-		charactersWithUnreadRelationships,
 		groupRef,
 		markRelationshipRead,
+		unreadVersionsByRelationship,
 	]);
 	return (
 		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-transparent">
