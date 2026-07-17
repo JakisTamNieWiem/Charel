@@ -15,6 +15,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import RelationshipDescriptionText from "@/components/RelationshipDescriptionText";
 import RelationshipHistoryDialog from "@/components/RelationshipHistoryDialog";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthProvider";
@@ -928,8 +929,13 @@ export default function CharacterGraph() {
 												"flex items-center justify-center text-center italic text-foreground/54",
 										)}
 									>
-										{inspectedRelationshipDetails.rel.description ||
-											"No relationship note has been written yet."}
+										{inspectedRelationshipDetails.rel.description ? (
+											<RelationshipDescriptionText
+												text={inspectedRelationshipDetails.rel.description}
+											/>
+										) : (
+											"No relationship note has been written yet."
+										)}
 									</p>
 								</section>
 
