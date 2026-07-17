@@ -64,6 +64,19 @@ export default function CharacterGraph() {
 			),
 		[unreadRelationshipVersions],
 	);
+	const unreadOutgoingTargetIds = useMemo(() => {
+		const targetIds = new Set<string>();
+		for (const relationship of relationships) {
+			if (
+				relationship.fromId === selectedId &&
+				relationship.id &&
+				unreadVersionsByRelationship.has(relationship.id)
+			) {
+				targetIds.add(relationship.toId);
+			}
+		}
+		return targetIds;
+	}, [relationships, selectedId, unreadVersionsByRelationship]);
 
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
@@ -158,6 +171,12 @@ export default function CharacterGraph() {
 					(r.fromId === selectedId && r.toId === char.id) ||
 					(r.fromId === char.id && r.toId === selectedId),
 			);
+			const unreadIncomingRelationships = rels.filter(
+				(relationship) =>
+					relationship.toId === selectedId &&
+					relationship.id !== undefined &&
+					unreadVersionsByRelationship.has(relationship.id),
+			);
 
 			return rels.map((rel, idx: number) => {
 				const isFromCenter = rel.fromId === selectedId;
@@ -189,14 +208,17 @@ export default function CharacterGraph() {
 
 				// Draw all paths from Center to Outer. We will use marker direction to show flow.
 				const path = `M ${startX} 0 Q ${cpX} ${cpY} ${endX} 0`;
-				const notificationProgress = rel.toId === selectedId ? 0.16 : 0.84;
-				const remainingProgress = 1 - notificationProgress;
-				const notificationX =
-					remainingProgress ** 2 * startX +
-					2 * remainingProgress * notificationProgress * cpX +
-					notificationProgress ** 2 * endX;
-				const notificationY =
-					2 * remainingProgress * notificationProgress * cpY;
+				const unreadIncomingIndex = unreadIncomingRelationships.indexOf(rel);
+				const centerNotificationRadius = centerRadius + 2;
+				const centerNotificationY =
+					unreadIncomingIndex === -1
+						? 0
+						: (unreadIncomingIndex -
+								(unreadIncomingRelationships.length - 1) / 2) *
+							16;
+				const centerNotificationX = Math.sqrt(
+					Math.max(0, centerNotificationRadius ** 2 - centerNotificationY ** 2),
+				);
 
 				return {
 					char,
@@ -208,8 +230,8 @@ export default function CharacterGraph() {
 					angleDeg,
 					strokeW,
 					edgeOpacity,
-					notificationX,
-					notificationY,
+					centerNotificationX,
+					centerNotificationY,
 				};
 			});
 		});
@@ -220,6 +242,7 @@ export default function CharacterGraph() {
 		types,
 		radius,
 		centerRadius,
+		unreadVersionsByRelationship,
 	]);
 
 	const currentInspectedRel = useMemo(() => {
@@ -395,18 +418,7 @@ export default function CharacterGraph() {
 					className="animate-in fade-in-0 zoom-in-95 duration-300 ease-out transform-fill origin-center will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto"
 				>
 					{relationshipData.map(
-						({
-							char,
-							rel,
-							type,
-							idx,
-							path,
-							isFromCenter,
-							angleDeg,
-							edgeOpacity,
-							notificationX,
-							notificationY,
-						}) => {
+						({ rel, type, idx, path, isFromCenter, angleDeg, edgeOpacity }) => {
 							const relKey = getRelationshipKey(rel);
 							const relId = `${relKey}-${idx}`;
 							const isActive =
@@ -480,22 +492,6 @@ export default function CharacterGraph() {
 										opacity={isActive ? 1 : edgeOpacity}
 										className="pointer-events-none transition-opacity duration-300"
 									/>
-									{rel.id && unreadVersionsByRelationship.has(rel.id) && (
-										<g
-											aria-label={`${isFromCenter ? selectedCharacter?.name : char.name} changed a relationship to ${isFromCenter ? char.name : selectedCharacter?.name}`}
-											data-testid={`graph-notification-relationship-${rel.id}`}
-											role="status"
-											className="pointer-events-none"
-										>
-											<circle
-												className="fill-primary stroke-background"
-												cx={notificationX}
-												cy={notificationY}
-												r="6"
-												strokeWidth="3"
-											/>
-										</g>
-									)}
 								</g>
 							);
 						},
@@ -555,6 +551,22 @@ export default function CharacterGraph() {
 									// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 									referrerPolicy="no-referrer"
 								/>
+								{unreadOutgoingTargetIds.has(char.id) && (
+									<g
+										aria-label={`${char.name} has unread relationship updates`}
+										data-testid={`graph-notification-${char.id}`}
+										role="status"
+										className="pointer-events-none"
+									>
+										<circle
+											className="fill-primary stroke-background"
+											cx={x + relatedRadius * 0.7}
+											cy={y - relatedRadius * 0.7}
+											r="7"
+											strokeWidth="3"
+										/>
+									</g>
+								)}
 								<text
 									x={textX}
 									y={textY}
@@ -593,6 +605,36 @@ export default function CharacterGraph() {
 							// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 							referrerPolicy="no-referrer"
 						/>
+						{relationshipData.map(
+							({
+								char,
+								rel,
+								isFromCenter,
+								angleDeg,
+								centerNotificationX,
+								centerNotificationY,
+							}) =>
+								!isFromCenter &&
+								rel.id &&
+								unreadVersionsByRelationship.has(rel.id) ? (
+									<g
+										key={`center-notification-${rel.id}`}
+										aria-label={`${char.name} changed a relationship to ${selectedCharacter?.name}`}
+										data-testid={`graph-notification-relationship-${rel.id}`}
+										role="status"
+										className="pointer-events-none"
+										transform={`rotate(${angleDeg})`}
+									>
+										<circle
+											className="fill-primary stroke-background"
+											cx={centerNotificationX}
+											cy={centerNotificationY}
+											r="6"
+											strokeWidth="3"
+										/>
+									</g>
+								) : null,
+						)}
 					</g>
 				</g>
 			</g>
@@ -612,6 +654,7 @@ export default function CharacterGraph() {
 		cancelHoverRead,
 		groupRef,
 		markRelationshipRead,
+		unreadOutgoingTargetIds,
 		unreadVersionsByRelationship,
 	]);
 	return (

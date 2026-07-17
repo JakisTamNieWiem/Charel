@@ -211,13 +211,15 @@ describe("relationship update notifications", () => {
 		render(<CharacterGraph />);
 
 		const graphNotification = screen.getByTestId(
-			"graph-notification-relationship-relationship-1",
+			"graph-notification-character-2",
 		);
+		const notificationCircle = graphNotification.querySelector("circle");
+		expect(notificationCircle?.classList.contains("fill-primary")).toBe(true);
+		expect(Number(notificationCircle?.getAttribute("cx"))).toBeCloseTo(28);
+		expect(Number(notificationCircle?.getAttribute("cy"))).toBeCloseTo(-248);
 		expect(
-			graphNotification
-				.querySelector("circle")
-				?.classList.contains("fill-primary"),
-		).toBe(true);
+			screen.queryByTestId("graph-notification-relationship-relationship-1"),
+		).toBeNull();
 		expect(screen.getByLabelText("Unread relationship update")).toBeTruthy();
 		fireEvent.click(screen.getByRole("button", { name: /Bob/ }));
 
@@ -240,7 +242,7 @@ describe("relationship update notifications", () => {
 		expect(actionRow?.classList.contains("shrink-0")).toBe(true);
 	});
 
-	it("shows every unread relationship at its target-side graph edge", () => {
+	it("places every incoming unread relationship on the center circumference", () => {
 		graphState.selectedCharId = "character-2";
 		graphState.relationshipTypes.push({
 			id: "type-2",
@@ -261,6 +263,14 @@ describe("relationship update notifications", () => {
 			{
 				id: "relationship-3",
 				fromId: "character-1",
+				toId: "character-2",
+				typeId: "type-2",
+				description: "",
+				value: null,
+			},
+			{
+				id: "relationship-4",
+				fromId: "character-3",
 				toId: "character-2",
 				typeId: "type-2",
 				description: "",
@@ -300,15 +310,28 @@ describe("relationship update notifications", () => {
 		expect(
 			screen.getByLabelText("Charlie changed a relationship to Bob"),
 		).toBeTruthy();
-		expect(aliceFriend.parentElement?.getAttribute("transform")).toBe(
-			aliceRival.parentElement?.getAttribute("transform"),
+		expect(screen.queryByTestId("graph-notification-character-2")).toBeNull();
+		expect(
+			screen.queryByTestId("graph-notification-relationship-relationship-4"),
+		).toBeNull();
+
+		for (const notification of [aliceFriend, charlieFriend, aliceRival]) {
+			const circle = notification.querySelector("circle");
+			const x = Number(circle?.getAttribute("cx"));
+			const y = Number(circle?.getAttribute("cy"));
+			expect(Math.hypot(x, y)).toBeCloseTo(82);
+		}
+
+		expect(aliceFriend.getAttribute("transform")).toBe(
+			aliceRival.getAttribute("transform"),
 		);
 		expect(aliceFriend.querySelector("circle")?.getAttribute("cy")).not.toBe(
 			aliceRival.querySelector("circle")?.getAttribute("cy"),
 		);
-		expect(charlieFriend.parentElement?.getAttribute("transform")).not.toBe(
-			aliceFriend.parentElement?.getAttribute("transform"),
+		expect(charlieFriend.getAttribute("transform")).not.toBe(
+			aliceFriend.getAttribute("transform"),
 		);
+		expect(charlieFriend.querySelector("circle")?.getAttribute("cy")).toBe("0");
 	});
 
 	it("marks a hovered relationship read only after the hover delay", () => {
