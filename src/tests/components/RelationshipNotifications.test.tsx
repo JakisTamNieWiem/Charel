@@ -207,6 +207,41 @@ describe("relationship update notifications", () => {
 		expect(graphState.setSelectedCharId).toHaveBeenCalledWith("character-1");
 	});
 
+	it("marks every unread relationship as read", () => {
+		graphState.relationships.push({
+			id: "relationship-2",
+			fromId: "character-3",
+			toId: "character-2",
+			typeId: "type-1",
+			description: "",
+			value: null,
+		});
+		mocks.unread.push({
+			from_id: "character-3",
+			latest_version_id: 9,
+			relationship_id: "relationship-2",
+			unread_count: 1,
+		});
+
+		render(<CharacterTab />);
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Unread relationship changes: 2",
+			}),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Mark all as read" }));
+
+		expect(mocks.markRead).toHaveBeenCalledTimes(2);
+		expect(mocks.markRead).toHaveBeenNthCalledWith(1, {
+			relationshipId: "relationship-1",
+			latestVersionId: 8,
+		});
+		expect(mocks.markRead).toHaveBeenNthCalledWith(2, {
+			relationshipId: "relationship-2",
+			latestVersionId: 9,
+		});
+	});
+
 	it("shows the relationship dot and marks the row as read when opened", () => {
 		render(<CharacterGraph />);
 
