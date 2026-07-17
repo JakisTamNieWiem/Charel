@@ -1,20 +1,20 @@
 export const RELATIONSHIP_DESCRIPTION_COLORS = [
-	{ name: "RED", value: "#ef4444" },
-	{ name: "ORANGE", value: "#f97316" },
-	{ name: "AMBER", value: "#f59e0b" },
-	{ name: "YELLOW", value: "#eab308" },
-	{ name: "LIME", value: "#84cc16" },
-	{ name: "GREEN", value: "#22c55e" },
-	{ name: "EMERALD", value: "#10b981" },
-	{ name: "TEAL", value: "#14b8a6" },
-	{ name: "CYAN", value: "#06b6d4" },
-	{ name: "SKY", value: "#0ea5e9" },
-	{ name: "BLUE", value: "#3b82f6" },
-	{ name: "INDIGO", value: "#6366f1" },
-	{ name: "VIOLET", value: "#8b5cf6" },
-	{ name: "PURPLE", value: "#a855f7" },
-	{ name: "PINK", value: "#ec4899" },
-	{ name: "ROSE", value: "#f43f5e" },
+	{ name: "RED", value: "#ff1744" },
+	{ name: "GREEN", value: "#00c853" },
+	{ name: "BLUE", value: "#2962ff" },
+	{ name: "YELLOW", value: "#ffd600" },
+	{ name: "PURPLE", value: "#aa00ff" },
+	{ name: "CYAN", value: "#00b8d4" },
+	{ name: "ORANGE", value: "#ff6d00" },
+	{ name: "LIME", value: "#aeea00" },
+	{ name: "ROSE", value: "#ff4081" },
+	{ name: "EMERALD", value: "#00e676" },
+	{ name: "INDIGO", value: "#304ffe" },
+	{ name: "AMBER", value: "#ffab00" },
+	{ name: "PINK", value: "#f50057" },
+	{ name: "TEAL", value: "#00bfa5" },
+	{ name: "VIOLET", value: "#7c4dff" },
+	{ name: "SKY", value: "#0091ea" },
 ] as const;
 
 export type RelationshipDescriptionColor =
@@ -39,7 +39,7 @@ export function getRelationshipDescriptionColor(
 	color: RelationshipDescriptionColor,
 ) {
 	const value = colorsByName.get(color)?.value ?? "currentColor";
-	return `color-mix(in oklch, ${value} 80%, var(--foreground) 20%)`;
+	return `color-mix(in oklch, ${value} 94%, var(--foreground) 6%)`;
 }
 
 function addSegment(

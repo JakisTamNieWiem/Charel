@@ -185,7 +185,7 @@ export default function RelationshipModal({
 						<div
 							role="group"
 							aria-label="Description text colors"
-							className="flex flex-wrap gap-1.5"
+							className="grid w-fit grid-cols-8 gap-1.5"
 						>
 							{RELATIONSHIP_DESCRIPTION_COLORS.map((color) => (
 								<Button

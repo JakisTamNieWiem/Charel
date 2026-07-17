@@ -16,6 +16,6 @@ describe("RelationshipDescriptionText", () => {
 		expect(container.querySelector("script")).toBeNull();
 		const coloredText = container.querySelector("span");
 		expect(coloredText?.textContent).toBe('<script>alert("x")</script>');
-		expect(coloredText?.getAttribute("style")).toContain("#ef4444");
+		expect(coloredText?.getAttribute("style")).toContain("#ff1744");
 	});
 });

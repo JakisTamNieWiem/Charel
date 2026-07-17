@@ -9,21 +9,21 @@ describe("relationship description formatting", () => {
 	it("provides the fixed uppercase color palette", () => {
 		expect(RELATIONSHIP_DESCRIPTION_COLORS.map((color) => color.name)).toEqual([
 			"RED",
-			"ORANGE",
-			"AMBER",
-			"YELLOW",
-			"LIME",
 			"GREEN",
-			"EMERALD",
-			"TEAL",
-			"CYAN",
-			"SKY",
 			"BLUE",
-			"INDIGO",
-			"VIOLET",
+			"YELLOW",
 			"PURPLE",
-			"PINK",
+			"CYAN",
+			"ORANGE",
+			"LIME",
 			"ROSE",
+			"EMERALD",
+			"INDIGO",
+			"AMBER",
+			"PINK",
+			"TEAL",
+			"VIOLET",
+			"SKY",
 		]);
 	});
 
