@@ -1,4 +1,4 @@
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, CheckCheck } from "lucide-react";
 import { useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
@@ -77,10 +78,18 @@ export default function UnreadRelationshipChangesDialog({
 		(total, version) => total + version.unread_count,
 		0,
 	);
+	const markAllRead = () => {
+		for (const version of unreadVersions) {
+			markVersionsRead.mutate({
+				relationshipId: version.relationship_id,
+				latestVersionId: version.latest_version_id,
+			});
+		}
+	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="grid max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-2xl">
+			<DialogContent className="grid max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-2xl">
 				<DialogHeader>
 					<DialogTitle>Unread relationship changes</DialogTitle>
 					<DialogDescription>
@@ -158,6 +167,16 @@ export default function UnreadRelationshipChangesDialog({
 						</ItemGroup>
 					)}
 				</ScrollArea>
+
+				<DialogFooter>
+					<Button
+						disabled={unreadVersions.length === 0 || markVersionsRead.isPending}
+						onClick={markAllRead}
+					>
+						<CheckCheck data-icon="inline-start" />
+						Mark all as read
+					</Button>
+				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);
