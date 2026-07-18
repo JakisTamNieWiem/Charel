@@ -5,10 +5,19 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 type SubscriptionCallback = (status: string, error?: Error) => void;
 
 const mocks = vi.hoisted(() => ({
+	auth: {
+		loading: false,
+		session: {
+			access_token: "token-1",
+			user: { id: "user-1" },
+		} as { access_token: string; user: { id: string } } | null,
+	},
 	clear: vi.fn(),
 	importData: vi.fn(),
-	invalidateQueries: vi.fn(),
 	pause: vi.fn(),
+	queryClient: {
+		invalidateQueries: vi.fn(),
+	},
 	removeChannel: vi.fn(),
 	resume: vi.fn(),
 	setState: vi.fn(),
@@ -17,14 +26,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-	useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
+	useQueryClient: () => mocks.queryClient,
 }));
 
 vi.mock("@/context/AuthProvider", () => ({
-	useAuth: () => ({
-		loading: false,
-		session: { user: { id: "user-1" } },
-	}),
+	useAuth: () => mocks.auth,
 }));
 
 vi.mock("@/lib/supabase", () => {
@@ -74,7 +80,52 @@ function RealtimeSyncProbe() {
 
 describe("useRealtimeSync", () => {
 	beforeEach(() => {
+		mocks.auth.loading = false;
+		mocks.auth.session = {
+			access_token: "token-1",
+			user: { id: "user-1" },
+		};
 		mocks.subscriptionCallback = undefined;
+	});
+
+	it("keeps the current sync when the same user's token refreshes", async () => {
+		const { rerender } = render(<RealtimeSyncProbe />);
+
+		await waitFor(() => expect(mocks.importData).toHaveBeenCalledOnce());
+		mocks.auth.session = {
+			access_token: "token-2",
+			user: { id: "user-1" },
+		};
+		rerender(<RealtimeSyncProbe />);
+
+		expect(mocks.importData).toHaveBeenCalledOnce();
+		expect(mocks.removeChannel).not.toHaveBeenCalled();
+		expect(
+			mocks.setSyncState.mock.calls.filter(
+				([status, options]) =>
+					status === "syncing" && options?.initialized === false,
+			),
+		).toHaveLength(1);
+	});
+
+	it("restarts sync when the authenticated user changes", async () => {
+		const { rerender } = render(<RealtimeSyncProbe />);
+
+		await waitFor(() => expect(mocks.importData).toHaveBeenCalledOnce());
+		mocks.auth.session = {
+			access_token: "token-2",
+			user: { id: "user-2" },
+		};
+		rerender(<RealtimeSyncProbe />);
+
+		await waitFor(() => expect(mocks.importData).toHaveBeenCalledTimes(2));
+		expect(mocks.removeChannel).toHaveBeenCalledOnce();
+		expect(
+			mocks.setSyncState.mock.calls.filter(
+				([status, options]) =>
+					status === "syncing" && options?.initialized === false,
+			),
+		).toHaveLength(2);
 	});
 
 	it("recovers the sync status after a transient realtime error", async () => {
