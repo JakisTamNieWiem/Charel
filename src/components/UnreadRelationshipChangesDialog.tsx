@@ -1,5 +1,6 @@
 import { ArrowRight, Check, CheckCheck } from "lucide-react";
 import { useMemo } from "react";
+import RelationshipDescriptionText from "@/components/RelationshipDescriptionText";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,7 +133,13 @@ export default function UnreadRelationshipChangesDialog({
 											<Badge variant="outline">{change.typeLabel}</Badge>
 										</div>
 										<ItemDescription>
-											{change.description || "No relationship note."}
+											{change.description ? (
+												<RelationshipDescriptionText
+													text={change.description}
+												/>
+											) : (
+												"No relationship note."
+											)}
 										</ItemDescription>
 									</ItemContent>
 

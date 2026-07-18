@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import RelationshipDescriptionText from "@/components/RelationshipDescriptionText";
 import { Badge } from "@/components/ui/badge";
 import {
 	Dialog,
@@ -102,7 +103,11 @@ export default function RelationshipHistoryDialog({
 									</span>
 								</div>
 								<p className="mt-2 whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-foreground/80">
-									{version.description || "No relationship note."}
+									{version.description ? (
+										<RelationshipDescriptionText text={version.description} />
+									) : (
+										"No relationship note."
+									)}
 								</p>
 							</article>
 						))}

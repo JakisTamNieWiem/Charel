@@ -1,4 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import {
+	getRelationshipDescriptionColor,
+	RELATIONSHIP_DESCRIPTION_COLORS,
+	type RelationshipDescriptionColor,
+	wrapRelationshipDescriptionSelection,
+} from "@/lib/relationship-description";
 import { useGraphStore } from "@/store/useGraphStore";
 import type { Character, Relationship } from "@/types/types";
 import { Button } from "./ui/button";
@@ -18,7 +24,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "./ui/dialog";
-import { Field, FieldGroup } from "./ui/field";
+import { Field, FieldDescription, FieldGroup } from "./ui/field";
 import { Label } from "./ui/label";
 import {
 	Select,
@@ -52,6 +58,7 @@ export default function RelationshipModal({
 		.filter((c) => c.id !== fromId)
 		.sort((a, b) => a.name.localeCompare(b.name));
 	const types = useGraphStore((state) => state.relationshipTypes);
+	const descriptionRef = useRef<HTMLTextAreaElement>(null);
 	const [formData, setFormData] = useState(
 		() =>
 			initialData || {
@@ -62,6 +69,28 @@ export default function RelationshipModal({
 				value: null,
 			},
 	);
+	const applyDescriptionColor = (color: RelationshipDescriptionColor) => {
+		const textarea = descriptionRef.current;
+		if (!textarea) return;
+
+		const result = wrapRelationshipDescriptionSelection(
+			textarea.value,
+			textarea.selectionStart,
+			textarea.selectionEnd,
+			color,
+		);
+		setFormData((current) => ({
+			...current,
+			description: result.value,
+		}));
+		requestAnimationFrame(() => {
+			descriptionRef.current?.focus();
+			descriptionRef.current?.setSelectionRange(
+				result.selectionStart,
+				result.selectionEnd,
+			);
+		});
+	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -137,10 +166,15 @@ export default function RelationshipModal({
 						</Select>
 					</Field>
 					<Field className="space-y-1">
-						<Label className="text-[10px] uppercase font-mono tracking-widest opacity-50">
+						<Label
+							htmlFor="relationship-description"
+							className="text-[10px] uppercase font-mono tracking-widest opacity-50"
+						>
 							Description
 						</Label>
 						<Textarea
+							ref={descriptionRef}
+							id="relationship-description"
 							value={formData.description}
 							onChange={(e) =>
 								setFormData({ ...formData, description: e.target.value })
@@ -148,6 +182,37 @@ export default function RelationshipModal({
 							placeholder="e.g. Secretly admires them"
 							className="w-full bg-white/5 border border-white/10 p-3 rounded-lg focus:outline-none focus:border-white/30"
 						/>
+						<div
+							role="group"
+							aria-label="Description text colors"
+							className="grid w-fit grid-cols-8 gap-1.5"
+						>
+							{RELATIONSHIP_DESCRIPTION_COLORS.map((color) => (
+								<Button
+									key={color.name}
+									type="button"
+									variant="outline"
+									size="icon-xs"
+									aria-label={`Apply ${color.name} text color`}
+									title={color.name}
+									onClick={() => applyDescriptionColor(color.name)}
+								>
+									<span
+										aria-hidden="true"
+										className="size-3.5 rounded-full border border-foreground/15"
+										style={{
+											backgroundColor: getRelationshipDescriptionColor(
+												color.name,
+											),
+										}}
+									/>
+								</Button>
+							))}
+						</div>
+						<FieldDescription className="text-xs">
+							Select text and choose a color, or type{" "}
+							<code>[RED]text[/RED]</code>.
+						</FieldDescription>
 					</Field>
 					<Field className="space-y-3">
 						<div className="flex items-center justify-between">
