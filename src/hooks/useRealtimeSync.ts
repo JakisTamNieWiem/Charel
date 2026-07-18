@@ -33,6 +33,7 @@ function setRealtimeState(state: Partial<GraphState>) {
 
 export function useRealtimeSync() {
 	const { session, loading } = useAuth();
+	const userId = session?.user.id ?? null;
 	const queryClient = useQueryClient();
 
 	useEffect(() => {
@@ -42,7 +43,7 @@ export function useRealtimeSync() {
 			return;
 		}
 
-		if (!session) {
+		if (!userId) {
 			store.setSyncState("offline", { initialized: true });
 			return;
 		}
@@ -190,5 +191,5 @@ export function useRealtimeSync() {
 			active = false;
 			void supabase.removeChannel(channel);
 		};
-	}, [loading, queryClient, session]);
+	}, [loading, queryClient, userId]);
 }

@@ -54,8 +54,18 @@ export default function RelationshipModal({
 	onOpenChange,
 }: RelationshipModalProps) {
 	const characters = useGraphStore((state) => state.characters);
+	const relationships = useGraphStore((state) => state.relationships);
+	const existingTargetIds = new Set(
+		relationships
+			.filter((relationship) => relationship.fromId === fromId)
+			.map((relationship) => relationship.toId),
+	);
 	const toCharacters = characters
-		.filter((c) => c.id !== fromId)
+		.filter(
+			(character) =>
+				character.id !== fromId &&
+				(Boolean(initialData) || !existingTargetIds.has(character.id)),
+		)
 		.sort((a, b) => a.name.localeCompare(b.name));
 	const types = useGraphStore((state) => state.relationshipTypes);
 	const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -63,7 +73,7 @@ export default function RelationshipModal({
 		() =>
 			initialData || {
 				fromId,
-				toId: characters.find((c) => c.id !== fromId)?.id || "",
+				toId: toCharacters[0]?.id ?? "",
 				typeId: types[0]?.id || "",
 				description: "",
 				value: null,
@@ -91,6 +101,10 @@ export default function RelationshipModal({
 			);
 		});
 	};
+	const hasValidTarget = initialData
+		? formData.toId === initialData.toId
+		: toCharacters.some((character) => character.id === formData.toId);
+	const canSave = hasValidTarget && Boolean(formData.typeId);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -119,7 +133,7 @@ export default function RelationshipModal({
 								disabled={!!initialData}
 							/>
 							<ComboboxContent>
-								<ComboboxEmpty>No character found.</ComboboxEmpty>
+								<ComboboxEmpty>No available character found.</ComboboxEmpty>
 								<ComboboxList>
 									{(item: Character) => (
 										<ComboboxItem key={item.id} value={item.id}>
@@ -300,6 +314,7 @@ export default function RelationshipModal({
 					></DialogClose>
 					<Button
 						variant={"default"}
+						disabled={!canSave}
 						onClick={() => {
 							onSave(formData);
 							onOpenChange(false);
