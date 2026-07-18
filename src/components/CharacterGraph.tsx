@@ -15,6 +15,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import RelationshipDescriptionText from "@/components/RelationshipDescriptionText";
 import RelationshipHistoryDialog from "@/components/RelationshipHistoryDialog";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthProvider";
@@ -64,16 +65,19 @@ export default function CharacterGraph() {
 			),
 		[unreadRelationshipVersions],
 	);
-	const charactersWithUnreadRelationships = useMemo(() => {
-		const characterIds = new Set<string>();
-		for (const version of unreadRelationshipVersions) {
-			const relationship = relationships.find(
-				(current) => current.id === version.relationship_id,
-			);
-			if (relationship) characterIds.add(relationship.toId);
+	const unreadOutgoingTargetIds = useMemo(() => {
+		const targetIds = new Set<string>();
+		for (const relationship of relationships) {
+			if (
+				relationship.fromId === selectedId &&
+				relationship.id &&
+				unreadVersionsByRelationship.has(relationship.id)
+			) {
+				targetIds.add(relationship.toId);
+			}
 		}
-		return characterIds;
-	}, [relationships, unreadRelationshipVersions]);
+		return targetIds;
+	}, [relationships, selectedId, unreadVersionsByRelationship]);
 
 	const selectedCharacter = useGraphStore((state) =>
 		state.characters.find((c) => c.id === state.selectedCharId),
@@ -168,6 +172,12 @@ export default function CharacterGraph() {
 					(r.fromId === selectedId && r.toId === char.id) ||
 					(r.fromId === char.id && r.toId === selectedId),
 			);
+			const unreadIncomingRelationships = rels.filter(
+				(relationship) =>
+					relationship.toId === selectedId &&
+					relationship.id !== undefined &&
+					unreadVersionsByRelationship.has(relationship.id),
+			);
 
 			return rels.map((rel, idx: number) => {
 				const isFromCenter = rel.fromId === selectedId;
@@ -199,8 +209,20 @@ export default function CharacterGraph() {
 
 				// Draw all paths from Center to Outer. We will use marker direction to show flow.
 				const path = `M ${startX} 0 Q ${cpX} ${cpY} ${endX} 0`;
+				const unreadIncomingIndex = unreadIncomingRelationships.indexOf(rel);
+				const centerNotificationRadius = centerRadius + 2;
+				const centerNotificationY =
+					unreadIncomingIndex === -1
+						? 0
+						: (unreadIncomingIndex -
+								(unreadIncomingRelationships.length - 1) / 2) *
+							16;
+				const centerNotificationX = Math.sqrt(
+					Math.max(0, centerNotificationRadius ** 2 - centerNotificationY ** 2),
+				);
 
 				return {
+					char,
 					rel,
 					type,
 					idx,
@@ -209,6 +231,8 @@ export default function CharacterGraph() {
 					angleDeg,
 					strokeW,
 					edgeOpacity,
+					centerNotificationX,
+					centerNotificationY,
 				};
 			});
 		});
@@ -219,6 +243,7 @@ export default function CharacterGraph() {
 		types,
 		radius,
 		centerRadius,
+		unreadVersionsByRelationship,
 	]);
 
 	const currentInspectedRel = useMemo(() => {
@@ -394,16 +419,7 @@ export default function CharacterGraph() {
 					className="animate-in fade-in-0 zoom-in-95 duration-300 ease-out transform-fill origin-center will-change-[opacity,transform] motion-reduce:animate-none motion-reduce:will-change-auto"
 				>
 					{relationshipData.map(
-						({
-							rel,
-							type,
-							idx,
-							path,
-							isFromCenter,
-							angleDeg,
-
-							edgeOpacity,
-						}) => {
+						({ rel, type, idx, path, isFromCenter, angleDeg, edgeOpacity }) => {
 							const relKey = getRelationshipKey(rel);
 							const relId = `${relKey}-${idx}`;
 							const isActive =
@@ -536,11 +552,12 @@ export default function CharacterGraph() {
 									// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 									referrerPolicy="no-referrer"
 								/>
-								{charactersWithUnreadRelationships.has(char.id) && (
+								{unreadOutgoingTargetIds.has(char.id) && (
 									<g
 										aria-label={`${char.name} has unread relationship updates`}
 										data-testid={`graph-notification-${char.id}`}
 										role="status"
+										className="pointer-events-none"
 									>
 										<circle
 											className="fill-primary stroke-background"
@@ -551,7 +568,6 @@ export default function CharacterGraph() {
 										/>
 									</g>
 								)}
-
 								<text
 									x={textX}
 									y={textY}
@@ -590,22 +606,36 @@ export default function CharacterGraph() {
 							// @ts-expect-error: referrerPolicy is valid on SVGImageElement but missing in React types
 							referrerPolicy="no-referrer"
 						/>
-						{selectedCharacter &&
-							charactersWithUnreadRelationships.has(selectedCharacter.id) && (
-								<g
-									aria-label={`${selectedCharacter.name} has unread relationship updates`}
-									data-testid={`graph-notification-${selectedCharacter.id}`}
-									role="status"
-								>
-									<circle
-										className="fill-primary stroke-background"
-										cx={centerRadius * 0.7}
-										cy={-centerRadius * 0.7}
-										r="8"
-										strokeWidth="3"
-									/>
-								</g>
-							)}
+						{relationshipData.map(
+							({
+								char,
+								rel,
+								isFromCenter,
+								angleDeg,
+								centerNotificationX,
+								centerNotificationY,
+							}) =>
+								!isFromCenter &&
+								rel.id &&
+								unreadVersionsByRelationship.has(rel.id) ? (
+									<g
+										key={`center-notification-${rel.id}`}
+										aria-label={`${char.name} changed a relationship to ${selectedCharacter?.name}`}
+										data-testid={`graph-notification-relationship-${rel.id}`}
+										role="status"
+										className="pointer-events-none"
+										transform={`rotate(${angleDeg})`}
+									>
+										<circle
+											className="fill-primary stroke-background"
+											cx={centerNotificationX}
+											cy={centerNotificationY}
+											r="6"
+											strokeWidth="3"
+										/>
+									</g>
+								) : null,
+						)}
 					</g>
 				</g>
 			</g>
@@ -623,9 +653,10 @@ export default function CharacterGraph() {
 		setSelectedCharId,
 		centerRadius,
 		cancelHoverRead,
-		charactersWithUnreadRelationships,
 		groupRef,
 		markRelationshipRead,
+		unreadOutgoingTargetIds,
+		unreadVersionsByRelationship,
 	]);
 	return (
 		<div className="grid grid-cols-1 grid-rows-1 w-full h-full overflow-hidden relative bg-transparent">
@@ -898,8 +929,13 @@ export default function CharacterGraph() {
 												"flex items-center justify-center text-center italic text-foreground/54",
 										)}
 									>
-										{inspectedRelationshipDetails.rel.description ||
-											"No relationship note has been written yet."}
+										{inspectedRelationshipDetails.rel.description ? (
+											<RelationshipDescriptionText
+												text={inspectedRelationshipDetails.rel.description}
+											/>
+										) : (
+											"No relationship note has been written yet."
+										)}
 									</p>
 								</section>
 
