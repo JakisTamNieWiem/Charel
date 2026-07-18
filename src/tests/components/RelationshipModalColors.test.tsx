@@ -20,6 +20,32 @@ const graphState = {
 			groupId: null,
 			ownerId: "owner-2",
 		},
+		{
+			id: "character-3",
+			name: "Charlie",
+			description: "",
+			avatar: null,
+			groupId: null,
+			ownerId: "owner-3",
+		},
+	],
+	relationships: [
+		{
+			id: "relationship-1",
+			fromId: "character-1",
+			toId: "character-2",
+			typeId: "type-1",
+			description: "",
+			value: null,
+		},
+		{
+			id: "relationship-2",
+			fromId: "character-3",
+			toId: "character-1",
+			typeId: "type-1",
+			description: "",
+			value: null,
+		},
 	],
 	relationshipTypes: [
 		{
@@ -56,6 +82,17 @@ function renderModal(description = "Secret note") {
 	);
 }
 
+function renderNewModal() {
+	return render(
+		<RelationshipModal
+			fromId="character-1"
+			onSave={vi.fn()}
+			open={true}
+			onOpenChange={vi.fn()}
+		/>,
+	);
+}
+
 function mockAnimationFrames() {
 	const callbacks: FrameRequestCallback[] = [];
 	vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
@@ -68,7 +105,16 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-describe("relationship description color controls", () => {
+describe("RelationshipModal", () => {
+	it("excludes existing outgoing relationship targets when creating", () => {
+		renderNewModal();
+
+		const target = screen.getByPlaceholderText(
+			"Select a character",
+		) as HTMLInputElement;
+		expect(target.value).toBe("Charlie");
+	});
+
 	it("shows all colors and wraps selected text", () => {
 		const animationFrames = mockAnimationFrames();
 		renderModal();
