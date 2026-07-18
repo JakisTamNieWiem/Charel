@@ -164,6 +164,19 @@ describe("relationship update notifications", () => {
 		).toBeNull();
 	});
 
+	it("renders relationship types in an accessible compact rail", () => {
+		render(<CharacterGraph />);
+
+		const legend = screen.getByRole("list", { name: "Relationship types" });
+		expect(legend.classList).toContain("overflow-y-auto");
+		expect(legend.classList).toContain("top-1/2");
+		expect(legend.classList).toContain("-translate-y-1/2");
+
+		const friendType = screen.getByLabelText("Friend relationship type");
+		expect(friendType.tabIndex).toBe(0);
+		expect(friendType.textContent).toContain("Friend");
+	});
+
 	it("filters characters by name", () => {
 		render(<CharacterTab />);
 
