@@ -382,7 +382,7 @@ describe("relationship update notifications", () => {
 		expect(charlieFriend.querySelector("circle")?.getAttribute("cy")).toBe("0");
 	});
 
-	it("marks a hovered relationship read only after the hover delay", () => {
+	it("keeps the read delay running while the relationship is open", () => {
 		vi.useFakeTimers();
 		try {
 			render(<CharacterGraph />);
@@ -396,10 +396,6 @@ describe("relationship update notifications", () => {
 
 			fireEvent.mouseLeave(relationshipPath);
 			act(() => vi.advanceTimersByTime(1));
-			expect(mocks.markRead).not.toHaveBeenCalled();
-
-			fireEvent.mouseEnter(relationshipPath);
-			act(() => vi.advanceTimersByTime(700));
 			expect(mocks.markRead).toHaveBeenCalledWith({
 				relationshipId: "relationship-1",
 				latestVersionId: 8,

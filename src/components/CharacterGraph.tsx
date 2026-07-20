@@ -442,7 +442,6 @@ export default function CharacterGraph() {
 											e.preventDefault();
 											handleMouseEnterLine(rel);
 										}}
-										onMouseLeave={cancelHoverRead}
 										onPointerDown={(e) => {
 											if (e.pointerType === "mouse" && e.button === 2) return;
 											e.preventDefault();
