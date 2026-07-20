@@ -30,6 +30,39 @@ describe("realtime graph reducers", () => {
 		).toEqual([]);
 	});
 
+	it("preserves fields omitted from realtime updates", () => {
+		type CharacterRow = {
+			id: string;
+			avatar: string;
+			groupId: string | null;
+			ownerId: string;
+		};
+		const character: CharacterRow = {
+			id: "character-1",
+			avatar: "data:image/webp;base64,avatar",
+			groupId: null,
+			ownerId: "owner-1",
+		};
+
+		expect(
+			applyRowChange([character], {
+				eventType: "UPDATE",
+				new: {
+					id: character.id,
+					groupId: "group-1",
+					ownerId: "owner-2",
+				} as CharacterRow,
+				old: { id: character.id },
+			}),
+		).toEqual([
+			{
+				...character,
+				groupId: "group-1",
+				ownerId: "owner-2",
+			},
+		]);
+	});
+
 	it("uses the previous relationship key when an update changes it", () => {
 		const relationship: Relationship = {
 			fromId: "a",
