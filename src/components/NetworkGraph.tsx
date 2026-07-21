@@ -244,7 +244,7 @@ export default function NetworkGraph() {
 			engine.transform.y = pos.y - (pos.y - y) * (nextScale / k);
 			engine.transform.k = nextScale;
 
-			markDirty(true, false);
+			markDirty(false, false);
 			scheduleSettledQuality();
 		};
 
