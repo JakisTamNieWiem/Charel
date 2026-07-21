@@ -1,93 +1,123 @@
 import { Texture } from "pixi.js";
 
-const MAX_AVATAR_TEXTURES = 64;
+const MAX_AVATAR_TEXTURE_SIZE = 256;
 
 type AvatarTextureEntry = {
 	texture: Texture | null;
+	image: HTMLImageElement | null;
 	loading: boolean;
 	failed: boolean;
-	callbacks: Set<() => void>;
-	lastUsed: number;
+	onReady: (() => void) | null;
 	disposed: boolean;
 };
 
 const cache = new Map<string, AvatarTextureEntry>();
-let accessCounter = 0;
+
+function releaseImage(entry: AvatarTextureEntry, cancel: boolean) {
+	const image = entry.image;
+
+	if (!image) return;
+
+	image.onload = null;
+	image.onerror = null;
+
+	if (cancel) {
+		image.src = "";
+	}
+
+	entry.image = null;
+}
 
 function disposeEntry(entry: AvatarTextureEntry) {
 	entry.disposed = true;
-	entry.callbacks.clear();
+	entry.onReady = null;
+	releaseImage(entry, entry.loading);
 	entry.texture?.destroy(true);
 	entry.texture = null;
 }
 
-function pruneCache() {
-	while (cache.size > MAX_AVATAR_TEXTURES) {
-		let oldestKey: string | null = null;
-		let oldestAccess = Number.POSITIVE_INFINITY;
+function notifyReady(entry: AvatarTextureEntry) {
+	const onReady = entry.onReady;
 
-		for (const [key, entry] of cache) {
-			if (entry.lastUsed < oldestAccess) {
-				oldestKey = key;
-				oldestAccess = entry.lastUsed;
-			}
-		}
-
-		if (!oldestKey) return;
-		const entry = cache.get(oldestKey);
-		cache.delete(oldestKey);
-		if (entry) disposeEntry(entry);
+	entry.onReady = null;
+	if (onReady) {
+		queueMicrotask(() => {
+			if (!entry.disposed) onReady();
+		});
 	}
 }
 
-function notifyReady(entry: AvatarTextureEntry) {
-	const callbacks = Array.from(entry.callbacks);
-	entry.callbacks.clear();
-	for (const callback of callbacks) callback();
+function createThumbnail(image: HTMLImageElement) {
+	const scale = Math.min(
+		1,
+		MAX_AVATAR_TEXTURE_SIZE / Math.max(image.naturalWidth, image.naturalHeight),
+	);
+	const canvas = document.createElement("canvas");
+
+	canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+	canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+	const context = canvas.getContext("2d");
+
+	if (!context) return null;
+
+	context.imageSmoothingEnabled = true;
+	context.imageSmoothingQuality = "high";
+	context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+	return canvas;
 }
 
 export function getAvatarTexture(avatarUrl: string, onReady: () => void) {
 	const cached = cache.get(avatarUrl);
+
 	if (cached) {
-		cached.lastUsed = ++accessCounter;
-		if (cached.loading) cached.callbacks.add(onReady);
+		if (cached.loading) cached.onReady = onReady;
 		return { failed: cached.failed, texture: cached.texture };
 	}
 
+	const image = new Image();
 	const entry: AvatarTextureEntry = {
 		texture: null,
+		image,
 		loading: true,
 		failed: false,
-		callbacks: new Set([onReady]),
-		lastUsed: ++accessCounter,
+		onReady,
 		disposed: false,
 	};
-	const image = new Image();
+
 	cache.set(avatarUrl, entry);
-	pruneCache();
 
 	const finish = () => {
 		if (entry.disposed || entry.texture || entry.failed) return;
+
 		if (!image.naturalWidth || !image.naturalHeight) {
 			entry.loading = false;
 			entry.failed = true;
-			queueMicrotask(() => notifyReady(entry));
+			releaseImage(entry, false);
+			notifyReady(entry);
 			return;
 		}
 
 		try {
-			entry.texture = Texture.from(image, true);
+			const thumbnail = createThumbnail(image);
+
+			if (!thumbnail) throw new Error("Could not create avatar thumbnail");
+			entry.texture = Texture.from(thumbnail, true);
 		} catch {
 			entry.failed = true;
 		}
+
 		entry.loading = false;
-		queueMicrotask(() => notifyReady(entry));
+		releaseImage(entry, false);
+		notifyReady(entry);
 	};
 	const fail = () => {
 		if (entry.disposed) return;
 		entry.loading = false;
 		entry.failed = true;
-		queueMicrotask(() => notifyReady(entry));
+		releaseImage(entry, false);
+		notifyReady(entry);
 	};
 
 	image.decoding = "async";
@@ -99,6 +129,14 @@ export function getAvatarTexture(avatarUrl: string, onReady: () => void) {
 	image.src = avatarUrl;
 
 	return { failed: false, texture: null };
+}
+
+export function pruneAvatarTextureCache(activeAvatarUrls: ReadonlySet<string>) {
+	for (const [avatarUrl, entry] of cache) {
+		if (activeAvatarUrls.has(avatarUrl)) continue;
+		cache.delete(avatarUrl);
+		disposeEntry(entry);
+	}
 }
 
 export function clearAvatarTextureCache() {

@@ -1,7 +1,6 @@
 import {
 	type Application,
 	Container,
-	type ContainerChild,
 	Graphics,
 	Sprite,
 	Text,
@@ -41,10 +40,11 @@ type ThemeColors = {
 
 type PixiLayers = {
 	world: Container;
-	groups: Container;
-	links: Container;
+	groups: Graphics;
+	links: Graphics;
 	fx: Graphics;
-	nodes: Container;
+	nodes: Graphics;
+	nodeContent: Container;
 	labels: Container;
 };
 
@@ -503,11 +503,11 @@ function syncWorldTransform(engine: EngineState) {
 	engine.layers.world.scale.set(engine.transform.k);
 }
 
-function clearLayer(layer: Container) {
+function clearTransientLayer(layer: Container) {
 	const children = layer.removeChildren();
 
 	for (const child of children) {
-		child.destroy({ children: true });
+		child.destroy({ children: true, context: true, style: true });
 	}
 }
 
@@ -583,10 +583,11 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 	}
 
 	syncWorldTransform(engine);
-	clearLayer(layers.groups);
-	clearLayer(layers.links);
-	clearLayer(layers.nodes);
-	clearLayer(layers.labels);
+	layers.groups.clear();
+	layers.links.clear();
+	layers.nodes.clear();
+	clearTransientLayer(layers.nodeContent);
+	clearTransientLayer(layers.labels);
 
 	const { x: tx, y: ty, k } = engine.transform;
 	const bounds = getViewportBounds(
@@ -596,13 +597,9 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 	);
 	const { theme, hoveredNodeId, hoveredGroupId, connectedNodeIds } = engine;
 	const shouldCull = !engine.isInteracting;
-	const groupGraphics = new Graphics();
-	const linkGraphics = new Graphics();
-	const nodeGraphics = new Graphics();
-
-	layers.groups.addChild(groupGraphics);
-	layers.links.addChild(linkGraphics);
-	layers.nodes.addChild(nodeGraphics);
+	const groupGraphics = layers.groups;
+	const linkGraphics = layers.links;
+	const nodeGraphics = layers.nodes;
 
 	for (const group of engine.layout.groups) {
 		const isHovered = hoveredGroupId === group.id;
@@ -722,7 +719,7 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 
 		const drawInitials = () => {
 			addText(
-				layers.nodes,
+				layers.nodeContent,
 				node.initials,
 				rx,
 				ry,
@@ -750,8 +747,8 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 			});
 
 			if (avatar.texture) {
-				addAvatarSprite(layers.nodes, avatar.texture, rx, ry, nodeAlpha);
-			} else if (avatar.failed) {
+				addAvatarSprite(layers.nodeContent, avatar.texture, rx, ry, nodeAlpha);
+			} else {
 				drawInitials();
 			}
 		} else {
@@ -892,31 +889,20 @@ function drawFxLayer(engine: EngineState) {
 
 function createLayers() {
 	const world = new Container();
-	const groups = new Container();
-	const links = new Container();
+	const groups = new Graphics();
+	const links = new Graphics();
 	const fx = new Graphics();
-	const nodes = new Container();
+	const nodes = new Graphics();
+	const nodeContent = new Container();
 	const labels = new Container();
 
-	world.addChild(groups, links, fx, nodes, labels);
+	world.addChild(groups, links, fx, nodes, nodeContent, labels);
 
-	return { world, groups, links, fx, nodes, labels };
+	return { world, groups, links, fx, nodes, nodeContent, labels };
 }
 
 function destroyLayers(layers: PixiLayers) {
-	const children: ContainerChild[] = [
-		layers.groups,
-		layers.links,
-		layers.fx,
-		layers.nodes,
-		layers.labels,
-	];
-
-	for (const child of children) {
-		child.destroy({ children: true });
-	}
-
-	layers.world.destroy({ children: true });
+	layers.world.destroy({ children: true, context: true, style: true });
 }
 
 export type { EngineState };

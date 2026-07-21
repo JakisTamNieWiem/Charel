@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildNetworkLayout,
 	findNodeAtPosition,
-	getAvatarSpriteSpec,
+	getNetworkRendererResolution,
 	getViewportBounds,
 	isCircleVisible,
 	isLinkVisible,
@@ -152,7 +152,7 @@ describe("network-graph helpers", () => {
 		});
 	});
 
-	it("computes viewport visibility and avatar tiers", () => {
+	it("computes viewport visibility", () => {
 		const bounds = getViewportBounds({ x: 200, y: 150, k: 0.5 }, 400, 300);
 		const layout = buildNetworkLayout(
 			characters,
@@ -164,16 +164,12 @@ describe("network-graph helpers", () => {
 
 		expect(isCircleVisible(bounds, 0, 0, 20)).toBe(true);
 		expect(isLinkVisible(bounds, layout.links[0], 32)).toBe(true);
+	});
 
-		const interactive = getAvatarSpriteSpec(
-			"avatar.png",
-			"interactive",
-			0.5,
-			1,
-		);
-		const settled = getAvatarSpriteSpec("avatar.png", "settled", 0.5, 1);
-
-		expect(settled.size).toBeGreaterThanOrEqual(interactive.size);
-		expect(settled.cacheKey).not.toBe(interactive.cacheKey);
+	it("caps renderer resolution to a 4K pixel budget", () => {
+		expect(getNetworkRendererResolution(1920, 1080, 2)).toBe(2);
+		expect(getNetworkRendererResolution(2560, 1440, 2)).toBe(1.5);
+		expect(getNetworkRendererResolution(3840, 2160, 2)).toBe(1);
+		expect(getNetworkRendererResolution(0, 0, Number.NaN)).toBe(1);
 	});
 });

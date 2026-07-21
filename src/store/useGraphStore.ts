@@ -6,7 +6,7 @@ import type { NetworkCurveStyle } from "@/lib/network-graph";
 import { isSameRelationship } from "@/lib/realtime-graph";
 import { supabase } from "@/lib/supabase";
 import type {
-	Character,
+	CharacterFormData,
 	GraphData,
 	GraphSnapshot,
 	GraphSyncStatus,
@@ -72,6 +72,7 @@ export interface GraphState extends GraphData {
 	selectedCharId: string | null;
 	networkMode: NetworkMode;
 	networkCurveStyle: NetworkCurveStyle;
+	showRelationshipTypeLegend: boolean;
 	setSyncState: (
 		status: GraphSyncStatus,
 		options?: { error?: string | null; initialized?: boolean },
@@ -79,10 +80,11 @@ export interface GraphState extends GraphData {
 	setSelectedCharId: (id: string | null) => void;
 	setNetworkMode: (mode: NetworkMode) => void;
 	setNetworkCurveStyle: (style: NetworkCurveStyle) => void;
-	addCharacter: (
-		character: Omit<Omit<Character, "id">, "ownerId">,
+	setShowRelationshipTypeLegend: (show: boolean) => void;
+	addCharacter: (character: Omit<CharacterFormData, "id">) => Promise<void>;
+	updateCharacter: (
+		character: Omit<CharacterFormData, "ownerId">,
 	) => Promise<void>;
-	updateCharacter: (character: Omit<Character, "ownerId">) => Promise<void>;
 	deleteCharacter: (id: string) => Promise<void>;
 	addType: (type: Omit<RelationshipType, "id">) => Promise<void>;
 	updateType: (type: RelationshipType) => Promise<void>;
@@ -125,6 +127,7 @@ export const useGraphStore = create<GraphState>()(
 				selectedCharId: null,
 				networkMode: "group",
 				networkCurveStyle: "quadratic",
+				showRelationshipTypeLegend: true,
 
 				setSyncState: (status, options) =>
 					set({
@@ -135,13 +138,16 @@ export const useGraphStore = create<GraphState>()(
 				setSelectedCharId: (selectedCharId) => set({ selectedCharId }),
 				setNetworkMode: (networkMode) => set({ networkMode }),
 				setNetworkCurveStyle: (networkCurveStyle) => set({ networkCurveStyle }),
+				setShowRelationshipTypeLegend: (showRelationshipTypeLegend) =>
+					set({ showRelationshipTypeLegend }),
 
 				addCharacter: (character) =>
 					(() => {
 						const id = crypto.randomUUID();
 						return runOptimisticMutation({
 							capture: () => get().characters,
-							update: (ownerId) => {
+							update: (authenticatedUserId) => {
+								const ownerId = character.ownerId || authenticatedUserId;
 								set((state) => ({
 									characters: [
 										...state.characters,
@@ -149,12 +155,14 @@ export const useGraphStore = create<GraphState>()(
 									],
 								}));
 							},
-							remote: (ownerId) =>
-								supabase
+							remote: (authenticatedUserId) => {
+								const ownerId = character.ownerId || authenticatedUserId;
+								return supabase
 									.from("Characters")
 									.insert({ ...character, id, ownerId })
 									.select()
-									.single(),
+									.single();
+							},
 							rollback: (characters) => set({ characters }),
 							errorMessage: "Error adding character!",
 						});
@@ -167,7 +175,7 @@ export const useGraphStore = create<GraphState>()(
 							set((state) => ({
 								characters: state.characters.map((current) =>
 									current.id === character.id
-										? { ...character, ownerId: current.ownerId }
+										? { ...current, ...character }
 										: current,
 								),
 							})),
@@ -505,6 +513,7 @@ export const useGraphStore = create<GraphState>()(
 				selectedCharId: state.selectedCharId,
 				networkMode: state.networkMode,
 				networkCurveStyle: state.networkCurveStyle,
+				showRelationshipTypeLegend: state.showRelationshipTypeLegend,
 			}),
 		},
 	),

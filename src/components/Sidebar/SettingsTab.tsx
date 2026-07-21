@@ -3,7 +3,14 @@ import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Download, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldLabel,
+} from "@/components/ui/field";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthProvider";
 import { loadGraphBackup, parseGraphSnapshot } from "@/lib/storage";
@@ -24,6 +31,12 @@ export default function SettingsTab() {
 	const relationshipTypes = useGraphStore((state) => state.relationshipTypes);
 	const relationships = useGraphStore((state) => state.relationships);
 	const groups = useGraphStore((state) => state.groups);
+	const showRelationshipTypeLegend = useGraphStore(
+		(state) => state.showRelationshipTypeLegend,
+	);
+	const setShowRelationshipTypeLegend = useGraphStore(
+		(state) => state.setShowRelationshipTypeLegend,
+	);
 	const syncStatus = useGraphStore((state) => state.syncStatus);
 	const { session } = useAuth();
 	const canRestore = !session || syncStatus === "error";
@@ -88,6 +101,27 @@ export default function SettingsTab() {
 		<SidebarTabRoot>
 			<SidebarTabHeader title="Settings" />
 			<ThemeManager />
+
+			<Separator className="bg-(--sidebar-foreground)/10" />
+			<SidebarSection title="Graph Display">
+				<SidebarPanel className="p-3">
+					<Field orientation="horizontal">
+						<FieldContent>
+							<FieldLabel htmlFor="relationship-type-legend">
+								Relationship type legend
+							</FieldLabel>
+							<FieldDescription className="text-xs">
+								Show relationship type labels on graphs.
+							</FieldDescription>
+						</FieldContent>
+						<Switch
+							id="relationship-type-legend"
+							checked={showRelationshipTypeLegend}
+							onCheckedChange={setShowRelationshipTypeLegend}
+						/>
+					</Field>
+				</SidebarPanel>
+			</SidebarSection>
 
 			<Separator className="bg-(--sidebar-foreground)/10" />
 			<SidebarSection

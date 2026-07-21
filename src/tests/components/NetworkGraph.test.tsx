@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import NetworkGraph from "@/components/NetworkGraph";
 
 const setSelectedCharId = vi.fn();
+const pixiMocks = vi.hoisted(() => ({
+	graphicsClearCalls: 0,
+	graphicsDestroyOptions: [] as unknown[],
+}));
 
 const graphState = {
 	characters: [
@@ -19,6 +23,7 @@ const graphState = {
 	relationshipTypes: [],
 	groups: [{ id: "group-1", name: "Crew", color: "#ff0000" }],
 	networkMode: "group" as const,
+	showRelationshipTypeLegend: true,
 	setSelectedCharId,
 };
 
@@ -58,7 +63,10 @@ vi.mock("pixi.js", () => {
 			return children;
 		}
 
-		destroy() {}
+		destroy(options?: unknown) {
+			for (const child of this.children) child.destroy(options);
+			this.children = [];
+		}
 	}
 
 	class GraphicsMock extends ContainerMock {
@@ -71,7 +79,13 @@ vi.mock("pixi.js", () => {
 		}
 
 		clear() {
+			pixiMocks.graphicsClearCalls += 1;
 			return this;
+		}
+
+		destroy(options?: unknown) {
+			pixiMocks.graphicsDestroyOptions.push(options);
+			super.destroy(options);
 		}
 
 		fill() {
@@ -153,9 +167,11 @@ vi.mock("pixi.js", () => {
 describe("NetworkGraph", () => {
 	beforeEach(() => {
 		setSelectedCharId.mockReset();
+		pixiMocks.graphicsClearCalls = 0;
+		pixiMocks.graphicsDestroyOptions.length = 0;
 	});
 
-	it("selects the centered node on click after initial resize", async () => {
+	it("renders interactions without rebuilding the scene on every wheel event", async () => {
 		let resizeCallback:
 			| ((
 					entries: Array<{ contentRect: { width: number; height: number } }>,
@@ -176,11 +192,22 @@ describe("NetworkGraph", () => {
 		}
 
 		vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+		let nextFrameId = 0;
+		const animationFrames = new Map<number, FrameRequestCallback>();
+		const flushAnimationFrames = () => {
+			const callbacks = Array.from(animationFrames.values());
+			animationFrames.clear();
+			for (const callback of callbacks) callback(0);
+		};
+
 		vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-			callback(0);
-			return 1;
+			nextFrameId += 1;
+			animationFrames.set(nextFrameId, callback);
+			return nextFrameId;
 		});
-		vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+		vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frameId) => {
+			animationFrames.delete(frameId);
+		});
 		vi.spyOn(
 			HTMLCanvasElement.prototype,
 			"getBoundingClientRect",
@@ -196,7 +223,7 @@ describe("NetworkGraph", () => {
 			toJSON: () => ({}),
 		});
 
-		const { container } = render(<NetworkGraph />);
+		const { container, unmount } = render(<NetworkGraph />);
 		let pixiCanvas: HTMLCanvasElement | null = null;
 
 		await waitFor(() => {
@@ -207,7 +234,26 @@ describe("NetworkGraph", () => {
 
 		await act(async () => {
 			resizeCallback?.([{ contentRect: { width: 400, height: 300 } }]);
+			flushAnimationFrames();
 		});
+
+		const clearCallsBeforeWheel = pixiMocks.graphicsClearCalls;
+
+		for (let index = 0; index < 4; index += 1) {
+			await act(async () => {
+				pixiCanvas?.dispatchEvent(
+					new WheelEvent("wheel", {
+						bubbles: true,
+						clientX: 200,
+						clientY: 150,
+						deltaY: 1,
+					}),
+				);
+				flushAnimationFrames();
+			});
+		}
+
+		expect(pixiMocks.graphicsClearCalls - clearCallsBeforeWheel).toBe(4);
 
 		await act(async () => {
 			pixiCanvas?.dispatchEvent(
@@ -226,8 +272,15 @@ describe("NetworkGraph", () => {
 					pointerId: 1,
 				}),
 			);
+			flushAnimationFrames();
 		});
 
 		expect(setSelectedCharId).toHaveBeenCalledWith("char-1");
+
+		unmount();
+		expect(pixiMocks.graphicsDestroyOptions.length).toBeGreaterThan(0);
+		for (const options of pixiMocks.graphicsDestroyOptions) {
+			expect(options).toMatchObject({ context: true, style: true });
+		}
 	});
 });

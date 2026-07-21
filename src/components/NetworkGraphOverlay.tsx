@@ -5,12 +5,14 @@ type NetworkGraphOverlayProps = {
 	groups: Group[];
 	types: RelationshipType[];
 	showGroups: boolean;
+	showRelationshipTypeLegend: boolean;
 };
 
 export default function NetworkGraphOverlay({
 	groups,
 	types,
 	showGroups,
+	showRelationshipTypeLegend,
 }: NetworkGraphOverlayProps) {
 	return (
 		<>
@@ -33,23 +35,25 @@ export default function NetworkGraphOverlay({
 				</div>
 			)}
 
-			<div className="pointer-events-none z-10 flex w-min flex-col flex-wrap-reverse gap-3 p-6">
-				{types.map((type) => (
-					<Badge
-						variant="secondary"
-						key={type.id}
-						className="self-start border border-foreground/5 bg-card/40 p-2.5 pr-1 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
-					>
-						<span className="text-[10px] font-bold uppercase tracking-widest">
-							{type.label}
-						</span>
-						<div
-							className="ml-2 h-3 w-3 rounded-full"
-							style={{ backgroundColor: type.color }}
-						/>
-					</Badge>
-				))}
-			</div>
+			{showRelationshipTypeLegend && (
+				<div className="pointer-events-none z-10 flex w-min flex-col flex-wrap-reverse gap-3 p-6">
+					{types.map((type) => (
+						<Badge
+							variant="secondary"
+							key={type.id}
+							className="self-start border border-foreground/5 bg-card/40 p-2.5 pr-1 backdrop-blur-md transition-all hover:bg-foreground/10 pointer-events-auto"
+						>
+							<span className="text-[10px] font-bold uppercase tracking-widest">
+								{type.label}
+							</span>
+							<div
+								className="ml-2 h-3 w-3 rounded-full"
+								style={{ backgroundColor: type.color }}
+							/>
+						</Badge>
+					))}
+				</div>
+			)}
 		</>
 	);
 }

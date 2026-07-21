@@ -96,6 +96,7 @@ const graphState = {
 	],
 	selectedCharId: "character-1",
 	setSelectedCharId: vi.fn(),
+	showRelationshipTypeLegend: true,
 	updateCharacter: vi.fn(),
 	updateRelationship: vi.fn(),
 };
@@ -149,6 +150,7 @@ describe("relationship update notifications", () => {
 		graphState.relationships.splice(1);
 		graphState.relationshipTypes.splice(1);
 		graphState.selectedCharId = "character-1";
+		graphState.showRelationshipTypeLegend = true;
 		graphState.setSelectedCharId.mockReset();
 	});
 
@@ -161,6 +163,28 @@ describe("relationship update notifications", () => {
 		expect(notificationDot.classList.contains("bg-primary")).toBe(true);
 		expect(
 			screen.queryByLabelText("Bob has unread relationship updates"),
+		).toBeNull();
+	});
+
+	it("renders relationship types in an accessible compact rail", () => {
+		render(<CharacterGraph />);
+
+		const legend = screen.getByRole("list", { name: "Relationship types" });
+		expect(legend.classList).toContain("overflow-y-auto");
+		expect(legend.classList).toContain("top-1/2");
+		expect(legend.classList).toContain("-translate-y-1/2");
+
+		const friendType = screen.getByLabelText("Friend relationship type");
+		expect(friendType.tabIndex).toBe(0);
+		expect(friendType.textContent).toContain("Friend");
+	});
+
+	it("hides the relationship type legend when disabled", () => {
+		graphState.showRelationshipTypeLegend = false;
+		render(<CharacterGraph />);
+
+		expect(
+			screen.queryByRole("list", { name: "Relationship types" }),
 		).toBeNull();
 	});
 
@@ -369,7 +393,7 @@ describe("relationship update notifications", () => {
 		expect(charlieFriend.querySelector("circle")?.getAttribute("cy")).toBe("0");
 	});
 
-	it("marks a hovered relationship read only after the hover delay", () => {
+	it("keeps the read delay running while the relationship is open", () => {
 		vi.useFakeTimers();
 		try {
 			render(<CharacterGraph />);
@@ -383,10 +407,6 @@ describe("relationship update notifications", () => {
 
 			fireEvent.mouseLeave(relationshipPath);
 			act(() => vi.advanceTimersByTime(1));
-			expect(mocks.markRead).not.toHaveBeenCalled();
-
-			fireEvent.mouseEnter(relationshipPath);
-			act(() => vi.advanceTimersByTime(700));
 			expect(mocks.markRead).toHaveBeenCalledWith({
 				relationshipId: "relationship-1",
 				latestVersionId: 8,

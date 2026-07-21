@@ -12,7 +12,7 @@ import {
 import { useUnreadRelationshipVersions } from "@/hooks/useRelationshipVersions";
 import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/useGraphStore";
-import type { Character } from "@/types/types";
+import type { Character, CharacterFormData } from "@/types/types";
 import ConfirmModal from "../ConfirmModal";
 import {
 	SidebarEmptyState,
@@ -43,6 +43,26 @@ export default function CharacterTab() {
 	);
 
 	const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+	const saveCharacter = (character: CharacterFormData) => {
+		if (!character.id) {
+			void addCharacter({
+				name: character.name,
+				description: character.description,
+				avatar: character.avatar,
+				groupId: character.groupId,
+				ownerId: character.ownerId,
+			});
+			return;
+		}
+
+		void updateCharacter({
+			id: character.id,
+			name: character.name,
+			description: character.description,
+			avatar: character.avatar,
+			groupId: character.groupId,
+		});
+	};
 
 	useEffect(() => {
 		if (selectedId) {
@@ -272,7 +292,7 @@ export default function CharacterTab() {
 								}
 							: editingCharacter
 					}
-					onSave={editingCharacter === "new" ? addCharacter : updateCharacter}
+					onSave={saveCharacter}
 					open={!!editingCharacter}
 					onOpenChange={(open) => {
 						if (!open) setEditingCharacter(null);

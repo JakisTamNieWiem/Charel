@@ -17,7 +17,9 @@ export function applyRowChange<T extends { id: string }>(
 	const index = rows.findIndex((row) => row.id === previousId);
 	if (index === -1) return [...rows, change.new];
 
-	return rows.map((row, rowIndex) => (rowIndex === index ? change.new : row));
+	return rows.map((row, rowIndex) =>
+		rowIndex === index ? { ...row, ...change.new } : row,
+	);
 }
 
 export function isSameRelationship(

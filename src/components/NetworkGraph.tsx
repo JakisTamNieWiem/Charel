@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import {
 	buildNetworkLayout,
 	findNodeAtPosition,
+	getNetworkRendererResolution,
 	type LayoutData,
 } from "@/lib/network-graph";
 import {
@@ -14,6 +15,10 @@ import {
 	type EngineState,
 	syncWorldTransform,
 } from "@/lib/network-graph-renderer";
+import {
+	clearAvatarTextureCache,
+	pruneAvatarTextureCache,
+} from "@/lib/pixi-avatar-cache";
 import { sharedPixiRuntime } from "@/lib/pixi-runtime";
 import { useGraphStore } from "@/store/useGraphStore";
 import NetworkGraphOverlay from "./NetworkGraphOverlay";
@@ -27,6 +32,9 @@ export default function NetworkGraph() {
 	const groups = useGraphStore((state) => state.groups);
 	const networkMode = useGraphStore((state) => state.networkMode);
 	const networkCurveStyle = useGraphStore((state) => state.networkCurveStyle);
+	const showRelationshipTypeLegend = useGraphStore(
+		(state) => state.showRelationshipTypeLegend,
+	);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const scheduleRenderRef = useRef<(() => void) | null>(null);
@@ -72,8 +80,14 @@ export default function NetworkGraph() {
 
 	useEffect(() => {
 		const engine = engineRef.current;
+		const activeAvatarUrls = new Set<string>();
+
+		for (const node of layout.nodes) {
+			if (node.avatar) activeAvatarUrls.add(node.avatar);
+		}
 
 		engine.layout = layout;
+		pruneAvatarTextureCache(activeAvatarUrls);
 		engine.staticDirty = true;
 		engine.fxDirty = true;
 		scheduleRenderRef.current?.();
@@ -244,7 +258,7 @@ export default function NetworkGraph() {
 			engine.transform.y = pos.y - (pos.y - y) * (nextScale / k);
 			engine.transform.k = nextScale;
 
-			markDirty(true, false);
+			markDirty(false, false);
 			scheduleSettledQuality();
 		};
 
@@ -334,7 +348,11 @@ export default function NetworkGraph() {
 					const rect = entries[0].contentRect;
 					const width = Math.max(rect.width, 1);
 					const height = Math.max(rect.height, 1);
-					const resolution = window.devicePixelRatio || 1;
+					const resolution = getNetworkRendererResolution(
+						width,
+						height,
+						window.devicePixelRatio,
+					);
 
 					engine.width = width;
 					engine.height = height;
@@ -409,6 +427,7 @@ export default function NetworkGraph() {
 			engine.canvas = null;
 			scheduleRenderRef.current = null;
 			destroyLayers(layers);
+			clearAvatarTextureCache();
 		};
 	}, [setSelectedCharId]);
 
@@ -421,6 +440,7 @@ export default function NetworkGraph() {
 				groups={groups}
 				types={types}
 				showGroups={networkMode === "group"}
+				showRelationshipTypeLegend={showRelationshipTypeLegend}
 			/>
 		</div>
 	);

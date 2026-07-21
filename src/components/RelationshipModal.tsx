@@ -108,13 +108,13 @@ export default function RelationshipModal({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent>
+			<DialogContent className="max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
 				<DialogHeader>
 					<DialogTitle className="underline underline-offset-8">
 						{initialData ? "Edit Relation" : "New Relation"}
 					</DialogTitle>
 				</DialogHeader>
-				<FieldGroup className="space-y-4">
+				<FieldGroup className="min-h-0 gap-4 overflow-y-auto pr-2">
 					<Field className="space-y-1">
 						<Label className="text-[10px] uppercase font-mono tracking-widest opacity-50">
 							Target Character
@@ -194,7 +194,7 @@ export default function RelationshipModal({
 								setFormData({ ...formData, description: e.target.value })
 							}
 							placeholder="e.g. Secretly admires them"
-							className="w-full bg-white/5 border border-white/10 p-3 rounded-lg focus:outline-none focus:border-white/30"
+							className="max-h-48 w-full resize-y overflow-y-auto bg-white/5 border border-white/10 p-3 rounded-lg focus:outline-none focus:border-white/30"
 						/>
 						<div
 							role="group"

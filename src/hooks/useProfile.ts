@@ -27,3 +27,31 @@ export function useProfile() {
 		staleTime: Infinity, // Profile doesn't change often
 	});
 }
+
+export function useProfiles(enabled: boolean) {
+	return useQuery<Profile[]>({
+		queryKey: ["profiles"],
+		queryFn: async () => {
+			const { data, error } = await supabase
+				.from("Profiles")
+				.select("userId, displayName, role")
+				.in("role", ["dm", "player"]);
+
+			if (error) throw error;
+
+			return (data ?? []).flatMap((profile) => {
+				if (profile.role !== "dm" && profile.role !== "player") return [];
+
+				return [
+					{
+						userId: profile.userId,
+						displayName: profile.displayName,
+						role: profile.role,
+					},
+				];
+			});
+		},
+		enabled,
+		staleTime: Infinity,
+	});
+}

@@ -106,6 +106,26 @@ afterEach(() => {
 });
 
 describe("RelationshipModal", () => {
+	it("keeps long descriptions inside a scrollable dialog", () => {
+		const longDescription = "Long relationship note. ".repeat(200);
+		renderModal(longDescription);
+
+		const description = screen.getByLabelText(
+			"Description",
+		) as HTMLTextAreaElement;
+		const dialog = description.closest('[data-slot="dialog-content"]');
+		const fieldGroup = dialog?.querySelector('[data-slot="field-group"]');
+
+		expect(description.value).toBe(longDescription);
+		expect(description.classList).toContain("max-h-48");
+		expect(description.classList).toContain("resize-y");
+		expect(description.classList).toContain("overflow-y-auto");
+		expect(dialog?.classList).toContain("max-h-[calc(100dvh-1rem)]");
+		expect(dialog?.classList).toContain("overflow-hidden");
+		expect(fieldGroup?.classList).toContain("min-h-0");
+		expect(fieldGroup?.classList).toContain("overflow-y-auto");
+	});
+
 	it("excludes existing outgoing relationship targets when creating", () => {
 		renderNewModal();
 

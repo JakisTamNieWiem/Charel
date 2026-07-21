@@ -48,6 +48,9 @@ export default function CharacterGraph() {
 	const allChars = useGraphStore((state) => state.characters);
 	const relationships = useGraphStore((state) => state.relationships);
 	const types = useGraphStore((state) => state.relationshipTypes);
+	const showRelationshipTypeLegend = useGraphStore(
+		(state) => state.showRelationshipTypeLegend,
+	);
 	const addRelationship = useGraphStore((state) => state.addRelationship);
 	const updateRelationship = useGraphStore((state) => state.updateRelationship);
 	const deleteRelationship = useGraphStore((state) => state.deleteRelationship);
@@ -442,7 +445,6 @@ export default function CharacterGraph() {
 											e.preventDefault();
 											handleMouseEnterLine(rel);
 										}}
-										onMouseLeave={cancelHoverRead}
 										onPointerDown={(e) => {
 											if (e.pointerType === "mouse" && e.button === 2) return;
 											e.preventDefault();
@@ -750,20 +752,31 @@ export default function CharacterGraph() {
 						</div>
 					</header>
 
-					<div className="pointer-events-auto absolute top-6 bottom-6 left-6 flex w-[min(11.5rem,calc(100vw-25rem))] flex-col items-start justify-center gap-2 overflow-y-auto max-[920px]:top-auto max-[920px]:right-4 max-[920px]:bottom-[calc(min(44vh,24rem)+1.75rem)] max-[920px]:left-4 max-[920px]:max-h-[5.5rem] max-[920px]:w-auto max-[920px]:flex-row max-[920px]:flex-wrap max-[920px]:items-end max-[920px]:justify-start max-[640px]:hidden">
-						{types.map((type) => (
-							<div
-								key={type.id}
-								className="inline-flex min-h-7 max-w-full items-center justify-start gap-2 rounded-full border border-foreground/8 bg-background/84 px-3 py-1.5 pl-[0.45rem] shadow-[0_12px_34px_rgba(0,0,0,0.14)] backdrop-blur-md"
-								style={{ "--legend-color": type.color } as React.CSSProperties}
-							>
-								<div className="size-[0.65rem] shrink-0 rounded-full bg-(--legend-color) shadow-[0_0_12px_color-mix(in_oklch,var(--legend-color),transparent_66%)]" />
-								<span className="truncate text-[0.64rem] font-black uppercase leading-none tracking-[0.1em] text-foreground/80">
-									{type.label}
-								</span>
-							</div>
-						))}
-					</div>
+					{showRelationshipTypeLegend && (
+						<ul
+							aria-label="Relationship types"
+							className="no-scrollbar pointer-events-none absolute top-1/2 left-0 flex max-h-[calc(100%-3rem)] w-[min(11.5rem,calc(100vw-25rem))] -translate-y-1/2 flex-col gap-1 overflow-x-clip overflow-y-auto overscroll-contain py-1 max-[640px]:hidden"
+						>
+							{types.map((type) => (
+								<li
+									key={type.id}
+									className="relative min-h-6 w-full shrink-0"
+									style={
+										{ "--legend-color": type.color } as React.CSSProperties
+									}
+								>
+									<div
+										aria-label={`${type.label} relationship type`}
+										className="group/legend pointer-events-auto absolute top-0 left-0 inline-flex h-6 max-w-[11rem] -translate-x-[calc(100%-1.5rem)] items-center gap-2 rounded-r-full border border-l-0 border-foreground/8 bg-background/90 py-1 pr-1.5 pl-2.5 text-[0.64rem] font-black uppercase leading-none tracking-[0.1em] text-foreground/80 shadow-[0_10px_28px_rgba(0,0,0,0.16)] outline-none backdrop-blur-md transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] hover:translate-x-0 focus:translate-x-0 focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+										tabIndex={0}
+									>
+										<span className="min-w-0 truncate">{type.label}</span>
+										<span className="size-2.5 shrink-0 rounded-full bg-(--legend-color) ring-2 ring-background shadow-[0_0_12px_color-mix(in_oklch,var(--legend-color),transparent_55%)] transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover/legend:scale-110 group-focus/legend:scale-110 motion-reduce:transition-none" />
+									</div>
+								</li>
+							))}
+						</ul>
+					)}
 
 					{/* Relationship Inspector */}
 					<aside
