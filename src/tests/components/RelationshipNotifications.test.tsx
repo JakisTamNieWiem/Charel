@@ -96,6 +96,7 @@ const graphState = {
 	],
 	selectedCharId: "character-1",
 	setSelectedCharId: vi.fn(),
+	showRelationshipTypeLegend: true,
 	updateCharacter: vi.fn(),
 	updateRelationship: vi.fn(),
 };
@@ -149,6 +150,7 @@ describe("relationship update notifications", () => {
 		graphState.relationships.splice(1);
 		graphState.relationshipTypes.splice(1);
 		graphState.selectedCharId = "character-1";
+		graphState.showRelationshipTypeLegend = true;
 		graphState.setSelectedCharId.mockReset();
 	});
 
@@ -175,6 +177,15 @@ describe("relationship update notifications", () => {
 		const friendType = screen.getByLabelText("Friend relationship type");
 		expect(friendType.tabIndex).toBe(0);
 		expect(friendType.textContent).toContain("Friend");
+	});
+
+	it("hides the relationship type legend when disabled", () => {
+		graphState.showRelationshipTypeLegend = false;
+		render(<CharacterGraph />);
+
+		expect(
+			screen.queryByRole("list", { name: "Relationship types" }),
+		).toBeNull();
 	});
 
 	it("filters characters by name", () => {

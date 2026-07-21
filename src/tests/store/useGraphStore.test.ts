@@ -57,6 +57,7 @@ describe("graph store mutations", () => {
 			relationshipTypes: [],
 			groups: [group],
 			selectedCharId: character.id,
+			showRelationshipTypeLegend: true,
 		});
 		useGraphStore.temporal.getState().clear();
 	});
@@ -87,6 +88,12 @@ describe("graph store mutations", () => {
 				ownerId: "player-1",
 			}),
 		);
+	});
+
+	it("updates the relationship legend preference", () => {
+		useGraphStore.getState().setShowRelationshipTypeLegend(false);
+
+		expect(useGraphStore.getState().showRelationshipTypeLegend).toBe(false);
 	});
 
 	it("applies offline delete cascades without a remote mutation", async () => {

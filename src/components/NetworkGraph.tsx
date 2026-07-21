@@ -32,6 +32,9 @@ export default function NetworkGraph() {
 	const groups = useGraphStore((state) => state.groups);
 	const networkMode = useGraphStore((state) => state.networkMode);
 	const networkCurveStyle = useGraphStore((state) => state.networkCurveStyle);
+	const showRelationshipTypeLegend = useGraphStore(
+		(state) => state.showRelationshipTypeLegend,
+	);
 	const setSelectedCharId = useGraphStore((state) => state.setSelectedCharId);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const scheduleRenderRef = useRef<(() => void) | null>(null);
@@ -437,6 +440,7 @@ export default function NetworkGraph() {
 				groups={groups}
 				types={types}
 				showGroups={networkMode === "group"}
+				showRelationshipTypeLegend={showRelationshipTypeLegend}
 			/>
 		</div>
 	);

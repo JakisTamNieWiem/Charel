@@ -23,6 +23,7 @@ const graphState = {
 	relationshipTypes: [],
 	groups: [{ id: "group-1", name: "Crew", color: "#ff0000" }],
 	networkMode: "group" as const,
+	showRelationshipTypeLegend: true,
 	setSelectedCharId,
 };
 
