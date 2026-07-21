@@ -120,7 +120,7 @@ describe("RelationshipModal", () => {
 		expect(description.classList).toContain("max-h-48");
 		expect(description.classList).toContain("resize-y");
 		expect(description.classList).toContain("overflow-y-auto");
-		expect(dialog?.classList).toContain("max-h-[calc(100vh-2rem)]");
+		expect(dialog?.classList).toContain("max-h-[calc(100dvh-1rem)]");
 		expect(dialog?.classList).toContain("overflow-hidden");
 		expect(fieldGroup?.classList).toContain("min-h-0");
 		expect(fieldGroup?.classList).toContain("overflow-y-auto");

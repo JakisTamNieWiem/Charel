@@ -108,7 +108,7 @@ export default function RelationshipModal({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
+			<DialogContent className="max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
 				<DialogHeader>
 					<DialogTitle className="underline underline-offset-8">
 						{initialData ? "Edit Relation" : "New Relation"}
