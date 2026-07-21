@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import {
 	buildNetworkLayout,
 	findNodeAtPosition,
+	getNetworkRendererResolution,
 	type LayoutData,
 } from "@/lib/network-graph";
 import {
@@ -14,6 +15,10 @@ import {
 	type EngineState,
 	syncWorldTransform,
 } from "@/lib/network-graph-renderer";
+import {
+	clearAvatarTextureCache,
+	pruneAvatarTextureCache,
+} from "@/lib/pixi-avatar-cache";
 import { sharedPixiRuntime } from "@/lib/pixi-runtime";
 import { useGraphStore } from "@/store/useGraphStore";
 import NetworkGraphOverlay from "./NetworkGraphOverlay";
@@ -72,8 +77,14 @@ export default function NetworkGraph() {
 
 	useEffect(() => {
 		const engine = engineRef.current;
+		const activeAvatarUrls = new Set<string>();
+
+		for (const node of layout.nodes) {
+			if (node.avatar) activeAvatarUrls.add(node.avatar);
+		}
 
 		engine.layout = layout;
+		pruneAvatarTextureCache(activeAvatarUrls);
 		engine.staticDirty = true;
 		engine.fxDirty = true;
 		scheduleRenderRef.current?.();
@@ -334,7 +345,11 @@ export default function NetworkGraph() {
 					const rect = entries[0].contentRect;
 					const width = Math.max(rect.width, 1);
 					const height = Math.max(rect.height, 1);
-					const resolution = window.devicePixelRatio || 1;
+					const resolution = getNetworkRendererResolution(
+						width,
+						height,
+						window.devicePixelRatio,
+					);
 
 					engine.width = width;
 					engine.height = height;
@@ -409,6 +424,7 @@ export default function NetworkGraph() {
 			engine.canvas = null;
 			scheduleRenderRef.current = null;
 			destroyLayers(layers);
+			clearAvatarTextureCache();
 		};
 	}, [setSelectedCharId]);
 

@@ -747,14 +747,8 @@ function drawStaticScene(engine: EngineState, scheduleRender?: () => void) {
 			});
 
 			if (avatar.texture) {
-				addAvatarSprite(
-					layers.nodeContent,
-					avatar.texture,
-					rx,
-					ry,
-					nodeAlpha,
-				);
-			} else if (avatar.failed) {
+				addAvatarSprite(layers.nodeContent, avatar.texture, rx, ry, nodeAlpha);
+			} else {
 				drawInitials();
 			}
 		} else {

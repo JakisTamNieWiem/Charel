@@ -6,10 +6,9 @@ import type {
 } from "@/types/types";
 
 export const NODE_SIZE = 20;
-export const AVATAR_CACHE_SIZE = 256;
-const AVATAR_BUCKETS = [32, 48, 64, 96, 128, 192, 256];
+const MAX_RENDER_PIXELS = 3840 * 2160;
+const MIN_RENDER_RESOLUTION = 0.75;
 
-export type AvatarQualityTier = "interactive" | "settled";
 export type NetworkCurveStyle = "quadratic" | "cubic" | "sine" | "fractal";
 
 export interface ComputedNode {
@@ -68,11 +67,6 @@ export interface ViewportBounds {
 	right: number;
 	top: number;
 	bottom: number;
-}
-
-export interface AvatarSpriteSpec {
-	cacheKey: string;
-	size: number;
 }
 
 function getPairKey(leftId: string, rightId: string) {
@@ -137,31 +131,20 @@ function midpointDisplacement(
 	return [...left.slice(0, -1), ...right];
 }
 
-export function pickAvatarBucket(targetSize: number) {
-	return (
-		AVATAR_BUCKETS.find((bucket) => bucket >= targetSize) ??
-		AVATAR_BUCKETS[AVATAR_BUCKETS.length - 1]
-	);
-}
+export function getNetworkRendererResolution(
+	width: number,
+	height: number,
+	devicePixelRatio: number,
+) {
+	const cssPixels = Math.max(width, 1) * Math.max(height, 1);
+	const pixelBudgetResolution = Math.sqrt(MAX_RENDER_PIXELS / cssPixels);
+	const safeDevicePixelRatio =
+		Number.isFinite(devicePixelRatio) && devicePixelRatio > 0
+			? devicePixelRatio
+			: 1;
+	const resolution = Math.min(safeDevicePixelRatio, pixelBudgetResolution);
 
-export function getAvatarSpriteSpec(
-	avatarUrl: string,
-	tier: AvatarQualityTier,
-	scale: number,
-	dpr: number,
-): AvatarSpriteSpec {
-	const screenDiameter =
-		NODE_SIZE * 2 * Math.max(scale, 0.35) * Math.max(dpr, 1);
-	const targetSize =
-		tier === "interactive"
-			? Math.max(32, screenDiameter * 1.15)
-			: Math.max(64, screenDiameter * 2);
-	const size = pickAvatarBucket(Math.min(targetSize, AVATAR_CACHE_SIZE));
-
-	return {
-		cacheKey: `${avatarUrl}|${tier}|${size}`,
-		size,
-	};
+	return Math.max(MIN_RENDER_RESOLUTION, Math.floor(resolution * 4) / 4);
 }
 
 export function getViewportBounds(
