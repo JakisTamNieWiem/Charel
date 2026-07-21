@@ -8,6 +8,11 @@ export type Character = WithOptionalFields<
 	"created_at" | "phoneNumber" | "status" | "updated_at"
 >;
 
+export type CharacterFormData = Pick<
+	Character,
+	"id" | "name" | "description" | "avatar" | "groupId" | "ownerId"
+>;
+
 export type Group = WithOptionalFields<Tables<"Groups">, "updated_at">;
 
 export type RelationshipType = WithOptionalFields<

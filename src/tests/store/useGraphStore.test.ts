@@ -4,6 +4,8 @@ import { useGraphStore } from "@/store/useGraphStore";
 const supabaseMocks = vi.hoisted(() => ({
 	getSession: vi.fn(),
 	deleteSingle: vi.fn(),
+	insert: vi.fn(),
+	insertSingle: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
@@ -11,6 +13,12 @@ vi.mock("@/lib/supabase", () => ({
 	supabase: {
 		auth: { getSession: supabaseMocks.getSession },
 		from: vi.fn(() => ({
+			insert: (value: unknown) => {
+				supabaseMocks.insert(value);
+				return {
+					select: () => ({ single: supabaseMocks.insertSingle }),
+				};
+			},
 			delete: () => ({
 				eq: () => ({
 					select: () => ({ single: supabaseMocks.deleteSingle }),
@@ -41,6 +49,8 @@ describe("graph store mutations", () => {
 	beforeEach(() => {
 		supabaseMocks.getSession.mockReset();
 		supabaseMocks.deleteSingle.mockReset();
+		supabaseMocks.insert.mockReset();
+		supabaseMocks.insertSingle.mockReset();
 		useGraphStore.setState({
 			characters: [character],
 			relationships: [relationship],
@@ -49,6 +59,34 @@ describe("graph store mutations", () => {
 			selectedCharId: character.id,
 		});
 		useGraphStore.temporal.getState().clear();
+	});
+
+	it("creates a character for the selected owner", async () => {
+		supabaseMocks.getSession.mockResolvedValue({
+			data: { session: { user: { id: "dm-1" } } },
+		});
+		supabaseMocks.insertSingle.mockResolvedValue({ error: null });
+
+		await useGraphStore.getState().addCharacter({
+			name: "New character",
+			description: "",
+			avatar: null,
+			groupId: null,
+			ownerId: "player-1",
+		});
+
+		expect(useGraphStore.getState().characters).toContainEqual(
+			expect.objectContaining({
+				name: "New character",
+				ownerId: "player-1",
+			}),
+		);
+		expect(supabaseMocks.insert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				name: "New character",
+				ownerId: "player-1",
+			}),
+		);
 	});
 
 	it("applies offline delete cascades without a remote mutation", async () => {
